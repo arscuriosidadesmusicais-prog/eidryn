@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0710">
+<title>Eidryn — O Ciclo do Eclipse</title>
+<!--
+  Eidryn — O Ciclo do Eclipse — v1.0.0 (HTML/Web port)
+  Porta fiel da build Godot 4.4 (v1.0.0): mesmos JSONs de dados, mesmos sprites PNG
+  (embutidos em base64), mesmos áudios WAV, mesmas fórmulas (DataManager), mesma
+  estrutura de save {version, checksum SHA-256, data_json} com backup e anticheat.
+  Fixes de paridade incluídos nesta porta:
+   [HTML-1] Pity de Rara+ em 10 invocações agora é forçado e vale também para pulls de item
+            (gacha.json promete "Rara+ garantida"; no Godot o piso não era aplicado).
+   [HTML-2] World Boss finaliza e paga recompensas ao fim dos 30s (win ou timeout).
+   [HTML-3] XP do Passe de Batalha injetado conforme battlepass.json (kills 0.5 / boss 5 / masmorra 10 / missão 15).
+   [HTML-4] Novo jogo não herda last_seen=0 (evita conceder 8h de offline no primeiro boot).
+  QA desta porta: 137 asserções headless (test_node.js) + smoke test em navegador real (0 erros de console).
+-->
+<style>
+:root{
+  --bg:#0b0710; --bg2:#120b1c; --panel:#1a1326; --panel2:#241a33; --line:#3a2a55;
+  --txt:#e8e0d0; --txt2:#9aa0a6; --gold:#e8a33a; --blood:#d0455f; --arc:#9b59d0;
+  --teal:#3a9e8f; --blue:#3a7bd5; --ok:#58c46a; --r0:#9aa0a6; --r1:#58c46a; --r2:#3a7bd5;
+  --r3:#9b59d0; --r4:#e8a33a; --r5:#d0455f; --r6:#f5e6c8;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:#050308;color:var(--txt);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+img{image-rendering:pixelated}
+.hidden{display:none!important}
+#app{position:relative;height:100dvh;max-width:540px;margin:0 auto;background:var(--bg);
+  display:flex;flex-direction:column;box-shadow:0 0 40px #000}
+/* ---------- SPLASH ---------- */
+#splash{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%, #1d0f22 0%, #0b0710 55%, #050308 100%);gap:14px;text-align:center;padding:24px}
+#splash .eclipse{width:180px;height:180px;border-radius:50%;position:relative;
+  background:radial-gradient(circle at 38% 35%, #2a1030 0%, #120818 60%, #0a050e 100%);
+  box-shadow:0 0 60px 8px rgba(232,163,58,.35), inset 0 0 30px #000;animation:pulse 4s ease-in-out infinite}
+#splash .eclipse::after{content:"";position:absolute;inset:-6px;border-radius:50%;
+  border:2px solid rgba(245,230,200,.25);border-left-color:transparent;border-right-color:transparent;
+  animation:spin 12s linear infinite}
+#splash h1{font-size:30px;letter-spacing:3px;color:var(--gold);text-shadow:0 0 18px rgba(232,163,58,.5)}
+#splash h2{font-size:14px;font-weight:400;color:var(--txt2);letter-spacing:2px}
+#splash .tap{margin-top:26px;font-size:16px;color:var(--txt);border:1px solid var(--line);padding:12px 28px;border-radius:8px;
+  background:rgba(36,26,51,.6);animation:pulse 2.2s ease-in-out infinite}
+#splash .ver{position:absolute;bottom:14px;font-size:11px;color:var(--txt2)}
+#splash select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px}
+@keyframes pulse{0%,100%{opacity:.75}50%{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ---------- HUD ---------- */
+#hud{padding:6px 8px 4px;background:linear-gradient(180deg,#160e20,#120b1c);border-bottom:1px solid var(--line);z-index:20}
+#hud-row1{display:flex;align-items:center;gap:6px}
+#hud-stage{font-weight:700;font-size:14px;white-space:nowrap}
+#hud-region{font-size:11px;color:var(--teal);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#hud-pc{font-size:11px;color:var(--gold);white-space:nowrap}
+#btn-auto{border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:15px;background:var(--panel2)}
+#btn-auto.on{color:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(232,163,58,.4)}
+.icon-btn{position:relative;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:14px;background:var(--panel2)}
+.icon-btn .badge{position:absolute;top:-5px;right:-5px;background:var(--blood);color:#fff;border-radius:50%;
+  font-size:9px;min-width:15px;height:15px;line-height:15px;text-align:center;padding:0 2px}
+#hud-cur{display:flex;gap:4px;margin-top:5px;overflow-x:auto;scrollbar-width:none}
+#hud-cur::-webkit-scrollbar{display:none}
+.chip{display:flex;align-items:center;gap:3px;background:rgba(36,26,51,.75);border:1px solid var(--line);
+  border-radius:10px;padding:1px 7px 1px 3px;font-size:11px;white-space:nowrap;flex:0 0 auto}
+.chip img{width:18px;height:18px}
+/* ---------- MAIN ---------- */
+#main{flex:1;position:relative;overflow:hidden;display:flex}
+#view-battle{position:relative;flex:1;display:flex;flex-direction:column;min-width:0}
+#cv-wrap{flex:1;position:relative;overflow:hidden;background:#000}
+#cv{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+#enemy-info{position:absolute;top:6px;right:8px;text-align:right;pointer-events:none;max-width:62%}
+#enemy-name{font-size:13px;font-weight:700;text-shadow:0 1px 3px #000}
+#enemy-mods{font-size:10px;color:var(--gold);text-shadow:0 1px 2px #000}
+#bossbar{position:absolute;top:30px;left:10%;right:10%;height:14px;background:rgba(20,14,30,.85);
+  border:1px solid var(--line);border-radius:7px;overflow:hidden}
+#bossbar-fill{height:100%;width:100%;background:linear-gradient(90deg,var(--gold),var(--blood));transition:width .2s linear}
+#bossbar-label{position:absolute;inset:0;text-align:center;font-size:9px;line-height:14px;color:#fff;text-shadow:0 1px 2px #000}
+#skillbar{display:flex;gap:6px;padding:6px 8px;background:linear-gradient(0deg,#160e20,#120b1c);border-top:1px solid var(--line)}
+.sk-slot{position:relative;flex:1;aspect-ratio:1;max-width:64px;border:1px solid var(--line);border-radius:10px;
+  background:var(--panel2);overflow:hidden}
+.sk-slot img{width:100%;height:100%;object-fit:cover;border-radius:9px}
+.sk-slot .cd{position:absolute;inset:0;background:rgba(5,3,8,.75);color:#fff;font-size:12px;font-weight:700;
+  display:flex;align-items:center;justify-content:center}
+.sk-slot .lockl{position:absolute;inset:0;background:rgba(5,3,8,.8);color:var(--txt2);font-size:10px;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:2px}
+.sk-slot.ready{border-color:var(--gold);box-shadow:0 0 10px rgba(232,163,58,.35)}
+.sk-slot.sup{border-color:var(--r6)}
+#btn-sk-auto{flex:0 0 34px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:15px}
+#btn-sk-auto.on{color:var(--gold);border-color:var(--gold)}
+/* ---------- PANELS ---------- */
+#view-panel{position:absolute;inset:0;background:var(--bg);z-index:10;display:flex;flex-direction:column}
+#panel-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--bg2)}
+#panel-head h2{font-size:15px;color:var(--gold);letter-spacing:1px;flex:1}
+#btn-back{font-size:20px;padding:0 10px;color:var(--txt2)}
+#panel-body{flex:1;overflow-y:auto;padding:10px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.sec{margin-bottom:14px}
+.sec>h3{font-size:12px;color:var(--teal);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;
+  border-bottom:1px dashed var(--line);padding-bottom:3px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.row{display:flex;align-items:center;gap:6px}
+.grow{flex:1;min-width:0}
+.muted{color:var(--txt2);font-size:11px}
+.tiny{font-size:10px;color:var(--txt2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid var(--line);
+  border-radius:8px;padding:7px 12px;font-size:13px;background:var(--panel2);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn.p{background:linear-gradient(180deg,#8a5a1e,#6e431a);border-color:var(--gold);color:#fff}
+.btn.d{background:linear-gradient(180deg,#7e2737,#5e1c29);border-color:var(--blood)}
+.btn.g{background:transparent}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn.sm{padding:4px 8px;font-size:11px;border-radius:6px}
+.bar{height:10px;background:#0d0814;border:1px solid var(--line);border-radius:5px;overflow:hidden;position:relative}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--ok));transition:width .25s}
+.bar>i.gold{background:linear-gradient(90deg,#8a5a1e,var(--gold))}
+.bar>i.red{background:linear-gradient(90deg,#7e2737,var(--blood))}
+.bar>i.arc{background:linear-gradient(90deg,#5b2d80,var(--arc))}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.stat-line{display:flex;justify-content:space-between;font-size:12px;padding:2px 0}
+.stat-line b{color:var(--gold);font-weight:600}
+/* itens */
+.sl-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.sl-cell{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:8px;background:var(--panel2);
+  display:flex;align-items:center;justify-content:center}
+.sl-cell img{width:72%;height:72%}
+.sl-cell .rf{position:absolute;bottom:1px;right:3px;font-size:9px;color:var(--gold);font-weight:700;text-shadow:0 1px 2px #000}
+.sl-cell .lk{position:absolute;top:1px;right:2px;font-size:9px}
+.sl-cell.empty{opacity:.45}
+.inv-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.inv-it{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:8px;background:var(--panel2);
+  display:flex;align-items:center;justify-content:center}
+.inv-it img{width:74%;height:74%}
+.inv-it .rf{position:absolute;bottom:0;right:2px;font-size:9px;color:var(--gold);font-weight:700;text-shadow:0 1px 2px #000}
+.inv-it .lk{position:absolute;top:0;right:2px;font-size:9px}
+.inv-it .fav{position:absolute;top:0;left:2px;font-size:9px}
+.b-comum{border-color:var(--r0)} .b-incomum{border-color:var(--r1)} .b-rara{border-color:var(--r2)}
+.b-epica{border-color:var(--r3);box-shadow:0 0 6px rgba(155,89,208,.35)}
+.b-lendaria{border-color:var(--r4);box-shadow:0 0 8px rgba(232,163,58,.4)}
+.b-mitica{border-color:var(--r5);box-shadow:0 0 10px rgba(208,69,95,.45)}
+.b-divina{border-color:var(--r6);box-shadow:0 0 12px rgba(245,230,200,.5)}
+.tx-comum{color:var(--r0)} .tx-incomum{color:var(--r1)} .tx-rara{color:var(--r2)} .tx-epica{color:var(--r3)}
+.tx-lendaria{color:var(--r4)} .tx-mitica{color:var(--r5)} .tx-divina{color:var(--r6)}
+/* abas */
+.tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;background:var(--panel)}
+.tab.on{color:var(--gold);border-color:var(--gold);background:var(--panel2)}
+/* missões */
+.mis{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 9px;margin-bottom:6px}
+.mis .prog{width:90px}
+/* pets */
+.pet-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pet-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.pet-card img{width:64px;height:64px}
+.pet-card.act{border-color:var(--gold);box-shadow:0 0 8px rgba(232,163,58,.35)}
+.stars{color:var(--gold);font-size:12px;letter-spacing:1px}
+.stars .off{color:#3a2f4a}
+/* conquistas / árvore */
+.ach-done{border-color:var(--ok)}
+.node{border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:5px;background:var(--panel2)}
+.node.can{border-color:var(--gold)}
+.node.max{border-color:var(--ok)}
+.node .br{font-size:9px;color:var(--arc);text-transform:uppercase}
+/* gacha */
+.pity-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+.pity-row .bar{flex:1}
+.gacha-res{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.gr{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:5px;text-align:center;font-size:10px}
+.gr img{width:48px;height:48px}
+/* modal / toasts */
+#modal-root{position:absolute;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(5,3,8,.75);padding:14px}
+#modal-root.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--line);border-radius:14px;max-width:420px;width:100%;max-height:86%;
+  display:flex;flex-direction:column;box-shadow:0 10px 40px #000}
+.modal .mh{padding:10px 12px;border-bottom:1px solid var(--line);font-weight:700;color:var(--gold);letter-spacing:1px}
+.modal .mb{padding:12px;overflow-y:auto;flex:1}
+.modal .mf{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+#toasts{position:absolute;bottom:76px;left:0;right:0;z-index:90;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+.toast{background:rgba(20,14,30,.94);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;
+  animation:tin .25s ease-out;max-width:88%;text-align:center}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+/* banner de combate */
+#banner{position:absolute;top:38%;left:0;right:0;text-align:center;font-size:26px;font-weight:800;letter-spacing:3px;
+  text-shadow:0 0 16px rgba(0,0,0,.9), 0 2px 4px #000;pointer-events:none;z-index:5;opacity:0;transition:opacity .2s}
+/* sliders */
+input[type=range]{width:130px;accent-color:var(--gold)}
+select,input[type=text],textarea{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:5px;font-size:12px;font-family:inherit}
+textarea{width:100%;height:70px;font-size:10px;resize:none}
+/* ---------- PAISAGEM 16:9 ---------- */
+@media (min-width:900px){
+  #app{max-width:none}
+  #main{display:grid;grid-template-columns:minmax(0,58fr) minmax(0,42fr)}
+  #view-battle{border-right:1px solid var(--line)}
+  #view-panel{position:relative;z-index:auto}
+}
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="eclipse"></div>
+  <h1>EIDRYN</h1>
+  <h2>O Ciclo do Eclipse</h2>
+  <select id="splash-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select>
+  <button class="tap" id="btn-start">Toque para despertar o Selo</button>
+  <div class="ver" id="splash-ver">v1.0.0 — HTML</div>
+</div>
+<div id="app" class="hidden">
+  <header id="hud">
+    <div id="hud-row1">
+      <span id="hud-stage">Fase 1</span>
+      <span id="hud-region"></span>
+      <span id="hud-pc">PC 0</span>
+      <button id="btn-auto" class="on" title="Auto-avançar">»</button>
+      <button class="icon-btn" id="btn-missions">📜<span class="badge hidden" id="mis-badge">0</span></button>
+      <button class="icon-btn" id="btn-config">⚙</button>
+    </div>
+    <div id="hud-cur"></div>
+  </header>
+  <main id="main">
+    <section id="view-battle">
+      <div id="cv-wrap">
+        <canvas id="cv" width="540" height="960"></canvas>
+        <div id="enemy-info"><div id="enemy-name"></div><div id="enemy-mods"></div></div>
+        <div id="bossbar" class="hidden"><div id="bossbar-fill"></div><span id="bossbar-label"></span></div>
+        <div id="banner"></div>
+      </div>
+      <div id="skillbar"></div>
+    </section>
+    <section id="view-panel" class="hidden">
+      <div id="panel-head"><button id="btn-back">‹</button><h2 id="panel-title"></h2></div>
+      <div id="panel-body"></div>
+    </section>
+  </main>
+  <nav id="nav" style="display:flex;border-top:1px solid var(--line);background:#160e20"></nav>
+  <div id="modal-root"></div>
+  <div id="toasts"></div>
+</div>
+<script>
