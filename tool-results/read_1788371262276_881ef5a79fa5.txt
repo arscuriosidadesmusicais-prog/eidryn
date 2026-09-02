@@ -1,0 +1,658 @@
+     1→'use strict';
+     2→/* =====================================================================
+     3→   p06_ui.js — UI parte 1: HUD, navegação (8 abas), Herói, Equipar,
+     4→   Habilidades, Pets, modais e toasts (pt-BR via loc_ptbr.json)
+     5→   ===================================================================== */
+     6→E.UI = {
+     7→  current: null, _panelDirty: false, _throttle: 0,
+     8→  CUR_ICON: {ouro:'currency_ouro', gemas:'currency_gemas', fragmentos_alma:'currency_fragmentos_alma',
+     9→    fragmentos_equip:'currency_fragmentos_equip', chaves:'currency_chaves', essencia:'currency_essencia', gloria:'currency_gloria'},
+    10→  LKEY: {heroi:'hero', equip:'equipment', skills:'skills', pets:'pets', map:'map', dungeons:'dungeons', summon:'summon', shop:'shop'},
+    11→  STAT_LABELS: {
+    12→    atk:{ptbr:'ATK',en:'ATK'}, hp:{ptbr:'HP',en:'HP'}, def:{ptbr:'DEF',en:'DEF'},
+    13→    crit:{ptbr:'Crítico %',en:'Crit %'}, critdmg:{ptbr:'Dano Crít. %',en:'Crit Dmg %'},
+    14→    atkspd:{ptbr:'Vel. Atq',en:'Atk Speed'}, lifesteal:{ptbr:'Roubo Vida %',en:'Lifesteal %'},
+    15→    dodge:{ptbr:'Esquiva %',en:'Dodge %'}, regen:{ptbr:'Regen HP/s',en:'HP Regen/s'},
+    16→    gold_find:{ptbr:'Ouro %',en:'Gold %'}, xp_gain:{ptbr:'XP %',en:'XP %'},
+    17→    boss_damage:{ptbr:'Dano Boss %',en:'Boss Dmg %'}, drop_bonus:{ptbr:'Drop %',en:'Drop %'}, luck:{ptbr:'Sorte',en:'Luck'}
+    18→  },
+    19→  sl: function(k){ var d=this.STAT_LABELS[k]; return d? d[E.DM.language]||d.ptbr : k; },
+    20→  NAV: [
+    21→    {id:'heroi', ic:'🗡'}, {id:'equip', ic:'🛡'}, {id:'skills', ic:'✨'}, {id:'pets', ic:'🐾'},
+    22→    {id:'map', ic:'🗺'}, {id:'dungeons', ic:'🕳'}, {id:'summon', ic:'🔮'}, {id:'shop', ic:'🛒'}
+    23→  ],
+    24→  init: function(){
+    25→    var self=this;
+    26→    this._buildNav();
+    27→    this._buildSkillbar();
+    28→    this._buildCurChips();
+    29→    document.getElementById('btn-back').onclick=function(){ self.show(null); };
+    30→    document.getElementById('btn-missions').onclick=function(){ self.show('missions'); };
+    31→    document.getElementById('btn-config').onclick=function(){ self.openSettings(); };
+    32→    document.getElementById('btn-auto').onclick=function(){
+    33→      E.Prog.set_auto_advance(!E.Prog.auto_advance);
+    34→      this.classList.toggle('on', E.Prog.auto_advance);
+    35→      E.Audio.play_sfx('click');
+    36→    };
+    37→    E.BUS.on('toast', function(msg, color){ self.toast(msg, color); });
+    38→    E.BUS.on('currency_changed', function(){ self._panelDirty=true; self._buildCurChips(); });
+    39→    E.BUS.on('stats_recalculated', function(){ self._panelDirty=true; });
+    40→    E.BUS.on('stage_changed', function(st, isBoss, isMini){
+    41→      var el=document.getElementById('hud-stage');
+    42→      var prefix = isBoss? '☠ '+E.DM.tr('boss')+' — ' : isMini? '⚔ '+E.DM.tr('miniboss')+' — ' : '';
+    43→      el.textContent=prefix+E.DM.tr('stage')+' '+st;
+    44→      var reg=E.DM.region_for_stage(st);
+    45→      document.getElementById('hud-region').textContent=reg.name;
+    46→    });
+    47→    E.BUS.on('missions_updated', function(){ self._updateBadge(); self._panelDirty=true; });
+    48→    E.BUS.on('item_dropped', function(it){
+    49→      if(it.rarity==='divina'){ E.Audio.play_sfx('loot_legend'); E.UI.banner(E.DM.tr('loot_divine'), '#f5e6c8'); }
+    50→      else if(it.rarity==='lendaria'){ E.Audio.play_sfx('loot_legend'); E.UI.banner(E.DM.tr('loot_legendary'), '#e8a33a'); }
+    51→      else if(it.rarity==='mitica') E.Audio.play_sfx('loot_legend');
+    52→      else if(it.rarity==='epica') E.Audio.play_sfx('loot_epic');
+    53→      else E.Audio.play_sfx('loot_rare');
+    54→      self._panelDirty=true;
+    55→    });
+    56→    E.BUS.on('item_reinforced', function(item, success, pityLeft){
+    57→      E.Audio.play_sfx(success?'reinforce':'fail');
+    58→      self.toast(item.base+' +'+item.reinforce+(success?' ✓':' ✗')+'  (pity: '+pityLeft+')', success?'#58c46a':'#d0455f');
+    59→      self._panelDirty=true;
+    60→    });
+    61→    E.BUS.on('inventory_full', function(){ E.UI.toast(E.DM.tr('inventory_full'), '#d0455f'); });
+    62→    E.BUS.on('combat_ended', function(result){
+    63→      if(result==='win') E.Audio.play_sfx('coin');
+    64→      else E.Audio.play_sfx('fail');
+    65→      if(result==='fail' && E.Combat.mode==='campaign') E.UI.banner(E.DM.tr('combat_fail'), '#d0455f');
+    66→    });
+    67→    E.BUS.on('combat_started', function(st, isBoss){ if(isBoss) E.Audio.play_sfx('boss_roar'); });
+    68→    E.BUS.on('level_up', function(lv){
+    69→      E.Audio.play_sfx('levelup');
+    70→      E.UI.banner(E.DM.tr('level_up')+' '+lv, '#e8a33a');
+    71→    });
+    72→    E.BUS.on('boss_timer', function(secs){
+    73→      var bb=document.getElementById('bossbar');
+    74→      if(!E.Combat.active || !E.Combat.enemy.boss){ bb.classList.add('hidden'); return; }
+    75→      bb.classList.remove('hidden');
+    76→      var max=E.DM.cfg_enemies.boss_timer_s;
+    77→      document.getElementById('bossbar-fill').style.width=Math.max(0,secs/max*100)+'%';
+    78→      document.getElementById('bossbar-label').textContent=E.DM.tr('boss_timer')+': '+Math.max(0,secs).toFixed(1)+'s';
+    79→    });
+    80→    E.BUS.on('ascension_performed', function(){ E.Audio.play_sfx('ascend'); self._panelDirty=true; });
+    81→    E.BUS.on('pet_star_up', function(){ E.Audio.play_sfx('evolve'); self._panelDirty=true; });
+    82→    E.BUS.on('dungeon_completed', function(mode_id, rewards){
+    83→      E.Audio.play_sfx('win');
+    84→      self._panelDirty=true;
+    85→      var lines='', r;
+    86→      if(rewards.ouro!=null) lines=E.U.fmt(rewards.ouro)+' de ouro';
+    87→      else if(rewards.xp!=null) lines=E.U.fmt(rewards.xp)+' de XP';
+    88→      else if(rewards.items){ for(var i=0;i<rewards.items.length;i++){ r=rewards.items[i]; lines+='<span class="tx-'+r.rarity+'">'+r.base+'</span><br>'; } }
+    89→      self.modal(E.DM.tr('rewards'), '<div style="text-align:center;font-size:15px">'+lines+'</div>',
+    90→        [{label:E.DM.tr('ok'), cls:'p'}]);
+    91→    });
+    92→    E.BUS.on('world_boss_result', function(dmg, rank){
+    93→      self.modal(E.DM.tr('world_boss'),
+    94→        '<div style="text-align:center"><div style="font-size:22px;color:var(--gold)">'+E.DM.tr('rank')+' #'+rank+'</div>'+
+    95→        '<div class="muted">Dano: '+E.U.fmt(dmg)+'</div></div>', [{label:E.DM.tr('ok'), cls:'p'}]);
+    96→    });
+    97→    E.BUS.on('arena_result', function(win, rw){
+    98→      E.Audio.play_sfx(win?'win':'fail');
+    99→      self.modal(E.DM.tr('arena'), '<div style="text-align:center;font-size:16px">'+(win?'VITÓRIA':'DERROTA')+'</div>'+
+   100→        '<div class="tiny" style="text-align:center">+'+rw.gloria+' glória · '+rw.pontos+' pontos</div>',
+   101→        [{label:E.DM.tr('ok'), cls:'p'}]);
+   102→    });
+   103→    E.BUS.on('tower_floor_reached', function(){ self._panelDirty=true; });
+   104→    // refresh loop (200ms)
+   105→    setInterval(function(){
+   106→      document.getElementById('hud-pc').textContent=E.DM.tr('pc')+' '+E.U.fmt(E.Char.pc());
+   107→      self._updateBadge();
+   108→      if(self.current && self._panelDirty){
+   109→        self._panelDirty=false;
+   110→        self.render(self.current);
+   111→      }
+   112→    }, 200);
+   113→    this._updateSkillbarLoop();
+   114→  },
+   115→  /* ---------- HELPERS ---------- */
+   116→  h: function(tag, cls, html){
+   117→    var e=document.createElement(tag);
+   118→    if(cls) e.className=cls;
+   119→    if(html!=null) e.innerHTML=html;
+   120→    return e;
+   121→  },
+   122→  img: function(key, cls){
+   123→    var im=document.createElement('img');
+   124→    im.src=E.IMG[key]||'';
+   125→    if(cls) im.className=cls;
+   126→    return im;
+   127→  },
+   128→  slotIcon: function(slotId){
+   129→    var slots=E.DM.cfg_items.slots;
+   130→    for(var i=0;i<slots.length;i++) if(slots[i].id===slotId) return 'ui/'+slots[i].icon;
+   131→    return 'ui/sl_arma';
+   132→  },
+   133→  bar: function(frac, cls){
+   134→    var b=this.h('div','bar','<i class="'+(cls||'')+'" style="width:'+(E.U.clamp(frac,0,1)*100)+'%"></i>');
+   135→    return b;
+   136→  },
+   137→  toast: function(msg, color){
+   138→    var t=this.h('div','toast',msg);
+   139→    if(color) t.style.borderColor=color;
+   140→    var box=document.getElementById('toasts');
+   141→    box.appendChild(t);
+   142→    setTimeout(function(){ t.style.opacity='0'; t.style.transition='opacity .3s'; }, 2200);
+   143→    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 2600);
+   144→    while(box.children.length>4) box.removeChild(box.firstChild);
+   145→  },
+   146→  banner: function(txt, color){ E.Rfx.banner(txt, color); },
+   147→  modal: function(title, bodyHTML, buttons){
+   148→    var root=document.getElementById('modal-root');
+   149→    root.innerHTML='';
+   150→    var m=this.h('div','modal');
+   151→    var mh=this.h('div','mh',title);
+   152→    var mb=this.h('div','mb'); mb.innerHTML=bodyHTML;
+   153→    var mf=this.h('div','mf');
+   154→    var self=this;
+   155→    (buttons||[{label:E.DM.tr('close'), cls:'p'}]).forEach(function(b){
+   156→      var btn=self.h('button','btn '+(b.cls||''),b.label);
+   157→      btn.onclick=function(){
+   158→        if(b.fn && b.fn()===false) return;
+   159→        if(!b.keep) self.closeModal();
+   160→      };
+   161→      mf.appendChild(btn);
+   162→    });
+   163→    m.appendChild(mh); m.appendChild(mb); m.appendChild(mf);
+   164→    root.appendChild(m);
+   165→    root.classList.add('show');
+   166→  },
+   167→  confirm: function(title, body, onYes){
+   168→    this.modal(title, '<div style="font-size:13px;line-height:1.5">'+body+'</div>',
+   169→      [{label:E.DM.tr('cancel')},{label:E.DM.tr('confirm'), cls:'p', fn:onYes}]);
+   170→  },
+   171→  closeModal: function(){
+   172→    var root=document.getElementById('modal-root');
+   173→    root.classList.remove('show');
+   174→    root.innerHTML='';
+   175→  },
+   176→  /* ---------- NAVEGAÇÃO ---------- */
+   177→  show: function(panelId){
+   178→    this.current=panelId;
+   179→    var vp=document.getElementById('view-panel');
+   180→    var nav=document.getElementById('nav');
+   181→    if(panelId){
+   182→      vp.classList.remove('hidden');
+   183→      document.getElementById('panel-title').textContent=this._title(panelId);
+   184→      this.render(panelId);
+   185→      // destacar aba ativa
+   186→      var btns=nav.querySelectorAll('[data-panel]');
+   187→      for(var i=0;i<btns.length;i++) btns[i].style.color=btns[i].getAttribute('data-panel')===panelId?'var(--gold)':'';
+   188→    } else {
+   189→      vp.classList.add('hidden');
+   190→      var btns2=nav.querySelectorAll('[data-panel]');
+   191→      for(var j=0;j<btns2.length;j++) btns2[j].style.color='';
+   192→    }
+   193→    E.Audio.play_sfx('click');
+   194→  },
+   195→  _title: function(id){
+   196→    if(id==='missions') return '📜 '+E.DM.tr('daily_missions')+' · '+E.DM.tr('achievements');
+   197→    var nav=this.NAV;
+   198→    for(var i=0;i<nav.length;i++) if(nav[i].id===id) return nav[i].ic+' '+E.DM.tr(this.LKEY[id]);
+   199→    return id;
+   200→  },
+   201→  _buildNav: function(){
+   202→    var nav=document.getElementById('nav'), self=this;
+   203→    this.NAV.forEach(function(n){
+   204→      var b=self.h('button','btn g');
+   205→      b.style.cssText='flex:1;flex-direction:column;gap:1px;font-size:10px;border-radius:0;padding:6px 0 5px;border:none;border-right:1px solid var(--line)';
+   206→      b.innerHTML='<span style="font-size:17px">'+n.ic+'</span><span>'+E.DM.tr(self.LKEY[n.id])+'</span>';
+   207→      b.setAttribute('data-panel', n.id);
+   208→      b.onclick=function(){ self.show(self.current===n.id?null:n.id); };
+   209→      nav.appendChild(b);
+   210→    });
+   211→  },
+   212→  _buildCurChips: function(){
+   213→    var box=document.getElementById('hud-cur');
+   214→    box.innerHTML='';
+   215→    var order=['ouro','gemas','essencia','chaves','fragmentos_equip','fragmentos_alma','gloria'];
+   216→    var self=this;
+   217→    order.forEach(function(id){
+   218→      var c=self.h('div','chip');
+   219→      var ic=self.img('ui/'+self.CUR_ICON[id]);
+   220→      ic.title=E.DM.tr('details');
+   221→      c.appendChild(ic);
+   222→      c.appendChild(document.createTextNode(E.U.fmt(E.Eco.get_cur(id))));
+   223→      box.appendChild(c);
+   224→    });
+   225→  },
+   226→  _updateBadge: function(){
+   227→    var n=0, list=E.DM.cfg_missions.daily, i;
+   228→    for(i=0;i<list.length;i++) if(E.Ret.mission_done(list[i],'daily')&&!E.Ret.mission_claimed(list[i],'daily')) n++;
+   229→    list=E.DM.cfg_missions.weekly;
+   230→    for(i=0;i<list.length;i++) if(E.Ret.mission_done(list[i],'weekly')&&!E.Ret.mission_claimed(list[i],'weekly')) n++;
+   231→    list=E.Ret.achievements_list();
+   232→    for(i=0;i<list.length;i++) if(E.Ret.achievement_progress(list[i])>=list[i].goal && !E.Ret.achievements_claimed[list[i].id]) n++;
+   233→    if(!E.Ret.login_claimed_today()) n++;
+   234→    var b=document.getElementById('mis-badge');
+   235→    if(n>0){ b.textContent=n>9?'9+':n; b.classList.remove('hidden'); }
+   236→    else b.classList.add('hidden');
+   237→  },
+   238→  /* ---------- SKILLBAR ---------- */
+   239→  _buildSkillbar: function(){
+   240→    var bar=document.getElementById('skillbar'), self=this;
+   241→    bar.innerHTML='';
+   242→    var ids=['lamina_eclipse','guarda_sombras','sedenta','rumo_vazio','cataclismo'];
+   243→    ids.forEach(function(id, idx){
+   244→      var s=E.Skill.skill_def(id);
+   245→      var slot=self.h('button','sk-slot'+(id==='cataclismo'?' sup':''));
+   246→      slot.innerHTML='<img src="'+(E.IMG['ui/'+s.icon]||'')+'">';
+   247→      slot.onclick=function(){ E.Combat.cast_skill(id); };
+   248→      slot.title=s.name;
+   249→      bar.appendChild(slot);
+   250→    });
+   251→    var auto=this.h('button','','A');
+   252→    auto.id='btn-sk-auto';
+   253→    auto.title=E.DM.tr('skills_auto');
+   254→    auto.onclick=function(){
+   255→      var anyOn=false, sections=['active','supreme'];
+   256→      for(var s=0;s<sections.length;s++){
+   257→        var list=E.DM.cfg_skills[sections[s]];
+   258→        for(var i=0;i<list.length;i++) if(E.Skill.auto_cast[list[i].id]) anyOn=true;
+   259→      }
+   260→      var setTo=!anyOn;
+   261→      for(var s2=0;s2<sections.length;s2++){
+   262→        var list2=E.DM.cfg_skills[sections[s2]];
+   263→        for(var i2=0;i2<list2.length;i2++) E.Skill.auto_cast[list2[i2].id]=setTo;
+   264→      }
+   265→      E.Save.mark_dirty();
+   266→      E.Audio.play_sfx('click');
+   267→    };
+   268→    bar.appendChild(auto);
+   269→  },
+   270→  _updateSkillbarLoop: function(){
+   271→    var self=this;
+   272→    setInterval(function(){
+   273→      var bar=document.getElementById('skillbar');
+   274→      var slots=bar.querySelectorAll('.sk-slot');
+   275→      var ids=['lamina_eclipse','guarda_sombras','sedenta','rumo_vazio','cataclismo'];
+   276→      for(var i=0;i<ids.length && i<slots.length;i++){
+   277→        var id=ids[i], s=slots[i], def=E.Skill.skill_def(id);
+   278→        var unlocked=!!E.Skill.unlocked[id];
+   279→        var cd=E.Skill.cooldown_left(id);
+   280→        var ov=s.querySelector('.cd')||s.querySelector('.lockl');
+   281→        if(!unlocked){
+   282→          if(!s.querySelector('.lockl')){
+   283→            var l=self.h('div','lockl','Nv '+def.unlock_level);
+   284→            s.appendChild(l);
+   285→          }
+   286→          s.classList.remove('ready');
+   287→          continue;
+   288→        }
+   289→        var l2=s.querySelector('.lockl'); if(l2) l2.remove();
+   290→        if(cd>0){
+   291→          if(!ov||ov.className!=='cd'){ if(ov) ov.remove(); ov=self.h('div','cd',''); s.appendChild(ov); }
+   292→          ov.textContent=cd>=1?Math.ceil(cd):cd.toFixed(1);
+   293→          s.classList.remove('ready');
+   294→        } else {
+   295→          if(ov) ov.remove();
+   296→          s.classList.add('ready');
+   297→        }
+   298→      }
+   299→      var auto=document.getElementById('btn-sk-auto');
+   300→      if(auto) auto.classList.toggle('on', !!E.Skill.auto_cast['lamina_eclipse']);
+   301→    }, 120);
+   302→  },
+   303→  /* ================= PAINEL: HERÓI ================= */
+   304→  render_hero: function(body){
+   305→    var stats=E.Char.stats(), self=this;
+   306→    // nível + PC
+   307→    var c1=this.h('div','card');
+   308→    var xpCost=E.DM.level_xp_cost(E.Char.level);
+   309→    c1.innerHTML='<div class="row"><div class="grow"><b style="font-size:16px">'+E.DM.tr('level')+' '+E.Char.level+'</b>'+
+   310→      '<div class="tiny">'+E.DM.tr('pc')+': <b style="color:var(--gold)">'+E.U.fmt(E.Char.pc())+'</b></div></div>'+
+   311→      '<div class="tiny" style="text-align:right">'+E.U.fmt(E.Char.xp)+' / '+E.U.fmt(xpCost)+' XP</div></div>';
+   312→    c1.appendChild(this.bar(E.Char.xp/xpCost));
+   313→    body.appendChild(c1);
+   314→    // stats
+   315→    var c2=this.h('div','card');
+   316→    var rows=[['atk',E.U.fmt(stats.atk)],['hp',E.U.fmt(stats.hp)],['def',E.U.fmt(stats.def)],
+   317→      ['crit',stats.crit_rate.toFixed(1)+'%'],['critdmg',stats.crit_damage.toFixed(0)+'%'],['atkspd','x'+(1/stats.atk_interval).toFixed(2)],
+   318→      ['lifesteal',stats.lifesteal.toFixed(1)+'%'],['dodge',stats.dodge.toFixed(1)+'%'],['regen',stats.regen.toFixed(1)+'/s'],
+   319→      ['gold_find','+'+stats.gold_find.toFixed(0)+'%'],['xp_gain','+'+stats.xp_gain.toFixed(0)+'%'],['boss_damage','+'+stats.boss_damage.toFixed(0)+'%']];
+   320→    var html='<div class="grid2">';
+   321→    rows.forEach(function(r){ html+='<div class="stat-line"><span>'+E.UI.sl(r[0])+'</span><b>'+r[1]+'</b></div>'; });
+   322→    html+='</div>';
+   323→    c2.innerHTML=html;
+   324→    body.appendChild(c2);
+   325→    // 12 atributos
+   326→    var sec=this.h('div','sec','<h3>'+E.DM.tr('stats')+'</h3>');
+   327→    var list=E.DM.cfg_attributes.attributes;
+   328→    list.forEach(function(a){
+   329→      var lv=E.Char.attr_level(a.id);
+   330→      var cost=E.Char.attr_cost(a.id);
+   331→      var row=self.h('div','mis');
+   332→      var im=self.img('ui/attr_'+a.icon); im.style.width='26px'; im.style.height='26px';
+   333→      row.appendChild(im);
+   334→      var mid=self.h('div','grow');
+   335→      mid.innerHTML='<div style="font-size:12px"><b>'+a.name+'</b> <span class="tiny">Nv '+lv+'</span></div>'+
+   336→        '<div class="tiny">'+a.desc+'</div>';
+   337→      row.appendChild(mid);
+   338→      var btn=self.h('button','btn sm p', E.U.fmt(cost)+' 🪙');
+   339→      btn.onclick=function(){ if(E.Char.upgrade_attribute(a.id)) E.Audio.play_sfx('click'); self._panelDirty=true; };
+   340→      row.appendChild(btn);
+   341→      sec.appendChild(row);
+   342→    });
+   343→    body.appendChild(sec);
+   344→    this._render_ascension(body);
+   345→  },
+   346→  _render_ascension: function(body){
+   347→    var self=this;
+   348→    var sec=this.h('div','sec','<h3>☾ '+E.DM.tr('ascension')+'</h3>');
+   349→    if(!E.Asc.is_unlocked()){
+   350→      sec.appendChild(this.h('div','card','<span class="muted">🔒 '+E.DM.tr('asc_locked')+'</span>'));
+   351→      body.appendChild(sec);
+   352→      return;
+   353→    }
+   354→    var pending=E.Asc.pending_fragments();
+   355→    var c=this.h('div','card');
+   356→    c.innerHTML='<div class="row"><div class="grow"><div style="font-size:13px">'+E.DM.tr('ascend')+
+   357→      ' → <b style="color:var(--r6)">+'+E.U.fmt(pending)+' Fragmentos de Alma</b></div>'+
+   358→      '<div class="tiny">'+E.DM.tr('ascend_confirm').split('.')[0]+'.</div></div>'+
+   359→      '<button class="btn d" id="btn-ascend">☾ '+E.DM.tr('ascend')+'</button></div>';
+   360→    sec.appendChild(c);
+   361→    // árvore
+   362→    var frag=E.Eco.get_cur('fragmentos_alma');
+   363→    sec.appendChild(this.h('div','tiny','Fragmentos disponíveis: <b style="color:var(--r6)">'+E.U.fmt(frag)+'</b>'));
+   364→    var branches={ofensiva:[], defensiva:[], utilidade:[]};
+   365→    E.Asc.nodes().forEach(function(n){
+   366→      if(branches[n.branch]) branches[n.branch].push(n);
+   367→    });
+   368→    Object.keys(branches).forEach(function(br){
+   369→      sec.appendChild(self.h('div','tiny','— '+br+' —'));
+   370→      branches[br].forEach(function(n){
+   371→        var lv=E.Asc.node_level(n.id);
+   372→        var can=E.Asc.node_requirements_met(n) && lv<n.max && E.Eco.can_spend('fragmentos_alma', E.Asc.node_cost(n));
+   373→        var cls='node'+(lv>=n.max?' max':can?' can':'');
+   374→        var d=self.h('div',cls);
+   375→        d.innerHTML='<div class="row"><div class="grow"><div class="br">'+n.branch+' · tier '+n.tier+'</div>'+
+   376→          '<div style="font-size:12px"><b>'+n.name+'</b> '+(lv>0?'<span class="stars">'+lv+'/'+n.max+'</span>':'')+'</div>'+
+   377→          '<div class="tiny">'+n.desc+'</div></div>'+
+   378→          (lv<n.max? '<button class="btn sm p">'+E.Asc.node_cost(n)+' ✦</button>' : '<span class="tiny">MAX</span>')+'</div>';
+   379→        if(lv<n.max){
+   380→          var btn=d.querySelector('button');
+   381→          btn.onclick=function(){ if(E.Asc.buy_node(n.id)) E.Audio.play_sfx('equip'); self._panelDirty=true; };
+   382→        }
+   383→        sec.appendChild(d);
+   384→      });
+   385→    });
+   386→    body.appendChild(sec);
+   387→    var btnAsc=sec.querySelector('#btn-ascend');
+   388→    if(btnAsc) btnAsc.onclick=function(){
+   389→      self.confirm('☾ '+E.DM.tr('ascend'), E.DM.tr('ascend_confirm'), function(){
+   390→        E.Asc.ascend();
+   391→        return true;
+   392→      });
+   393→    };
+   394→  },
+   395→  /* ================= PAINEL: EQUIPAR ================= */
+   396→  render_equip: function(body){
+   397→    var self=this;
+   398→    var sec=this.h('div','sec','<h3>'+E.DM.tr('equipment')+'</h3>');
+   399→    // paper doll
+   400→    var grid=this.h('div','sl-grid');
+   401→    E.DM.cfg_items.slots.forEach(function(s){
+   402→      var it=E.Inv.equipped[s.id];
+   403→      var cell=self.h('div','sl-cell'+(it? ' b-'+it.rarity:' empty'));
+   404→      cell.appendChild(self.img(self.slotIcon(s.id)));
+   405→      if(it){
+   406→        if(it.reinforce>0){ var rf=self.h('span','rf','+'+it.reinforce); cell.appendChild(rf); }
+   407→        if(it.locked){ var lk=self.h('span','lk','🔒'); cell.appendChild(lk); }
+   408→        var click=function(){ self.itemModal(it, false); };
+   409→        cell.onclick=click;
+   410→        cell.title=it.base;
+   411→      } else {
+   412→        cell.title=s.name;
+   413→      }
+   414→      grid.appendChild(cell);
+   415→    });
+   416→    sec.appendChild(grid);
+   417→    // botões
+   418→    var row=this.h('div','row');
+   419→    row.style.marginTop='8px';
+   420→    var b1=this.h('button','btn p grow',E.DM.tr('auto_equip'));
+   421→    b1.onclick=function(){
+   422→      var n=E.Inv.auto_equip();
+   423→      E.Audio.play_sfx(n>0?'equip':'fail');
+   424→      self.toast(E.DM.tr('auto_equip')+': '+n, '#3a9e8f');
+   425→      self._panelDirty=true;
+   426→    };
+   427→    var sel=this.h('select');
+   428→    ['comum','incomum','rara'].forEach(function(r){
+   429→      var o=self.h('option','',E.DM.tr('auto_dismantle')+' < '+E.DM.tr('rarity')+': '+r);
+   430→      o.value=r;
+   431→      if(r==='rara') o.selected=true;
+   432→      sel.appendChild(o);
+   433→    });
+   434→    var b2=this.h('button','btn sm',E.DM.tr('auto_dismantle'));
+   435→    b2.onclick=function(){
+   436→      var n=E.Inv.auto_dismantle(sel.value);
+   437→      E.Audio.play_sfx(n>0?'coin':'fail');
+   438→      self.toast('−'+n+' itens', '#e8a33a');
+   439→      self._panelDirty=true;
+   440→    };
+   441→    row.appendChild(b1); row.appendChild(sel); row.appendChild(b2);
+   442→    sec.appendChild(row);
+   443→    sec.appendChild(this.h('div','tiny',E.DM.tr('inventory')+': '+E.Inv.inventory.length+'/'+E.Inv.INV_CAP));
+   444→    body.appendChild(sec);
+   445→    // sets
+   446→    var st=E.Inv.set_bonuses(), setHtml='';
+   447→    E.DM.cfg_items.sets.forEach(function(s){
+   448→      var worn=0;
+   449→      s.pieces.forEach(function(p){ if(E.Inv.equipped[p]) worn++; });
+   450→      var on=worn>=2;
+   451→      setHtml+='<div class="stat-line'+(on?'':' muted')+'"><span>'+(on?'✦ ':'✧ ')+s.name+'</span><b class="tiny">'+s.desc+'</b></div>';
+   452→    });
+   453→    var cset=this.h('div','card','<h3 style="font-size:11px;color:var(--teal)">'+E.DM.tr('details')+' — Sets</h3>'+setHtml);
+   454→    body.appendChild(cset);
+   455→    // fusão
+   456→    var fsec=this.h('div','sec','<h3>'+E.DM.tr('fuse')+' (fragmentos: '+E.U.fmt(E.Eco.get_cur('fragmentos_equip'))+')</h3>');
+   457→    var frow=this.h('div','row');
+   458→    var fsel=this.h('select');
+   459→    ['rara','epica','lendaria','mitica','divina'].forEach(function(r){
+   460→      var o=self.h('option','',E.DM.tr('rarity')+': '+r+' ('+E.DM.cfg_items.fusion.fragments_cost[r]+'◈ '+E.U.fmt(E.DM.cfg_items.fusion.gold_cost[r])+'🪙)');
+   461→      o.value=r;
+   462→      fsel.appendChild(o);
+   463→    });
+   464→    var fb=this.h('button','btn p',E.DM.tr('fuse'));
+   465→    fb.onclick=function(){
+   466→      var it=E.Inv.fuse_item(fsel.value);
+   467→      if(it.id){ E.Audio.play_sfx('loot_epic'); self.itemModal(it, false); }
+   468→      self._panelDirty=true;
+   469→    };
+   470→    frow.appendChild(fsel); frow.appendChild(fb);
+   471→    fsec.appendChild(frow);
+   472→    body.appendChild(fsec);
+   473→    // inventário
+   474→    var isec=this.h('div','sec','<h3>'+E.DM.tr('inventory')+' ('+E.Inv.inventory.length+')</h3>');
+   475→    var filt=this.h('div','row');
+   476→    var sSel=this.h('select');
+   477→    var oAll=this.h('option','',E.DM.tr('slot')+': '+E.DM.tr('all')); oAll.value='all'; sSel.appendChild(oAll);
+   478→    E.DM.cfg_items.slots.forEach(function(s){
+   479→      var o=self.h('option','',s.name); o.value=s.id; sSel.appendChild(o);
+   480→    });
+   481→    var rSel=this.h('select');
+   482→    var oR=this.h('option','',E.DM.tr('rarity')+': '+E.DM.tr('all')); oR.value='all'; rSel.appendChild(oR);
+   483→    E.Inv.ORDER.forEach(function(r){
+   484→      var o=self.h('option','',r); o.value=r; rSel.appendChild(o);
+   485→    });
+   486→    filt.appendChild(sSel); filt.appendChild(rSel);
+   487→    isec.appendChild(filt);
+   488→    var igrid=this.h('div','inv-grid');
+   489→    igrid.style.marginTop='8px';
+   490→    var items=E.Inv.filtered(sSel.value, rSel.value);
+   491→    items.slice(0,120).forEach(function(it){
+   492→      var cell=self.h('div','inv-it b-'+it.rarity);
+   493→      cell.appendChild(self.img(self.slotIcon(it.slot)));
+   494→      if(it.reinforce>0) cell.appendChild(self.h('span','rf','+'+it.reinforce));
+   495→      if(it.locked) cell.appendChild(self.h('span','lk','🔒'));
+   496→      if(it.favorite) cell.appendChild(self.h('span','fav','⭐'));
+   497→      cell.onclick=function(){ self.itemModal(it, true); };
+   498→      igrid.appendChild(cell);
+   499→    });
+   500→    if(items.length===0) isec.appendChild(this.h('div','tiny','—'));
+   501→    isec.appendChild(igrid);
+   502→    sSel.onchange=rSel.onchange=function(){ this.render('equip'); }.bind(this);
+   503→    body.appendChild(isec);
+   504→  },
+   505→  /* modal de item (inventário ou equipado) */
+   506→  itemModal: function(item, inInventory){
+   507→    var self=this;
+   508→    var rd=E.Inv.rarity_data(item.rarity);
+   509→    var html='<div class="row"><div class="grow">'+
+   510→      '<div class="tx-'+item.rarity+'" style="font-size:14px;font-weight:700">'+item.base+(item.reinforce>0?' +'+item.reinforce:'')+'</div>'+
+   511→      '<div class="tiny">'+E.DM.tr('rarity')+': '+item.rarity+' · iLvl '+item.ilvl+' · '+E.DM.tr('pc')+': '+E.U.fmt(item.pc)+'</div></div></div><hr style="border-color:var(--line);margin:8px 0">'+
+   512→      '<div class="stat-line"><span><b>'+E.DM.cfg_items.primary_stats[item.primary_id].name+'</b></span><b>'+
+   513→        (item.primary*(1+0.08*(item.reinforce||0))).toFixed(1)+'</b></div>';
+   514→    var sec=item.secondaries||{};
+   515→    for(var k in sec){
+   516→      var nm=k; var pstats=E.DM.cfg_items.secondary_pool;
+   517→      for(var i=0;i<pstats.length;i++) if(pstats[i].id===k) nm=pstats[i].name;
+   518→      html+='<div class="stat-line"><span>'+nm+'</span><b>'+sec[k]+'</b></div>';
+   519→    }
+   520→    var lvl=item.reinforce||0;
+   521→    if(lvl<E.DM.cfg_items.reinforce.max){
+   522→      var cost=E.Inv.reinforce_cost(item);
+   523→      var chance=Math.min(E.DM.cfg_items.reinforce.chances[lvl]+E.Pet.bonus_value('reinforce_luck')/100, 1)*100;
+   524→      html+='<hr style="border-color:var(--line);margin:8px 0">'+
+   525→        '<div class="tiny">'+E.DM.tr('success_rate')+': <b style="color:var(--gold)">'+chance.toFixed(0)+'%</b> · '+
+   526→        E.DM.tr('pity')+': '+E.Inv.reinforce_pity_left()+'</div>';
+   527→    } else html+='<hr style="border-color:var(--line);margin:8px 0"><div class="tiny">+20 '+E.DM.tr('max')+'</div>';
+   528→    var btns=[];
+   529→    if(inInventory){
+   530→      btns.push({label:E.DM.tr('equip'), cls:'p', fn:function(){
+   531→        E.Inv.equip_item(item.id);
+   532→        E.Audio.play_sfx('equip');
+   533→      }});
+   534→      btns.push({label:E.DM.tr('reinforce')+' ('+E.U.fmt(cost)+'🪙)', cls:'', fn:function(){
+   535→        E.Inv.reinforce(item.id);
+   536→        return false; // mantém modal aberto para re-render
+   537→      }, keep:true});
+   538→      btns.push({label:item.favorite?'⭐':'☆', fn:function(){ E.Inv.toggle_favorite(item.id); return false; }, keep:true});
+   539→      btns.push({label:item.locked?'🔓':'🔒', fn:function(){ E.Inv.toggle_lock(item.id); return false; }, keep:true});
+   540→      var dismLabel={ptbr:'♻ Desmontar', en:'♻ Dismantle'}[E.DM.language]||'♻ Desmontar';
+   541→      if(!item.locked && !item.favorite){
+   542→        btns.push({label:dismLabel, cls:'d', fn:function(){
+   543→          var r=E.Inv.dismantle_item(item.id);
+   544→          if(r.fragments) E.Audio.play_sfx('coin');
+   545→        }});
+   546→      }
+   547→    } else {
+   548→      btns.push({label:E.DM.tr('unequip'), cls:'d', fn:function(){ E.Inv.unequip_slot(item.slot); E.Audio.play_sfx('equip'); }});
+   549→    }
+   550→    // re-render do modal após ações keep
+   551→    var origButtons=btns.filter(function(b){ return !b.hide; });
+   552→    origButtons.forEach(function(b){
+   553→      var oldFn=b.fn;
+   554→      b.fn=function(){
+   555→        var r=oldFn();
+   556→        setTimeout(function(){
+   557→          if(inInventory && E.Inv.get_item(item.id).id) self.itemModal(E.Inv.get_item(item.id), true);
+   558→          else if(!inInventory && E.Inv.equipped[item.slot]) self.itemModal(E.Inv.equipped[item.slot], false);
+   559→          else self.closeModal();
+   560→          self._panelDirty=true;
+   561→        }, 30);
+   562→        return r;
+   563→      };
+   564→    });
+   565→    this.modal(item.base, html, origButtons);
+   566→  },
+   567→  /* ================= PAINEL: HABILIDADES ================= */
+   568→  render_skills: function(body){
+   569→    var self=this;
+   570→    var sections=[['active',E.DM.tr('skills')+' — '+E.DM.tr('current')],['passive',E.DM.tr('stats')+' passivas'],['supreme',E.DM.tr('supreme')]];
+   571→    sections.forEach(function(secDef){
+   572→      var sec=self.h('div','sec','<h3>'+secDef[1]+'</h3>');
+   573→      E.DM.cfg_skills[secDef[0]].forEach(function(s){
+   574→        var lv=E.Skill.levels[s.id]||0;
+   575→        var unlocked=!!E.Skill.unlocked[s.id];
+   576→        var card=self.h('div','card');
+   577→        var row=self.h('div','row');
+   578→        var im=self.img('ui/'+s.icon); im.style.width='42px'; im.style.height='42px';
+   579→        row.appendChild(im);
+   580→        var mid=self.h('div','grow');
+   581→        var desc=s.desc;
+   582→        ['dmg','dur','def','crit','gold','as','ls'].forEach(function(k){
+   583→          var v=E.Skill.scaled_value(s.id, k);
+   584→          desc=desc.replace('{'+k+'}', v>0? E.U.fmt(v):'{'+k+'}');
+   585→        });
+   586→        var evoTxt=s.evolve? (' · '+s.evolve.desc_evo.replace('Evolution: ','Evo: ')) : '';
+   587→        mid.innerHTML='<div style="font-size:13px"><b>'+s.name+'</b> <span class="stars">'+lv+'/'+s.max_level+'</span>'+
+   588→          (E.Skill.evolved[s.id]?' <span style="color:var(--r6)">✦</span>':'')+'</div>'+
+   589→          '<div class="tiny">'+desc+(s.cooldown?' · '+E.DM.tr('cooldown')+' '+s.cooldown+'s':'')+evoTxt+'</div>';
+   590→        row.appendChild(mid);
+   591→        if(unlocked){
+   592→          if(lv<s.max_level){
+   593→            var cost=E.Skill.upgrade_cost(s.id);
+   594→            var btn=self.h('button','btn sm p',E.DM.tr('upgrade')+'<br><span style="font-size:9px">'+E.U.fmt(cost)+'🪙</span>');
+   595→            btn.onclick=function(){ if(E.Skill.upgrade_skill(s.id)) E.Audio.play_sfx('equip'); self._panelDirty=true; };
+   596→            row.appendChild(btn);
+   597→          } else row.appendChild(self.h('span','tiny','MAX'));
+   598→          if(secDef[0]!=='passive'){
+   599→            var ab=self.h('button','btn sm'+(E.Skill.auto_cast[s.id]?' p':''),'A');
+   600→            ab.title=E.DM.tr('skills_auto');
+   601→            ab.onclick=function(){ E.Skill.toggle_auto(s.id); self._panelDirty=true; };
+   602→            row.appendChild(ab);
+   603→          }
+   604→        } else {
+   605→          row.appendChild(self.h('span','muted','🔒 '+E.DM.tr('level')+' '+s.unlock_level));
+   606→        }
+   607→        card.appendChild(row);
+   608→        sec.appendChild(card);
+   609→      });
+   610→      body.appendChild(sec);
+   611→    });
+   612→  },
+   613→  /* ================= PAINEL: PETS ================= */
+   614→  render_pets: function(body){
+   615→    var self=this;
+   616→    [['pets',E.DM.cfg_pets.pets,E.DM.tr('pets')],['companions',E.DM.cfg_pets.companions,'Companheiros']].forEach(function(grp){
+   617→      var sec=self.h('div','sec','<h3>'+grp[2]+'</h3>');
+   618→      var grid=self.h('div','pet-grid');
+   619→      grp[1].forEach(function(p){
+   620→        var owned=E.Pet.is_owned(p.id);
+   621→        var stars=E.Pet.stars(p.id);
+   622→        var act=(E.Pet.active_pet===p.id||E.Pet.active_companion===p.id);
+   623→        var card=self.h('div','pet-card'+(act?' act':'')+(owned?'':' muted'));
+   624→        var im=self.img('pets/'+p.icon); im.style.opacity=owned?'1':'.35';
+   625→        card.appendChild(im);
+   626→        var st='';
+   627→        for(var i=1;i<=E.DM.cfg_pets.max_stars;i++) st+= i<=stars? '★':'<span class="off">★</span>';
+   628→        var btxt='';
+   629→        for(var k in p.bonus) btxt+='+'+p.bonus[k]+'% '+k;
+   630→        card.appendChild(self.h('div','', '<div style="font-size:11px;font-weight:700">'+p.name+'</div>'+
+   631→          '<div class="tiny tx-'+p.rarity+'">'+p.rarity+'</div>'+
+   632→          '<div class="stars">'+st+'</div>'+
+   633→          '<div class="tiny">'+btxt+'</div>'+
+   634→          (owned? '<div class="tiny">◈ '+ (E.Pet.fragments[p.id]||0) +'</div>':'')));
+   635→        if(owned){
+   636→          var row=self.h('div','row');
+   637→          row.style.justifyContent='center';
+   638→          if(!act){
+   639→            var b1=self.h('button','btn sm p',E.DM.tr('activate'));
+   640→            b1.onclick=function(){ E.Pet.set_active(p.id); E.Audio.play_sfx('equip'); self._panelDirty=true; };
+   641→            row.appendChild(b1);
+   642→          }
+   643→          var needF=E.Pet.evolve_cost_frags(p.id);
+   644→          if(needF>0){
+   645→            var b2=self.h('button','btn sm',E.DM.tr('evolve')+' '+needF+'◈');
+   646→            b2.onclick=function(){ E.Pet.evolve(p.id); self._panelDirty=true; };
+   647→            row.appendChild(b2);
+   648→          }
+   649→          card.appendChild(row);
+   650→        }
+   651→        grid.appendChild(card);
+   652→      });
+   653→      sec.appendChild(grid);
+   654→      body.appendChild(sec);
+   655→    });
+   656→  }
+   657→};
+   658→

@@ -75,7 +75,7 @@ E.Combat = {
     if(this._spawn_t>0){
       this._spawn_t-=delta;
       if(this._spawn_t<=0){
-        if(this._restart_pending) this._begin();
+        if(this._restart_pending){ this.stage=E.Prog.current_stage; this._begin(); } // [HTML-5]
         else this._next_after_win();
       }
       return;
@@ -272,7 +272,7 @@ E.Combat = {
     }
   },
   _next_after_win: function(){
-    if(this.mode==='campaign') this._begin();
+    if(this.mode==='campaign'){ this.stage=E.Prog.current_stage; this._begin(); } // [HTML-5]
     else { this.active=false; E.Modes.request_next(this.mode); }
   }
 };

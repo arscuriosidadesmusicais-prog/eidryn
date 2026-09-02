@@ -184,11 +184,15 @@ E.UI = {
       this.render(panelId);
       // destacar aba ativa
       var btns=nav.querySelectorAll('[data-panel]');
-      for(var i=0;i<btns.length;i++) btns[i].style.color=btns[i].getAttribute('data-panel')===panelId?'var(--gold)':'';
+      for(var i=0;i<btns.length;i++){
+        var on=btns[i].getAttribute('data-panel')===panelId;
+        btns[i].style.color=on?'var(--gold2)':'';
+        btns[i].classList.toggle('nav-on', on);
+      }
     } else {
       vp.classList.add('hidden');
       var btns2=nav.querySelectorAll('[data-panel]');
-      for(var j=0;j<btns2.length;j++) btns2[j].style.color='';
+      for(var j=0;j<btns2.length;j++){ btns2[j].style.color=''; btns2[j].classList.remove('nav-on'); }
     }
     E.Audio.play_sfx('click');
   },
@@ -202,8 +206,10 @@ E.UI = {
     var nav=document.getElementById('nav'), self=this;
     this.NAV.forEach(function(n){
       var b=self.h('button','btn g');
-      b.style.cssText='flex:1;flex-direction:column;gap:1px;font-size:10px;border-radius:0;padding:6px 0 5px;border:none;border-right:1px solid var(--line)';
-      b.innerHTML='<span style="font-size:17px">'+n.ic+'</span><span>'+E.DM.tr(self.LKEY[n.id])+'</span>';
+      b.style.cssText='flex:1;flex-direction:column;gap:2px;font-size:10px;border-radius:0;padding:5px 0 5px;border:none;border-right:1px solid rgba(58,42,85,.6);font-weight:700;letter-spacing:.3px';
+      var ic=E.IMG['ui/tab_'+n.id];
+      b.innerHTML=(ic?('<img src="'+ic+'" style="width:22px;height:22px;image-rendering:pixelated" alt="">')
+        :('<span style="font-size:17px">'+n.ic+'</span>'))+'<span>'+E.DM.tr(self.LKEY[n.id])+'</span>';
       b.setAttribute('data-panel', n.id);
       b.onclick=function(){ self.show(self.current===n.id?null:n.id); };
       nav.appendChild(b);

@@ -60,3 +60,20 @@ Work Log:
 
 Stage Summary:
 - VERSÃO HTML COMPLETA E VALIDADA. Mesma simulação, mesmos dados, mesmos assets, mesmo formato de save da build Godot; 4 correções de paridade documentadas. 137/137 testes + smoke test real com 0 erros.
+
+---
+Task ID: 3
+Agent: main (Super Z) — Direção de Arte & UI/UX
+Task: REVOLUÇÃO VISUAL "Edição do Eclipse" v1.1.0 — substituir os 97 placeholders por arte profissional, polir UI e adicionar juice (escopo estritamente visual; lógica/fórmulas/save intactos)
+
+Work Log:
+- FASE A (sprites): novo kit de pixel art (pxkit.py: rampas 5 tons, contorno automático, luz direcional, rim light, brighten, quantização); 97 sprites refeitos + 42 novos = 139 no build
+  - Herói com 2 posturas (idle + ataque com arco de golpe), 35 inimigos em 9 arquétipos temáticos por região, 7 chefes únicos 192×192 (stag cristal, afogado c/ tridente, rei c/ coroa, sultão djinn, jarl do gelo, herdeiro c/ halo do eclipse, avatar do devorador), 10 pets, 44 ícones (9 slots/12 atributos/7 moedas/9 skills/6 pets+aba), 8 ícones de navegação, 5 texturas (pedra/metal/pergaminho/moldura 9-slice/vinheta), 28 camadas de parallax (7 regiões × céu/longe/médio/perto com eclipses/luas/auroras autorais)
+  - Ciclos de autocrítica: 4 rodadas (espada do herói reconectada, ícones escuros clareados, capas dos chefes legíveis, boss centralizado em 1.38× para não cortar)
+- FASE B (UI): fontes Cinzel (variável 400-900) + Alegreya Sans (500/700/800) embutidas base64 (offline); CSS reescrito: painéis com textura pedra/metal + moldura 9-slice nos modais, botões com bevel/hover/active, glow animado por raridade (épica→divina) + shine sweep, transições (panelIn/modalIn/toast), splash cinematográfico (eclipse c/ coroas rotativas, embers, título gradiente Cinzel), HUD/nav/skillbar ornamentados
+- FASE C (VFX): render engine reescrita — parallax 4 camadas por região + crossfade, partículas atmosféricas por bioma (vagalumes/esporos/runas/brasas/neve/cinzas/motas), partículas de combate (faíscas/sangue/poeira/motas de ouro), screenshake por trauma com micro-rotação, dano flutuante em arco com pop-in (Cinzel, cores por tipo), aura orbital + disco pulsante em chefes, flash branco de impacto, barras de vida ornamentadas c/ ghost trail, spotlight de separação entidade/fundo, anel de level-up
+- [HTML-5] ÚNICO toque em lógica (bugfix de paridade, documentado): combate ressincroniza stage com Prog.current_stage ao avançar/reiniciar — antes chefes de fase 10 nunca apareciam (1 linha × 2 pontos)
+- FASE D/E (QA): build 2,97MB/139 sprites; test_node 137/137 ✓; navegador real: splash→combate→8 abas→chefe F10→chefe F170 (Régente Morvain imponente)→gacha→modal item lendário→inventário com glows; 60,5 FPS portrait e 60,2 FPS landscape; 0 erros de console; save persistente validado (reload manteve fase/itens/ouro); portrait 390×844 e landscape 1280×720 validados
+
+Stage Summary:
+- v1.1.0 "Edição do Eclipse" entregue: /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html (3,0MB, autossuficiente offline). Visual de produto comercial; fórmulas/balance/save 100% preservados (137/137 testes); único fix lógico [HTML-5] documentado no cabeçalho do HTML.
