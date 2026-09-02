@@ -1,0 +1,8 @@
+{
+  "events": [
+    {"id": "evt_fim_de_semana", "name": "Fim de Semana Dourado", "type": "multiplier", "days": [5, 6], "bonus": {"gold_mult": 1.5}, "desc": "+50% ouro sáb/dom", "enabled": false},
+    {"id": "evt_eclipse_lunar", "name": "Eclipse Lunar", "type": "multiplier", "date_start": "2030-01-01", "date_end": "2030-01-07", "bonus": {"xp_mult": 1.5, "drop_mult": 1.25}, "desc": "+50% XP e +25% drops por uma semana", "enabled": false},
+    {"id": "evt_caos_abissal", "name": "Caos Abissal", "type": "content", "date_start": "2030-06-01", "date_end": "2030-06-14", "bonus": {"abismo_extra_mult": 1.5}, "desc": "Recompensas do Abismo +50%", "enabled": false}
+  ],
+  "template_note": "Adicionar eventos aqui: type=multiplier aplica Multiplicadores globais via EventMultiplier; enabled=true ativa."
+}

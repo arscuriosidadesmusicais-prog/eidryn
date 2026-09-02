@@ -1,0 +1,147 @@
+{
+  "attributes": [
+    {
+      "id": "forca",
+      "name": "Força",
+      "icon": "forca",
+      "base_cost": 25,
+      "cost_exp": 1.065,
+      "pc_weight": 3.0,
+      "desc": "+7% ATK por ponto (multiplicativo).",
+      "mult": true
+    },
+    {
+      "id": "vitalidade",
+      "name": "Vitalidade",
+      "icon": "vitalidade",
+      "base_cost": 25,
+      "cost_exp": 1.065,
+      "pc_weight": 1.2,
+      "desc": "+6% HP e +2.5% DEF por ponto.",
+      "mult": true
+    },
+    {
+      "id": "destreza",
+      "name": "Destreza",
+      "icon": "destreza",
+      "base_cost": 40,
+      "cost_exp": 1.065,
+      "pc_weight": 2.0,
+      "desc": "+0.3% Vel. de Ataque por ponto.",
+      "mult": true
+    },
+    {
+      "id": "energia",
+      "name": "Energia",
+      "icon": "energia",
+      "base_cost": 60,
+      "cost_exp": 1.065,
+      "pc_weight": 2.4,
+      "desc": "+4% dano de habilidades por ponto.",
+      "mult": true
+    },
+    {
+      "id": "sorte",
+      "name": "Sorte",
+      "icon": "sorte",
+      "base_cost": 80,
+      "cost_exp": 1.065,
+      "pc_weight": 1.5,
+      "desc": "+0.1% crit e +0.05% drop por ponto.",
+      "mult": true
+    },
+    {
+      "id": "precisao",
+      "name": "Precisão",
+      "icon": "precisao",
+      "base_cost": 60,
+      "cost_exp": 1.065,
+      "pc_weight": 1.6,
+      "desc": "+0.15% acerto por ponto.",
+      "mult": true
+    },
+    {
+      "id": "crit_rate",
+      "name": "Crítico",
+      "icon": "crit",
+      "base_cost": 120,
+      "cost_exp": 1.065,
+      "pc_weight": 4.0,
+      "desc": "+0.5% chance crítica por ponto (cap 75%).",
+      "mult": true
+    },
+    {
+      "id": "crit_damage",
+      "name": "Dano Crítico",
+      "icon": "critdmg",
+      "base_cost": 150,
+      "cost_exp": 1.065,
+      "pc_weight": 3.0,
+      "desc": "+1% dano crítico por ponto.",
+      "mult": true
+    },
+    {
+      "id": "atk_speed",
+      "name": "Vel. Ataque",
+      "icon": "velocidade",
+      "base_cost": 150,
+      "cost_exp": 1.065,
+      "pc_weight": 3.5,
+      "desc": "+1% Vel. Ataque por ponto (cap +300%).",
+      "mult": true
+    },
+    {
+      "id": "lifesteal",
+      "name": "Roubo de Vida",
+      "icon": "lifesteal",
+      "base_cost": 200,
+      "cost_exp": 1.065,
+      "pc_weight": 4.0,
+      "desc": "+0.3% roubo de vida por ponto (cap 30%).",
+      "mult": true
+    },
+    {
+      "id": "defesa",
+      "name": "Defesa",
+      "icon": "defesa",
+      "base_cost": 100,
+      "cost_exp": 1.065,
+      "pc_weight": 2.0,
+      "desc": "+2.5% DEF por ponto.",
+      "mult": true
+    },
+    {
+      "id": "regeneracao",
+      "name": "Regeneração",
+      "icon": "regen",
+      "base_cost": 180,
+      "cost_exp": 1.065,
+      "pc_weight": 2.5,
+      "desc": "+0.5 HP/seg por ponto (flat).",
+      "mult": true
+    }
+  ],
+  "hero_base": {
+    "hp": 120.0,
+    "atk": 11.0,
+    "def": 4.0,
+    "atk_interval": 1.0,
+    "crit_rate": 5.0,
+    "crit_damage": 150.0,
+    "lifesteal": 0.0,
+    "dodge": 3.0,
+    "per_level_hp": 18.0,
+    "per_level_atk": 2.2,
+    "per_level_def": 0.6
+  },
+  "level": {
+    "xp_base": 30.0,
+    "xp_exp": 1.16,
+    "cap": 300
+  },
+  "attribute_caps": {
+    "crit_rate": 140,
+    "atk_speed": 300,
+    "lifesteal": 100
+  }
+}

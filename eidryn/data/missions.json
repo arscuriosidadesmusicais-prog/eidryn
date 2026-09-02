@@ -1,0 +1,25 @@
+{
+  "daily": [
+    {"id": "d1", "name": "Derrote 100 inimigos", "goal": 100, "track": "kills", "reward": {"ouro": 500}, "progress_label": "inimigos"},
+    {"id": "d2", "name": "Vença 3 chefes", "goal": 3, "track": "boss_kills", "reward": {"essencia": 30}, "progress_label": "chefes"},
+    {"id": "d3", "name": "Equipe 1 equipamento", "goal": 1, "track": "equips", "reward": {"fragmentos_equip": 15}},
+    {"id": "d4", "name": "Reforce +1 uma vez", "goal": 1, "track": "reinforce", "reward": {"ouro": 800}},
+    {"id": "d5", "name": "Complete 1 masmorra", "goal": 1, "track": "dungeons", "reward": {"gemas": 10}}
+  ],
+  "weekly": [
+    {"id": "w1", "name": "Derrote 1500 inimigos", "goal": 1500, "track": "kills", "reward": {"essencia": 120}, "progress_label": "inimigos"},
+    {"id": "w2", "name": "Vença 15 chefes", "goal": 15, "track": "boss_kills", "reward": {"gemas": 40}, "progress_label": "chefes"},
+    {"id": "w3", "name": "Suba 25 fases", "goal": 25, "track": "stages", "reward": {"chaves": 3}, "progress_label": "fases"},
+    {"id": "w4", "name": "Invogue 10× no Portal", "goal": 10, "track": "gacha", "reward": {"fragmentos_alma": 20}, "progress_label": "invocações"}
+  ],
+  "daily_login": [
+    {"day": 1, "reward": {"ouro": 300}},
+    {"day": 2, "reward": {"essencia": 20}},
+    {"day": 3, "reward": {"fragmentos_equip": 30}},
+    {"day": 4, "reward": {"gemas": 15}},
+    {"day": 5, "reward": {"chaves": 1}},
+    {"day": 6, "reward": {"essencia": 60}},
+    {"day": 7, "reward": {"gemas": 50, "chaves": 1}, "big": true}
+  ],
+  "reset_hour_utc": 0
+}

@@ -1,0 +1,76 @@
+{
+  "slots": [
+    {"id": "arma", "name": "Arma", "icon": "sl_arma", "primary": "atk_pct", "weight": {"atk_pct": 1.0}},
+    {"id": "elmo", "name": "Elmo", "icon": "sl_elmo", "primary": "hp_pct", "weight": {"hp_pct": 1.0}},
+    {"id": "peitoral", "name": "Peitoral", "icon": "sl_peito", "primary": "def_pct", "weight": {"def_pct": 1.0}},
+    {"id": "calca", "name": "Calças", "icon": "sl_calca", "primary": "hp_pct", "weight": {"hp_pct": 0.7, "def_pct": 0.3}},
+    {"id": "botas", "name": "Botas", "icon": "sl_botas", "primary": "atk_speed", "weight": {"atk_speed": 0.6, "hp_pct": 0.4}},
+    {"id": "luvas", "name": "Luvas", "icon": "sl_luvas", "primary": "crit_rate", "weight": {"crit_rate": 0.6, "atk_pct": 0.4}},
+    {"id": "capa", "name": "Capa", "icon": "sl_capa", "primary": "lifesteal", "weight": {"lifesteal": 0.5, "hp_pct": 0.5}},
+    {"id": "anel1", "name": "Anel I", "icon": "sl_anel", "primary": "crit_damage", "weight": {"crit_damage": 0.6, "atk_pct": 0.4}},
+    {"id": "anel2", "name": "Anel II", "icon": "sl_anel", "primary": "crit_rate", "weight": {"crit_rate": 0.5, "lifesteal": 0.5}},
+    {"id": "amuleto", "name": "Amuleto", "icon": "sl_amuleto", "primary": "atk_pct", "weight": {"atk_pct": 0.5, "crit_damage": 0.5}}
+  ],
+  "rarities": [
+    {"id": "comum", "name": "Comum", "color": "#9aa0a6", "weight": 46.0, "affixes": 0, "stat_mult": 1.0, "dismantle": 1, "sell": 10},
+    {"id": "incomum", "name": "Incomum", "color": "#58c46a", "weight": 27.0, "affixes": 1, "stat_mult": 1.25, "dismantle": 3, "sell": 25},
+    {"id": "rara", "name": "Rara", "color": "#3a7bd5", "weight": 15.0, "affixes": 2, "stat_mult": 1.6, "dismantle": 8, "sell": 60},
+    {"id": "epica", "name": "Épica", "color": "#9b59d0", "weight": 7.5, "affixes": 3, "stat_mult": 2.1, "dismantle": 20, "sell": 150},
+    {"id": "lendaria", "name": "Lendária", "color": "#e8a33a", "weight": 3.5, "affixes": 4, "stat_mult": 2.8, "dismantle": 50, "sell": 400},
+    {"id": "mitica", "name": "Mítica", "color": "#d0455f", "weight": 0.8, "affixes": 4, "stat_mult": 3.6, "dismantle": 120, "sell": 1000},
+    {"id": "divina", "name": "Divina", "color": "#f5e6c8", "weight": 0.2, "affixes": 4, "stat_mult": 4.6, "dismantle": 300, "sell": 2500}
+  ],
+  "bases": {
+    "arma": ["Lâmina Ecliptada", "Foice do Silêncio", "Machado de Velun", "Estoque do Crepúsculo", "Punho de Obsidiana"],
+    "elmo": ["Capuz do Andarilho", "Elmo Rachado", "Coroa de Sombras", "Máscara Sem Face", "Diadema do Fim"],
+    "peitoral": ["Gibão de Couro Escuro", "Couraça Rachada", "Placa do Juramento", "Manto de Escamas", "Égide do Eclipse"],
+    "calca": ["Calças de Trilho", "Grevas Uivantes", "Perneiras de Cinza", "Saia do Peregrino", "Leggings do Abismo"],
+    "botas": ["Botas Orvalhadas", "Passos Silentes", "Grevas Aladas", "Sandálias de Brasa", "Passos do Vazio"],
+    "luvas": ["Luvas de Trilho", "Manoplas Rachadas", "Punhos de Gelo Negro", "Dedos de Velun", "Garras do Fim"],
+    "capa": ["Capa de Névoa", "Manto do Peregrino", "Asa de Morcego", "Véu Estelar", "Casulo de Sombras"],
+    "anel1": ["Anel de Sal Gema", "Selo do Juramento", "Argola de Brasas", "Anel de Lágrima", "Selo do Devorador"],
+    "anel2": ["Anel de Sombra", "Selo do Bosque", "Argola Uivante", "Anel de Vitríolo", "Selo Espelhado"],
+    "amuleto": ["Amuleto de Osso", "Pingente do Lodo", "Relicário Rachado", "Olho de Cinza", "Coração do Ciclo"]
+  },
+  "primary_stats": {
+    "atk_pct": {"name": "ATK %", "base": 4.0, "per_level": 0.8},
+    "hp_pct": {"name": "HP %", "base": 6.0, "per_level": 1.1},
+    "def_pct": {"name": "DEF %", "base": 5.0, "per_level": 1.0},
+    "atk_speed": {"name": "Vel. Atq %", "base": 2.0, "per_level": 0.4},
+    "crit_rate": {"name": "Crítico %", "base": 1.5, "per_level": 0.3},
+    "crit_damage": {"name": "Dano Crít. %", "base": 4.0, "per_level": 0.8},
+    "lifesteal": {"name": "Roubo Vida %", "base": 0.8, "per_level": 0.15}
+  },
+  "secondary_pool": [
+    {"id": "atk_flat", "name": "ATK+", "base": 2.0, "per_level": 0.5},
+    {"id": "hp_flat", "name": "HP+", "base": 10.0, "per_level": 3.0},
+    {"id": "def_flat", "name": "DEF+", "base": 1.0, "per_level": 0.3},
+    {"id": "crit_rate", "name": "Crítico %", "base": 0.6, "per_level": 0.12},
+    {"id": "crit_damage", "name": "Dano Crít. %", "base": 2.0, "per_level": 0.4},
+    {"id": "atk_speed", "name": "Vel. Atq %", "base": 0.8, "per_level": 0.15},
+    {"id": "lifesteal", "name": "Roubo Vida %", "base": 0.3, "per_level": 0.06},
+    {"id": "gold_find", "name": "Ouro %", "base": 2.0, "per_level": 0.5},
+    {"id": "boss_damage", "name": "Dano Boss %", "base": 3.0, "per_level": 0.7},
+    {"id": "regen", "name": "Regen HP/s", "base": 0.5, "per_level": 0.12}
+  ],
+  "reinforce": {
+    "max": 20, "pity": 12,
+    "chances": [1.0, 1.0, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15],
+    "cost_base": 40, "cost_exp": 1.35, "cost_rarity_mult": 1.25,
+    "per_level_pct": 0.08, "fail_protect": true
+  },
+  "fusion": {
+    "fragments_cost": {"rara": 24, "epica": 60, "lendaria": 150, "mitica": 400, "divina": 1000},
+    "gold_cost": {"rara": 2000, "epica": 8000, "lendaria": 30000, "mitica": 120000, "divina": 500000}
+  },
+  "sets": [
+    {"id": "set_crepusculo", "name": "Selo do Crepúsculo", "pieces": ["arma", "amuleto"], "bonus_2": {"atk_pct": 15}, "desc": "2 peças: +15% ATK"},
+    {"id": "set_sentinela", "name": "Sentinela Rachada", "pieces": ["elmo", "peitoral", "calca"], "bonus_2": {"hp_pct": 12}, "bonus_3": {"def_pct": 20}, "desc": "2 peças: +12% HP | 3 peças: +20% DEF"},
+    {"id": "set_velun", "name": "Marca de Velun", "pieces": ["anel1", "anel2", "capa"], "bonus_2": {"crit_rate": 5}, "bonus_3": {"lifesteal": 4}, "desc": "2 peças: +5% Crítico | 3 peças: +4% Roubo de Vida"},
+    {"id": "set_peregrino", "name": "Passos do Peregrino", "pieces": ["botas", "luvas"], "bonus_2": {"atk_speed": 10}, "desc": "2 peças: +10% Vel. de Ataque"}
+  ],
+  "drop_rates_normal": {"comum": 55, "incomum": 26, "rara": 12, "epica": 5, "lendaria": 1.6, "mitica": 0.35, "divina": 0.05},
+  "drop_rates_boss": {"comum": 0, "incomum": 40, "rara": 32, "epica": 18, "lendaria": 7, "mitica": 2.4, "divina": 0.6},
+  "drop_chance_normal": 0.22, "drop_chance_boss": 1.0,
+  "drop_scale": {"luck_affinity": 0.0005, "cap_bonus_pct": 25}
+}

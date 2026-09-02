@@ -1,0 +1,53 @@
+{
+  "regions": [
+    {
+      "id": "bosque_vidro", "name": "Bosque de Vidro Negro", "stages": [1, 83],
+      "palette": {"sky_top": "#0b1410", "sky_bot": "#12261c", "far": "#13291f", "mid": "#0f2019", "near": "#081410", "ground": "#0a1a12", "accent": "#3a9e8f"},
+      "enemies": ["Lobo Sombrio", "Corvo Vitrificado", "Espinho Andante", "Silvano Corrompido", "Aranha de Cristal"],
+      "miniboss": "Cervo de Obsidiana", "boss": "Guardiã do Bosque Morto",
+      "desc": "Árvores de vidro negro que sussurram segredos do primeiro eclipse."
+    },
+    {
+      "id": "pantano", "name": "Pântano das Lamentações", "stages": [84, 166],
+      "palette": {"sky_top": "#101408", "sky_bot": "#1c2410", "far": "#1a2410", "mid": "#141c0b", "near": "#0c1207", "ground": "#0e1608", "accent": "#8fae3a"},
+      "enemies": ["Afogado", "Bruxa do Lodo", "Sanguessuga Titã", "Fogo-fátuo Amargo", "Crocodilo Abissal"],
+      "miniboss": "Mãe das Sanguessugas", "boss": "Lorde Afogado Valdreth",
+      "desc": "Onde as almas não resgatadas afundam em lama que lembra seus nomes."
+    },
+    {
+      "id": "cidadela", "name": "Cidadela Rachada", "stages": [167, 249],
+      "palette": {"sky_top": "#140f1c", "sky_bot": "#241a33", "far": "#221832", "mid": "#1a1226", "near": "#100b18", "ground": "#120d1c", "accent": "#9b59d0"},
+      "enemies": ["Golem de Pedra Rachada", "Sentinela Oca", "Arqueiro do Crepúsculo", "Cão de Guerra Espectral", "Alquimista Renegado"],
+      "miniboss": "Colosso do Portão", "boss": "Regente Morvain, o Último Rei",
+      "desc": "Ruínas da capital que resistiu ao segundo eclipse — e perdeu."
+    },
+    {
+      "id": "deserto_cinzas", "name": "Deserto de Cinzas", "stages": [250, 332],
+      "palette": {"sky_top": "#1c1410", "sky_bot": "#33261a", "far": "#2e2116", "mid": "#241a10", "near": "#16100a", "ground": "#1a130c", "accent": "#e8833a"},
+      "enemies": ["Verme de Cinzas", "Djinn Refletido", "Esqueleto Peregrino", "Escorpião de Obsidiana", "Nômade Sem Face"],
+      "miniboss": "Tempestade Encarnada", "boss": "Sultão de Cinzas Ahmar",
+      "desc": "Um oceano de cinzas de tudo que queimou no terceiro eclipse."
+    },
+    {
+      "id": "picos", "name": "Picos Uivantes", "stages": [333, 416],
+      "palette": {"sky_top": "#0c1018", "sky_bot": "#18202e", "far": "#161e2c", "mid": "#101722", "near": "#0a0e16", "ground": "#0c1118", "accent": "#3a7bd5"},
+      "enemies": ["Harpia Gélida", "Yeti de Geodo", "Lobo-Alvo Ancião", "Elemental de Neve Negra", "Andarilho Congelado"],
+      "miniboss": "Wyvern das Tormentas", "boss": "Jarl Frostmourn, Voz da Neve",
+      "desc": "Montanhas que uivam com os ventos das almas presas na neve."
+    },
+    {
+      "id": "coracao", "name": "Coração do Eclipse", "stages": [417, 500],
+      "palette": {"sky_top": "#160a14", "sky_bot": "#2e1228", "far": "#2a1024", "mid": "#1f0c1b", "near": "#130813", "ground": "#150913", "accent": "#d0455f"},
+      "enemies": ["Servo de Velun", "Custódio do Vazio", "Sombra Espelhada", "Devorador Menor", "Arauto do Fim"],
+      "miniboss": "Mão de Velun", "boss": "Herdeiro do Eclipse, Nakhul",
+      "desc": "O ponto onde o Sol tocou o Devorador. Aqui o tempo é relativo."
+    },
+    {
+      "id": "abismo", "name": "Abismo de Velun", "stages": [501, 999999],
+      "palette": {"sky_top": "#08070c", "sky_bot": "#120e1c", "far": "#100c18", "mid": "#0b0912", "near": "#060509", "ground": "#08070d", "accent": "#f5e6c8"},
+      "enemies": ["Aberração Profunda", "Eco de Herói Caído", "Devorador do Abismo", "Fenda Viva", "Vazio Pensante"],
+      "miniboss": "Boca de Velun", "boss": "Avatar do Devorador",
+      "desc": "Infinito. Sem fim. Sem misericórdia. Recompensas à altura."
+    }
+  ]
+}

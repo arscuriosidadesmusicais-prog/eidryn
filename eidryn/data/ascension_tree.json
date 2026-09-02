@@ -1,0 +1,24 @@
+{
+  "unlock_stage": 100,
+  "currency": "fragmentos_alma",
+  "gain": {"formula": "floor((stage_farmed / 10) ^ 1.35) + bosses_killed", "desc": "Fragmentos = f(fase de farm) + chefes derrotados no ciclo"},
+  "reset": {"keep": ["equipamentos", "pets", "habilidades", "conquistas", "gemas"], "reset": ["fase_atual", "nivel", "xp", "ouro", "atributos", "progresso_fases"], "min_stage_farm_after": 1},
+  "nodes": [
+    {"id": "n1", "name": "Marca do Herói", "branch": "ofensiva", "tier": 1, "cost": 1, "max": 5, "bonus": {"atk_pct": 4}, "requires": [], "desc": "+4% ATK por nível"},
+    {"id": "n2", "name": "Sangue Vigente", "branch": "ofensiva", "tier": 2, "cost": 2, "max": 5, "bonus": {"crit_rate": 1.5}, "requires": ["n1"], "desc": "+1.5% Crítico por nível"},
+    {"id": "n3", "name": "Lâmina Devoradora", "branch": "ofensiva", "tier": 3, "cost": 4, "max": 5, "bonus": {"crit_damage": 6}, "requires": ["n2"], "desc": "+6% Dano Crítico por nível"},
+    {"id": "n4", "name": "Fome de Velun", "branch": "ofensiva", "tier": 4, "cost": 8, "max": 3, "bonus": {"boss_damage": 10}, "requires": ["n3"], "desc": "+10% dano a chefes por nível"},
+    {"id": "n5", "name": "Eco Cataclísmico", "branch": "ofensiva", "tier": 5, "cost": 15, "max": 1, "bonus": {"supreme_cd_reduce": 10}, "requires": ["n4"], "desc": "-10% recarga da Suprema"},
+    {"id": "n6", "name": "Pele de Pedra", "branch": "defensiva", "tier": 1, "cost": 1, "max": 5, "bonus": {"def_pct": 5}, "requires": [], "desc": "+5% DEF por nível"},
+    {"id": "n7", "name": "Coração Rachado", "branch": "defensiva", "tier": 2, "cost": 2, "max": 5, "bonus": {"hp_pct": 6}, "requires": ["n6"], "desc": "+6% HP por nível"},
+    {"id": "n8", "name": "Escamas de Obsidiana", "branch": "defensiva", "tier": 3, "cost": 4, "max": 5, "bonus": {"regen": 1.5}, "requires": ["n7"], "desc": "+1.5 HP/seg por nível"},
+    {"id": "n9", "name": "Voto do Cavaleiro", "branch": "defensiva", "tier": 4, "cost": 8, "max": 3, "bonus": {"dodge": 2}, "requires": ["n8"], "desc": "+2% esquiva por nível"},
+    {"id": "n10", "name": "Sombra Guardiã", "branch": "defensiva", "tier": 5, "cost": 15, "max": 1, "bonus": {"revive": 1}, "requires": ["n9"], "desc": "Revive 1× por combate com 50% HP"},
+    {"id": "n11", "name": "Passos Leves", "branch": "utilidade", "tier": 1, "cost": 1, "max": 5, "bonus": {"atk_speed": 2}, "requires": [], "desc": "+2% Vel. Ataque por nível"},
+    {"id": "n12", "name": "Bolsos Fundos", "branch": "utilidade", "tier": 2, "cost": 2, "max": 5, "bonus": {"gold_find": 6}, "requires": ["n11"], "desc": "+6% Ouro por nível"},
+    {"id": "n13", "name": "Olho do Arquivista", "branch": "utilidade", "tier": 3, "cost": 4, "max": 5, "bonus": {"xp_gain": 5}, "requires": ["n12"], "desc": "+5% XP por nível"},
+    {"id": "n14", "name": "Véu Estelar", "branch": "utilidade", "tier": 4, "cost": 8, "max": 3, "bonus": {"drop_bonus_pct": 5}, "requires": ["n13"], "desc": "+5% chance de drop por nível"},
+    {"id": "n15", "name": "Chave Sussurrada", "branch": "utilidade", "tier": 5, "cost": 15, "max": 1, "bonus": {"offline_hours": 4}, "requires": ["n14"], "desc": "+4h de cap offline"},
+    {"id": "n16", "name": "Luz Retida", "branch": "utilidade", "tier": 6, "cost": 25, "max": 1, "bonus": {"all_pct": 5}, "requires": ["n5", "n10", "n15"], "desc": "+5% ATK, HP e DEF (nó central)"}
+  ]
+}

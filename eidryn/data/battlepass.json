@@ -1,0 +1,21 @@
+{
+  "season": {"id": 1, "name": "Época 1 — O Primeiro Eclipse", "days": 30, "xp_per_level": 100},
+  "xp_sources": {"kills": 0.5, "boss_kills": 5, "dungeons": 10, "missions": 15},
+  "tiers": 30,
+  "free_track": [
+    {"tier": 1, "reward": {"ouro": 500}}, {"tier": 3, "reward": {"essencia": 30}},
+    {"tier": 5, "reward": {"fragmentos_equip": 40}}, {"tier": 8, "reward": {"ouro": 2000}},
+    {"tier": 11, "reward": {"essencia": 50}}, {"tier": 14, "reward": {"chaves": 2}},
+    {"tier": 17, "reward": {"fragmentos_equip": 80}}, {"tier": 20, "reward": {"essencia": 80}},
+    {"tier": 23, "reward": {"ouro": 8000}}, {"tier": 26, "reward": {"gemas": 30}},
+    {"tier": 29, "reward": {"chaves": 3}}, {"tier": 30, "reward": {"essencia": 200}}
+  ],
+  "premium_track": [
+    {"tier": 1, "reward": {"gemas": 50}}, {"tier": 3, "reward": {"essencia": 100}},
+    {"tier": 5, "reward": {"item_epico": "arma"}}, {"tier": 8, "reward": {"gemas": 80}},
+    {"tier": 11, "reward": {"chaves": 3}}, {"tier": 14, "reward": {"item_epico": "elmo"}},
+    {"tier": 17, "reward": {"gemas": 120}}, {"tier": 20, "reward": {"pet_frag": 60}},
+    {"tier": 23, "reward": {"item_lendario": "amuleto"}}, {"tier": 26, "reward": {"gemas": 200}},
+    {"tier": 30, "reward": {"item_lendario": "arma", "gemas": 300}}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "currency": "essencia",
+  "pull_cost": 10, "pull10_cost": 90, "pull10_bonus": true,
+  "pity": [
+    {"at": 10, "min_rarity": "rara", "counter_visible": true, "desc": "10 invocações: Rara+ garantida"},
+    {"at": 50, "min_rarity": "epica", "counter_visible": true, "desc": "50 invocações: Épica+ garantida"},
+    {"at": 100, "min_rarity": "lendaria", "counter_visible": true, "desc": "100 invocações: Lendária+ garantida", "reset_counters": true}
+  ],
+  "rates": {"rara": 62, "epica": 26, "lendaria": 9.5, "mitica": 2.0, "divina": 0.5},
+  "types": {"pet": 45, "companheiro": 15, "item": 40},
+  "item_pull_rates": {"rara": 55, "epica": 28, "lendaria": 12, "mitica": 4, "divina": 1},
+  "pet_duplicate": {"convert_to_frag": true, "frag_qty": 8},
+  "banner": "Portal do Crepúsculo — pool permanente",
+  "featured_desc": "Sorteios garantem progresso visível nos contadores de pity."
+}

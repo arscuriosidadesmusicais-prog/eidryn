@@ -1,0 +1,20 @@
+{
+  "upgrade_cost_base": 150, "upgrade_cost_exp": 1.4, "max_total_levels": 100,
+  "active": [
+    {"id": "lamina_eclipse", "name": "Lâmina do Eclipse", "type": "active", "icon": "sk1", "unlock_level": 1, "cooldown": 8.0, "desc": "Golpe sombrio que causa {dmg}% do ATK como dano direto.", "base": {"mult": 180}, "per_level": {"mult": 12}, "max_level": 20, "evolve_at": 10, "evolve": {"extra_stun": 0.5, "desc_evo": "Evolution: atordoa o alvo por 0.5s."}},
+    {"id": "guarda_sombras", "name": "Guarda das Sombras", "type": "active", "icon": "sk2", "unlock_level": 6, "cooldown": 15.0, "desc": "Escudo que absorve dano igual a {dmg}% do HP máx. por 6s.", "base": {"mult": 12, "dur": 6}, "per_level": {"mult": 1.6}, "max_level": 20, "evolve_at": 10, "evolve": {"reflect": 20, "desc_evo": "Evolution: reflete 20% do dano absorvido."}},
+    {"id": "sedenta", "name": "Sedenta Sombrio", "type": "active", "icon": "sk3", "unlock_level": 14, "cooldown": 12.0, "desc": "Maldição: causa {dmg}% do ATK em 4s e cura metade do dano causado.", "base": {"mult": 120, "dur": 4}, "per_level": {"mult": 10}, "max_level": 20, "evolve_at": 10, "evolve": {"atk_shred": 10, "desc_evo": "Evolution: reduz ATK do alvo em 10% durante a maldição."}},
+    {"id": "rumo_vazio", "name": "Rumo do Vazio", "type": "active", "icon": "sk4", "unlock_level": 25, "cooldown": 18.0, "desc": "Explosão de vazio: {dmg}% do ATK em todos os inimigos (fases com grupo).", "base": {"mult": 150}, "per_level": {"mult": 11}, "max_level": 20, "evolve_at": 10, "evolve": {"def_shred": 15, "desc_evo": "Evolution: ignora 15% da DEF inimiga."}}
+  ],
+  "passive": [
+    {"id": "furia_eclipse", "name": "Fúria do Eclipse", "type": "passive", "icon": "pk1", "unlock_level": 3, "desc": "+{dmg}% ATK permanente.", "base": {"atk_pct": 5}, "per_level": {"atk_pct": 1.5}, "max_level": 20},
+    {"id": "pele_obsidiana", "name": "Pele de Obsidiana", "type": "passive", "icon": "pk2", "unlock_level": 8, "desc": "+{dmg}% HP e +{def}% DEF permanente.", "base": {"hp_pct": 6, "def_pct": 4}, "per_level": {"hp_pct": 1.6, "def_pct": 1.0}, "max_level": 20},
+    {"id": "sorte_crepusculo", "name": "Sorte do Crepúsculo", "type": "passive", "icon": "pk3", "unlock_level": 12, "desc": "+{crit}% crítico e +{gold}% ouro ganho.", "base": {"crit": 2, "gold": 5}, "per_level": {"crit": 0.5, "gold": 2}, "max_level": 20},
+    {"id": "eco_vazio", "name": "Eco do Vazio", "type": "passive", "icon": "pk4", "unlock_level": 20, "desc": "+{as}% velocidade de ataque e +{ls}% roubo de vida.", "base": {"as": 4, "ls": 1}, "per_level": {"as": 1.0, "ls": 0.25}, "max_level": 20}
+  ],
+  "supreme": [
+    {"id": "cataclismo", "name": "Cataclismo de Eidryn", "type": "supreme", "icon": "sk5", "unlock_level": 40, "cooldown": 60.0, "desc": "O eclipse devora: {dmg}% do ATK como dano massivo + +30% ATK por 10s.", "base": {"mult": 600, "buff_pct": 30, "buff_dur": 10}, "per_level": {"mult": 45, "buff_pct": 1}, "max_level": 20}
+  ],
+  "auto_cast_default": true,
+  "manual_button": true
+}

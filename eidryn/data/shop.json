@@ -1,0 +1,21 @@
+{
+  "iap_stubs": [
+    {"id": "iap_gema_s", "name": "Punhado de Gemas", "desc": "100 gemas", "product": "com.eidryn.gems.small", "grant": {"gemas": 100}, "price_label": "USD 0.99", "enabled": false},
+    {"id": "iap_gema_m", "name": "Bolsa de Gemas", "desc": "550 gemas + 10% bônus", "product": "com.eidryn.gems.medium", "grant": {"gemas": 605}, "price_label": "USD 4.99", "enabled": false},
+    {"id": "iap_gema_l", "name": "Cofre de Gemas", "desc": "1200 gemas + 20% bônus", "product": "com.eidryn.gems.large", "grant": {"gemas": 1440}, "price_label": "USD 9.99", "enabled": false},
+    {"id": "iap_premium", "name": "Crepúsculo Premium", "desc": "+4h offline cap, +10% ouro, selo premium (30 dias)", "product": "com.eidryn.premium.month", "grant": {"premium_days": 30}, "price_label": "USD 4.99", "enabled": false},
+    {"id": "iap_bp", "name": "Passe de Batalha — Época 1", "desc": "Desbloqueia trilha premium do passe", "product": "com.eidryn.bp.season1", "grant": {"battlepass_premium": 1}, "price_label": "USD 6.99", "enabled": false}
+  ],
+  "ad_stubs": [
+    {"id": "ad_offline_double", "name": "Dobrar recompensa offline", "reward_mult": 2.0, "enabled": false, "fallback": true},
+    {"id": "ad_daily_free_gems", "name": "Gemas grátis diárias", "reward": {"gemas": 5}, "enabled": false, "fallback": false},
+    {"id": "ad_boss_retry", "name": "Segunda chance no chefe", "enabled": false, "fallback": false}
+  ],
+  "gem_shop": [
+    {"id": "shop_ess", "name": "Essência ×100", "cost": {"gemas": 100}, "grant": {"essencia": 100}},
+    {"id": "shop_chave", "name": "Chave de Masmorra", "cost": {"gemas": 20}, "grant": {"chaves": 1}},
+    {"id": "shop_ouro", "name": "Bolsa de Ouro (10 min de farm)", "cost": {"gemas": 30}, "grant": {"ouro_from_farm_min": 10}},
+    {"id": "shop_frag", "name": "Fragmentos ×60", "cost": {"gemas": 60}, "grant": {"fragmentos_equip": 60}}
+  ],
+  "note": "Stubs prontos: trocar enabled=true e plugar PlayGames/AdMob/Firebase via PlatformProvider."
+}

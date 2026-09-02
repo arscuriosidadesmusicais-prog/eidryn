@@ -1,0 +1,36 @@
+{
+  "masmorra_ouro": {
+    "name": "Masmorra de Ouro", "duration_s": 60, "cooldown_h": 1, "key_cost": 0, "free_daily": 2,
+    "reward": {"currency": "ouro", "formula": "gold_per_s_of_farm * duration * mult", "mult": 25},
+    "desc": "60s coletando todo o ouro do trajeto."
+  },
+  "masmorra_xp": {
+    "name": "Masmorra de XP", "duration_s": 60, "cooldown_h": 1, "key_cost": 0, "free_daily": 2,
+    "reward": {"currency": "xp", "formula": "xp_per_s_of_farm * duration * mult", "mult": 20},
+    "desc": "60s meditando em memórias de batalha."
+  },
+  "masmorra_equip": {
+    "name": "Masmorra de Equipamentos", "duration_s": 45, "cooldown_h": 2, "key_cost": 1, "free_daily": 0,
+    "reward": {"type": "items", "count": 3, "min_rarity": "rara", "luck_mult": 2.0},
+    "desc": "Gasta 1 chave. 3 itens garantidos (mín. Rara) com sorte dobrada."
+  },
+  "torre_infinita": {
+    "name": "Torre Infinita", "duration_s": 0, "cooldown_h": 0, "key_cost": 0,
+    "desc": "Andares sem fim. Cada andar = inimigo escalado ×1.15. Recorde salvo.",
+    "floor_scale_exp": 1.15, "reward_floor": {"ouro_mult": 2.0, "xp_mult": 2.0}, "boss_every": 5
+  },
+  "world_boss": {
+    "name": "World Boss — Devorador Menor", "period": "semanal", "duration_s": 30,
+    "desc": "Assíncrono: cause o máximo de dano em 30s. Ranking vs bots por PC.",
+    "bots_pc_range": [0.7, 1.6], "reward": {"gloria_base": 50, "gemas_top": 100, "essencia_base": 20},
+    "hp_formula": "pc_esperado_fase * 400"
+  },
+  "arena": {
+    "name": "Arena dos Ecos", "period": "diaria", "attempts_free": 5, "extra_attempt_gems": 20,
+    "desc": "Assíncrona: espelho da sua build vs bots. Vitória = +glória e pontos.",
+    "bots_pc_range": [0.6, 1.5], "reward_win": {"gloria": 30, "pontos": 20}, "reward_lose": {"gloria": 8, "pontos": 5},
+    "shop": [{"id": "gl_anel", "name": "Selo do Campeão", "cost": 600, "type": "item", "rarity": "epica", "slot": "anel1"},
+             {"id": "gl_pet", "name": "Fragmento de Pet", "cost": 300, "type": "pet_frag", "qty": 40},
+             {"id": "gl_ess", "name": "Essência do Crepúsculo", "cost": 120, "type": "currency", "currency": "essencia", "qty": 100}]
+  }
+}

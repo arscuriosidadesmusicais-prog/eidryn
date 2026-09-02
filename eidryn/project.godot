@@ -1,0 +1,52 @@
+; Engine: Godot 4.4+ | Jogo: Eidryn - O Ciclo do Eclipse | SAVE_VERSION: 1
+config_version=5
+
+[application]
+config/name="Eidryn - O Ciclo do Eclipse"
+config/description="RPG Idle Dark Fantasy original. Heros marcados pelo Selo do Crepusculo enfrentam o eclipse eterno."
+config/version="1.0.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+boot_splash/bg_color=Color(0.05,0.04,0.08,1)
+config/icon="res://icon.svg"
+
+[autoload]
+EventBus="*res://scripts/core/event_bus.gd"
+DataManager="*res://scripts/core/data_manager.gd"
+TimeManager="*res://scripts/core/time_manager.gd"
+SaveManager="*res://scripts/core/save_manager.gd"
+EconomyManager="*res://scripts/core/economy_manager.gd"
+CharacterManager="*res://scripts/core/character_manager.gd"
+InventoryManager="*res://scripts/core/inventory_manager.gd"
+SkillManager="*res://scripts/core/skill_manager.gd"
+PetManager="*res://scripts/core/pet_manager.gd"
+ProgressionManager="*res://scripts/core/progression_manager.gd"
+CombatManager="*res://scripts/core/combat_manager.gd"
+ModesManager="*res://scripts/core/modes_manager.gd"
+AscensionManager="*res://scripts/core/ascension_manager.gd"
+GachaManager="*res://scripts/core/gacha_manager.gd"
+RetentionManager="*res://scripts/core/retention_manager.gd"
+OfflineManager="*res://scripts/core/offline_manager.gd"
+Platform="*res://scripts/core/platform_stub.gd"
+AudioManager="*res://scripts/core/audio_manager.gd"
+UIManager="*res://scripts/core/ui_manager.gd"
+GameManager="*res://scripts/core/game_manager.gd"
+
+[display]
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/size/window_width_override=432
+window/size/window_height_override=768
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/handheld/orientation=1
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.05,0.04,0.08,1)
+
+[audio]
+buses/default_bus_layout=""

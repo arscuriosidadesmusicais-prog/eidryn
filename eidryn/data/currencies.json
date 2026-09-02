@@ -1,0 +1,14 @@
+{
+  "currencies": [
+    {"id": "ouro", "name": "Ouro", "icon": "ouro", "desc": "Moeda base: upgrades de atributos, reforço e loja.", "premium": false},
+    {"id": "gemas", "name": "Gemas", "icon": "gemas", "desc": "Moeda premium (IAP stub). Compra essência, chaves e tempo premium.", "premium": true},
+    {"id": "fragmentos_alma", "name": "Fragmentos de Alma", "icon": "alma", "desc": "Ganhos na Ascensão. Compram nós da Árvore do Ciclo.", "premium": false},
+    {"id": "fragmentos_equip", "name": "Fragmentos de Equipamento", "icon": "frag", "desc": "Desmonte equipamentos. Fusionam itens raros.", "premium": false},
+    {"id": "chaves", "name": "Chaves de Masmorra", "icon": "chave", "desc": "Abrem a Masmorra de Equipamentos.", "premium": false},
+    {"id": "essencia", "name": "Essência do Crepúsculo", "icon": "essencia", "desc": "Invocações no Portal (gacha).", "premium": false},
+    {"id": "gloria", "name": "Marca de Glória", "icon": "gloria", "desc": "Ganha na Arena. Troca por itens exclusivos.", "premium": false}
+  ],
+  "starting": {"ouro": 150, "gemas": 50, "fragmentos_alma": 0, "fragmentos_equip": 0, "chaves": 1, "essencia": 10, "gloria": 0},
+  "caps": {"ouro": 1e15, "gemas": 1000000, "fragmentos_alma": 1e9, "fragmentos_equip": 1e9, "chaves": 999, "essencia": 999999, "gloria": 1e9},
+  "conversion": {"essencia_por_gema": 1, "gemas_por_essencia_pack": 160, "chave_custo_gema": 20, "essencia_custo_gema": 100}
+}

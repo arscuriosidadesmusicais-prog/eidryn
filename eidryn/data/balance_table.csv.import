@@ -1,0 +1,17 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://8hq4pnu516cp"
+
+[deps]
+
+files=["res://data/balance_table.regiao.translation", "res://data/balance_table.tipo.translation", "res://data/balance_table.hp.translation", "res://data/balance_table.atk.translation", "res://data/balance_table.def.translation", "res://data/balance_table.ouro.translation", "res://data/balance_table.xp.translation", "res://data/balance_table.pc.translation", "res://data/balance_table.custo.translation", "res://data/balance_table.drop.translation", "res://data/balance_table.drop.translation", "res://data/balance_table.drop.translation"]
+
+source_file="res://data/balance_table.csv"
+dest_files=["res://data/balance_table.regiao.translation", "res://data/balance_table.tipo.translation", "res://data/balance_table.hp.translation", "res://data/balance_table.atk.translation", "res://data/balance_table.def.translation", "res://data/balance_table.ouro.translation", "res://data/balance_table.xp.translation", "res://data/balance_table.pc.translation", "res://data/balance_table.custo.translation", "res://data/balance_table.drop.translation", "res://data/balance_table.drop.translation", "res://data/balance_table.drop.translation"]
+
+[params]
+
+compress=true
+delimiter=0
