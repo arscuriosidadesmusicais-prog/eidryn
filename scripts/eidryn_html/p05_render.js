@@ -1,9 +1,13 @@
 'use strict';
 /* =====================================================================
-   p05_render.js — RENDER ENGINE v2 "Edição do Eclipse" (só apresentação)
+   p05_render.js — RENDER ENGINE v3 "Edição do Eclipse" (só apresentação)
    - Parallax de 4 camadas por região (céu/longe/médio/perto, PNGs autorais)
    - Crossfade entre regiões + partículas atmosféricas por bioma
-   - Herói 2 posturas (idle/ataque), flash de impacto, aura orbital em chefes
+   - HERÓI ANIMADO: FSM com 7 posturas (idle/ataque/crítico/cast/dano/
+     vitória/derrota) × 23 frames — dirigida SÓ por eventos do BUS
+   - BIOMAS SAZONAIS: grade de cor por camada (cache), partículas sazonais
+     (pétalas/motas/folhas/neve), wash de humor, solo/acento deslocados;
+     estação detectada pela data real (hemisfério sul) com override em Ajustes
    - Partículas: faíscas, sangue, poeira, motas de ouro (pools fixos)
    - Dano flutuante em arco com pop-in (fonte Cinzel, cor por tipo)
    - Screenshake por trauma (com micro-rotação), barras ornamentadas
@@ -13,8 +17,9 @@ E.Rfx = {
   W: 540, H: 960, GROUND_Y: 760, BG_W: 540,
   cv: null, ctx: null, time: 0, fontReady: false,
   regionId: '', regionCache: {}, layers: [], oldLayers: null, oldAlpha: 0,
-  pal: null, regionTitleT: 0,
-  heroImg: null, heroAtkImg: null, heroWhite: null,
+  pal: null, palSeason: null, regionTitleT: 0,
+  heroImg: null, heroAtkImg: null, heroFrames: {}, heroWhiteCache: {},
+  heroAnim: { pose: 'idle', f: 0, t: 0 },
   enemyImg: null, enemyWhite: null, enemySpriteKey: '',
   hasEnemy: false, enemyBoss: false, enemyMini: false, enemyBerserk: false,
   heroHpShown: 1, enemyHpShown: 1, heroGhost: 1, enemyGhost: 1,
@@ -24,7 +29,34 @@ E.Rfx = {
   floats: [], floatIdx: 0, FLOAT_POOL: 28,
   parts: [], partIdx: 0, PART_POOL: 150,
   rings: [], ringIdx: 0, RING_POOL: 8,
-  atmo: [], shake: 0,
+  atmo: [], seasonAtmo: [], shake: 0,
+  /* ---------- BIOMAS SAZONAIS (apenas render; detecta pela data real) ---------- */
+  PREF_KEY: 'eidryn_fx_prefs_v1',
+  seasonPref: 'auto', season: 'primavera', _chipT: 0,
+  SEASONS: {
+    primavera: { chip: '\ud83c\udf38', tint: [150, 235, 170], amt: 0.16, sat: 1.16, bright: 1.07,
+      wash: 'rgba(150,235,170,0.06)', mode: 'fall', n: 22, sp: [16, 32], sz: [2.2, 3.2],
+      cols: ['#f2b8cf', '#f8dce8', '#e0c2e8', '#d8f0c0'], flutter: true, sway: 1.5, swayA: 24, alpha: 0.78 },
+    verao:     { chip: '\u2600\ufe0f', tint: [255, 190, 100], amt: 0.18, sat: 1.10, bright: 1.10,
+      wash: 'rgba(255,190,100,0.065)', mode: 'rise', n: 18, sp: [10, 24], sz: [1.8, 3],
+      cols: ['#ffd27a', '#ffb860', '#fff0c0'], flutter: false, sway: 1.1, swayA: 14, alpha: 0.62 },
+    outono:    { chip: '\ud83c\udf42', tint: [230, 122, 52], amt: 0.23, sat: 0.96, bright: 0.99,
+      wash: 'rgba(230,122,52,0.07)', mode: 'fall', n: 26, sp: [24, 46], sz: [2.4, 3.6],
+      cols: ['#d08030', '#b05a28', '#e0a040', '#8a4a20'], flutter: true, sway: 1.2, swayA: 30, alpha: 0.82 },
+    inverno:   { chip: '\u2744\ufe0f', tint: [168, 208, 255], amt: 0.25, sat: 0.78, bright: 1.05,
+      wash: 'rgba(168,208,255,0.075)', mode: 'fall', n: 30, sp: [20, 40], sz: [2, 3.4],
+      cols: ['#e8f2fc', '#d0e4f8', '#ffffff'], flutter: false, sway: 0.8, swayA: 14, alpha: 0.8 }
+  },
+  /* ---------- FSM DO HERÓI (prioridade: down > victory > crit > cast/hurt > atk > idle) ---------- */
+  POSES: {
+    idle:    { fps: 5.5, loop: true,  prio: 0 },
+    atk:     { fps: 14,  loop: false, prio: 1, next: 'idle' },
+    hurt:    { fps: 8,   loop: false, prio: 2, next: 'idle' },
+    cast:    { fps: 9,   loop: false, prio: 2, next: 'idle' },
+    crit:    { fps: 12,  loop: false, prio: 3, next: 'idle' },
+    victory: { fps: 5,   loop: false, prio: 4, next: 'idle', hold: true },
+    down:    { fps: 3.5, loop: false, prio: 5, next: 'down', hold: true }
+  },
 
   init: function(){
     this.cv = document.getElementById('cv');
@@ -45,7 +77,24 @@ E.Rfx = {
     }
     this.heroImg = this._img(E.IMG['hero/hero']);
     this.heroAtkImg = this._img(E.IMG['hero/hero_attack']) || this.heroImg;
-    this.heroWhite = null; // gerado lazy no primeiro frame que a img carrega
+    // ---- frames do herói (7 posturas × N frames; fallback p/ 2 posturas antigas) ----
+    var frameSets = { idle: 'hero_idle', atk: 'hero_atk', crit: 'hero_crit',
+      cast: 'hero_cast', hurt: 'hero_hurt', victory: 'hero_victory', down: 'hero_down' };
+    for (var fs in frameSets) {
+      var arr = [];
+      for (var fi = 0; fi < 8; fi++) {
+        var uri = E.IMG['hero/' + frameSets[fs] + '_' + fi];
+        if (!uri) break;
+        arr.push(this._img(uri));
+      }
+      if (arr.length) this.heroFrames[fs] = arr;
+    }
+    if (!this.heroFrames.idle) this.heroFrames.idle = [this.heroImg];
+    if (!this.heroFrames.atk) this.heroFrames.atk = [this.heroAtkImg];
+    // prefs visuais (chave PRÓPRIA — save do jogo permanece intacto)
+    this.loadPrefs();
+    this.season = this.seasonKey();
+    // flash de impacto: versões brancas geradas/cachedas por frame em _whiteFor()
     for (var i = 0; i < this.FLOAT_POOL; i++)
       this.floats.push({ on:false, x:0, y:0, vx:0, vy:0, text:'', color:'#fff', size:20, t:0, crit:false });
     for (var j = 0; j < this.PART_POOL; j++)
@@ -62,6 +111,7 @@ E.Rfx = {
       self.enemyBoss = !!e.boss; self.enemyMini = !!e.miniboss;
       self.enemyBerserk = false;
       self.enemyHpShown = 0; self.heroHpShown = 0;
+      self._heroPose('idle', true); // nova luta → herói volta à guarda
       var el = document.getElementById('enemy-name');
       var em = document.getElementById('enemy-mods');
       if (el) el.textContent = e.name || '';
@@ -86,13 +136,19 @@ E.Rfx = {
     E.BUS.on('screenshake', function(i){ self.addShake(i); });
     E.BUS.on('enemy_damaged', function(dmg, crit){
       self.heroLunge = 1; self.enemyFlash = crit ? 0.9 : 0.55;
+      self._heroPose(crit ? 'crit' : 'atk');
       self._sparks(385, 620, crit ? 14 : 7);
       self._blood(385, 640, crit ? 9 : 4);
       if (crit) { self._ring(385, 640, 6, 84, 'rgba(255,190,90,0.9)', 4, 0.5); self.addShake(0.22); }
     });
     E.BUS.on('hero_damaged', function(){
       self.enemyLunge = 1; self.heroFlash = 0.6;
+      self._heroPose('hurt');
       self._blood(155, 640, 6, '#d0455f');
+    });
+    E.BUS.on('skill_casted', function(){ self._heroPose('cast'); });
+    E.BUS.on('combat_ended', function(result){
+      self._heroPose(result === 'win' ? 'victory' : 'down');
     });
     E.BUS.on('enemy_killed', function(enemy){
       self.enemyFade = 0.0001;
@@ -103,11 +159,13 @@ E.Rfx = {
       else self.addShake(0.18);
     });
     E.BUS.on('level_up', function(){
+      self._heroPose('victory');
       self._ring(165, 640, 10, 150, 'rgba(120,240,180,0.9)', 5, 0.9);
       self._motes(165, 620, 12, '#8af0b0');
     });
     E.BUS.on('region_changed', function(rid){ self.setRegion(rid); });
     this.setRegion('bosque_vidro');
+    this._applySeason();
   },
   _img: function(dataUri){
     if (!dataUri) return null;
@@ -131,6 +189,174 @@ E.Rfx = {
     for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
     return h;
   },
+  /* ================= FSM DO HERÓI ================= */
+  _heroPose: function(p, force){
+    var def = this.POSES[p], frames = this.heroFrames[p];
+    if (!def || !frames || !frames.length) return;
+    var curP = this.heroAnim.pose, cur = this.POSES[curP];
+    if (!force && cur && def.prio < cur.prio) {
+      var curFr = this.heroFrames[curP] || [];
+      var curDone = cur.loop ? false : (this.heroAnim.t * cur.fps >= curFr.length);
+      if (!curDone) return; // não interrompe postura mais prioritária
+    }
+    if (!force && p === curP && this.heroAnim.t < 0.05) return;
+    this.heroAnim.pose = p; this.heroAnim.f = 0; this.heroAnim.t = 0;
+  },
+  _heroTick: function(delta){
+    var a = this.heroAnim, def = this.POSES[a.pose], fr = this.heroFrames[a.pose];
+    if (!def || !fr || !fr.length) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+    a.t += delta;
+    var idx = Math.floor(a.t * def.fps);
+    if (def.loop) { a.f = idx % fr.length; }
+    else if (idx >= fr.length) {
+      if (def.hold) { a.f = fr.length - 1; } // segura até evento (spawn/respawn)
+      else {
+        var nx = def.next && this.heroFrames[def.next] ? def.next : 'idle';
+        a.pose = nx; a.t = 0; a.f = 0;
+      }
+    } else a.f = idx;
+  },
+  _whiteFor: function(img, key){
+    var w = this.heroWhiteCache[key];
+    if (w) return w;
+    if (!img || !img.complete || !img.naturalWidth) return null;
+    w = this._makeWhite(img);
+    if (w) this.heroWhiteCache[key] = w;
+    return w;
+  },
+  /* ================= ESTAÇÕES (só render) ================= */
+  loadPrefs: function(){
+    try {
+      var raw = globalThis.localStorage.getItem(this.PREF_KEY);
+      if (raw) { var p = JSON.parse(raw); if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season; }
+    } catch (e) {}
+  },
+  savePrefs: function(){
+    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify({ season: this.seasonPref })); } catch (e) {}
+  },
+  seasonNow: function(){
+    // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
+    var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+    if (md >= 1221 || md < 321) return 'verao';
+    if (md >= 921) return 'primavera';
+    if (md >= 621) return 'inverno';
+    return 'outono';
+  },
+  seasonKey: function(){
+    if (this.seasonPref !== 'auto') return this.SEASONS[this.seasonPref] ? this.seasonPref : this.seasonNow();
+    return this.seasonNow();
+  },
+  setSeasonPref: function(v){
+    this.seasonPref = (v === 'auto' || this.SEASONS[v]) ? v : 'auto';
+    this.savePrefs();
+    this._applySeason();
+  },
+  _applySeason: function(){
+    var sk = this.seasonKey();
+    var changed = sk !== this.season;
+    this.season = sk;
+    if (changed) {
+      for (var rid in this.regionCache) {
+        var ls = this.regionCache[rid];
+        for (var i = 0; i < ls.length; i++) ls[i].tinted = {};
+      }
+      this.palSeason = this.pal ? this._seasonPal(this.pal, this.SEASONS[sk]) : null;
+      this._seedSeasonAtmo();
+    }
+    this._updateChip();
+  },
+  _seasonLocKey: function(s){
+    return s === 'primavera' ? 'season_spring' : s === 'verao' ? 'season_summer' :
+      s === 'outono' ? 'season_autumn' : 'season_winter';
+  },
+  _updateChip: function(){
+    var el = document.getElementById('season-chip');
+    if (!el) return;
+    var S = this.SEASONS[this.season];
+    var name = (E.DM && E.DM.tr) ? E.DM.tr(this._seasonLocKey(this.season)) : this.season;
+    var ico = el.querySelector('.ico'), nm = el.querySelector('.nm');
+    if (ico) ico.textContent = S ? S.chip : '';
+    if (nm) nm.textContent = name;
+  },
+  _seasonPal: function(pal, S){
+    if (!S) return pal;
+    return { sky_top: pal.sky_top, sky_bot: pal.sky_bot, far: pal.far, mid: pal.mid, near: pal.near,
+      ground: this._shiftHex(pal.ground, S, 1.05, 1.03), accent: this._shiftHex(pal.accent, S, 0.5, 1.08) };
+  },
+  _shiftHex: function(hex, S, k, br){
+    var r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+    var lum = (r * 0.3 + g * 0.59 + b * 0.11) / 255;
+    var t = S.tint, w = S.amt * k;
+    r = (r * br) * (1 - w * 0.7) + t[0] * w * 0.7 * (0.35 + lum * 0.65);
+    g = (g * br) * (1 - w * 0.7) + t[1] * w * 0.7 * (0.35 + lum * 0.65);
+    b = (b * br) * (1 - w * 0.7) + t[2] * w * 0.7 * (0.35 + lum * 0.65);
+    return 'rgb(' + (r > 255 ? 255 : r | 0) + ',' + (g > 255 ? 255 : g | 0) + ',' + (b > 255 ? 255 : b | 0) + ')';
+  },
+  _tintImg: function(img, S){
+    if (!img || !img.complete || !img.naturalWidth || !S) return null;
+    var c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    var cx = c.getContext('2d');
+    cx.drawImage(img, 0, 0);
+    try {
+      var id = cx.getImageData(0, 0, c.width, c.height), px = id.data;
+      var t = S.tint, sat = S.sat, br = S.bright, amt = S.amt;
+      for (var i = 0; i < px.length; i += 4) {
+        if (!px[i + 3]) continue;
+        var r = px[i], g = px[i + 1], b = px[i + 2];
+        var lum = r * 0.3 + g * 0.59 + b * 0.11;
+        r = lum + (r - lum) * sat; g = lum + (g - lum) * sat; b = lum + (b - lum) * sat;
+        r *= br; g *= br; b *= br;
+        var w = amt * (0.3 + lum / 255 * 0.7);
+        r = r * (1 - w) + t[0] * w * 1.06;
+        g = g * (1 - w) + t[1] * w * 1.06;
+        b = b * (1 - w) + t[2] * w * 1.06;
+        px[i] = r > 255 ? 255 : r | 0; px[i + 1] = g > 255 ? 255 : g | 0; px[i + 2] = b > 255 ? 255 : b | 0;
+      }
+      cx.putImageData(id, 0, 0);
+    } catch (e) { return c; }
+    return c;
+  },
+  _seedSeasonAtmo: function(){
+    this.seasonAtmo.length = 0;
+    var S = this.SEASONS[this.season];
+    if (!S) return;
+    for (var i = 0; i < S.n; i++) {
+      this.seasonAtmo.push({
+        x: Math.random() * this.W, y: Math.random() * this.GROUND_Y,
+        ph: Math.random() * 6.28, sp: S.sp[0] + Math.random() * (S.sp[1] - S.sp[0]),
+        sz: S.sz[0] + Math.random() * (S.sz[1] - S.sz[0]),
+        col: S.cols[(Math.random() * S.cols.length) | 0],
+        front: i >= S.n * 0.62
+      });
+    }
+  },
+  _drawSeasonAtmo: function(delta, front){
+    var S = this.SEASONS[this.season];
+    if (!S || !this.seasonAtmo.length) return;
+    var ctx = this.ctx, t = this.time;
+    for (var i = 0; i < this.seasonAtmo.length; i++) {
+      var p = this.seasonAtmo[i];
+      if (!!p.front !== front) continue;
+      if (S.mode === 'rise') { // verão: motas douradas sobem
+        p.y -= p.sp * delta * 0.7;
+        p.x += Math.sin(t * 1.1 + p.ph) * 12 * delta;
+        if (p.y < -6) { p.y = this.GROUND_Y + Math.random() * 40; p.x = Math.random() * this.W; }
+        ctx.globalAlpha = (0.22 + 0.34 * (0.5 + 0.5 * Math.sin(t * 2.4 + p.ph))) * (front ? 1.3 : 1);
+      } else {                 // queda: pétalas / folhas / neve
+        p.y += p.sp * delta;
+        p.x += Math.sin(t * S.sway + p.ph) * S.swayA * delta;
+        if (p.y > this.GROUND_Y + 8) { p.y = -8; p.x = Math.random() * this.W; }
+        ctx.globalAlpha = S.alpha * (front ? 1.25 : 1);
+      }
+      ctx.fillStyle = p.col;
+      if (S.flutter && (Math.floor(t * 3 + p.ph * 3) % 2 === 0))
+        ctx.fillRect(p.x, p.y, p.sz, p.sz * 0.55);
+      else
+        ctx.fillRect(p.x, p.y, p.sz * 0.55, p.sz);
+    }
+    ctx.globalAlpha = 1;
+  },
   /* ================= REGIÃO / PARALLAX ================= */
   setRegion: function(regionId){
     if (this.regionId === regionId) return;
@@ -140,9 +366,12 @@ E.Rfx = {
     for (var i = 0; i < rs.length; i++) if (rs[i].id === regionId) region = rs[i];
     if (!region) return;
     this.pal = region.palette;
+    this.palSeason = this._seasonPal(this.pal, this.SEASONS[this.season] || null);
     if (!this.regionCache[regionId]) this.regionCache[regionId] = this._buildRegion(regionId);
     this.layers = this.regionCache[regionId];
     this._seedAtmo(regionId);
+    this._seedSeasonAtmo();
+    this._updateChip();
     this.regionTitleT = 2.4;
   },
   _buildRegion: function(rid){
@@ -271,29 +500,31 @@ E.Rfx = {
     ctx.clearRect(-30, -30, W + 60, H + 60);
     // ---- 1) céu ----
     this._drawLayers(delta);
-    // ---- 2) névoa oscilante ----
-    if (this.pal) {
+    // ---- 2) névoa oscilante (paleta da estação) ----
+    var palDraw = this.palSeason || this.pal;
+    if (palDraw) {
       var fogY1 = this.GROUND_Y - 130 + Math.sin(this.time * 0.5) * 12;
       var fogY2 = this.GROUND_Y - 60 + Math.cos(this.time * 0.4) * 10;
       ctx.globalAlpha = 0.07;
-      ctx.fillStyle = this.pal.accent;
+      ctx.fillStyle = palDraw.accent;
       ctx.fillRect(0, fogY1, W, 70);
       ctx.globalAlpha = 0.05;
       ctx.fillRect(0, fogY2, W, 90);
       ctx.globalAlpha = 1;
     }
-    // ---- 3) partículas atmosféricas (atrás das entidades) ----
+    // ---- 3) partículas atmosféricas (bioma + estação, atrás das entidades) ----
     this._drawAtmo(delta);
+    this._drawSeasonAtmo(delta, false);
     // ---- 4) chão ----
-    if (this.pal) {
+    if (palDraw) {
       var g = ctx.createLinearGradient(0, this.GROUND_Y, 0, H);
-      g.addColorStop(0, this.pal.ground);
+      g.addColorStop(0, palDraw.ground);
       g.addColorStop(1, '#040208');
       ctx.fillStyle = g;
       ctx.fillRect(0, this.GROUND_Y, W, H - this.GROUND_Y);
       ctx.fillStyle = 'rgba(255,255,255,0.05)';
       ctx.fillRect(0, this.GROUND_Y, W, 2);
-      ctx.globalAlpha = 0.10; ctx.fillStyle = this.pal.accent;
+      ctx.globalAlpha = 0.10; ctx.fillStyle = palDraw.accent;
       ctx.fillRect(0, this.GROUND_Y, W, 4);
       ctx.globalAlpha = 1;
     }
@@ -306,9 +537,14 @@ E.Rfx = {
     ctx.fillStyle = spot;
     ctx.fillRect(0, 330, W, 470);
     // ---- 6) entidades ----
+    this._heroTick(delta);
     this._drawEntities(delta);
-    // ---- 7) partículas de combate ----
+    // ---- 7) partículas de combate + estação em primeiro plano ----
     this._drawParts(delta);
+    this._drawSeasonAtmo(delta, true);
+    // ---- 7.5) wash de humor da estação ----
+    var Sw = this.SEASONS[this.season];
+    if (Sw && Sw.wash) { ctx.fillStyle = Sw.wash; ctx.fillRect(-30, -30, W + 60, H + 60); }
     // ---- 8) barras de vida ----
     this._bar(ctx, 20, 470, 230, 30, this.heroHpShown, this.heroGhost, '#3a9e5f', '#7a3030', this.heroHpLabel, '#58e07a');
     this._bar(ctx, 290, 470, 230, 30, this.enemyHpShown, this.enemyGhost, '#d0455f', '#7a3030', this.enemyHpLabel, '#ff7a8a');
@@ -329,10 +565,13 @@ E.Rfx = {
       ctx.fillText((this._regionName() || '').toUpperCase(), W / 2, 128);
       ctx.globalAlpha = 1;
     }
+    // ---- chip da estação (refresh barato p/ troca de idioma) ----
+    this._chipT += delta;
+    if (this._chipT > 2) { this._chipT = 0; this._updateChip(); }
     ctx.restore();
   },
   _drawLayers: function(delta){
-    var W = this.W;
+    var W = this.W, S = this.SEASONS[this.season];
     for (var pass = 0; pass < 2; pass++) {
       var layers = pass === 0 ? this.layers : this.oldLayers;
       if (!layers) continue;
@@ -344,14 +583,21 @@ E.Rfx = {
       for (var i = 0; i < layers.length; i++) {
         var L = layers[i];
         if (!L.img || !L.img.complete || !L.img.naturalWidth) continue;
+        var img = L.img;
+        if (S) { // variante sazonal (cache por camada; re-tenta até a img carregar)
+          if (!L.tinted) L.tinted = {};
+          var tv = L.tinted[this.season];
+          if (!tv) { tv = this._tintImg(L.img, S); if (tv) L.tinted[this.season] = tv; }
+          img = tv || L.img;
+        }
         if (L.isSky) {
-          this.ctx.drawImage(L.img, 0, 0, L.img.naturalWidth, L.img.naturalHeight, 0, 0, W, this.H);
+          this.ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, W, this.H);
         } else {
           L.x -= L.speed * delta;
           if (L.x <= -L.w) L.x += L.w;
           var x = L.x;
           while (x < W) {
-            this.ctx.drawImage(L.img, x, L.y, L.w, L.img.naturalHeight * 2);
+            this.ctx.drawImage(img, x, L.y, L.w, img.naturalHeight * 2);
             x += L.w;
           }
         }
@@ -427,14 +673,16 @@ E.Rfx = {
       ctx.beginPath(); ctx.ellipse(enCX, 770, 100 * bossScale * spawnE, 15 * bossScale, 0, 0, 6.2832); ctx.fill();
     }
     ctx.globalAlpha = 1;
-    // herói (troca de postura no ataque)
-    var hImg = (hl > 0.22 && this.heroAtkImg) ? this.heroAtkImg : this.heroImg;
+    // ---- herói (FSM: frame da postura corrente + flash por frame) ----
+    var fr = this.heroFrames[this.heroAnim.pose] || [];
+    var hImg = fr[this.heroAnim.f] || this.heroImg;
+    var frKey = this.heroAnim.pose + this.heroAnim.f;
     if (hImg && hImg.complete && hImg.naturalWidth > 0) {
-      if (!this.heroWhite) this.heroWhite = this._makeWhite(this.heroImg);
+      var hWhite = this._whiteFor(hImg, frKey);
       ctx.drawImage(hImg, heroX, heroY, 240, 240);
-      if (this.heroFlash > 0.01 && this.heroWhite) {
+      if (this.heroFlash > 0.01 && hWhite) {
         ctx.globalAlpha = Math.min(0.85, this.heroFlash);
-        ctx.drawImage(this.heroWhite, heroX, heroY, 240, 240);
+        ctx.drawImage(hWhite, heroX, heroY, 240, 240);
         ctx.globalAlpha = 1;
         this.heroFlash = Math.max(0, this.heroFlash - delta * 3.4);
       }

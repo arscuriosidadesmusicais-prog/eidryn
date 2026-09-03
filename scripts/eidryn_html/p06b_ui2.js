@@ -406,6 +406,12 @@ E.UI2 = {
     var html='<div class="stat-line"><span>'+E.DM.tr('music')+'</span><input type="range" id="st-mus" min="0" max="100" value="'+Math.round(E.Audio.music_vol*100)+'"></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('sfx')+'</span><input type="range" id="st-sfx" min="0" max="100" value="'+Math.round(E.Audio.sfx_vol*100)+'"></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('language')+'</span><select id="st-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select></div>'+
+      '<div class="stat-line"><span>'+E.DM.tr('season')+'</span><select id="st-season">'+
+        '<option value="auto">'+E.DM.tr('season_auto')+'</option>'+
+        '<option value="primavera">🌸 '+E.DM.tr('season_spring')+'</option>'+
+        '<option value="verao">☀ '+E.DM.tr('season_summer')+'</option>'+
+        '<option value="outono">🍂 '+E.DM.tr('season_autumn')+'</option>'+
+        '<option value="inverno">❄ '+E.DM.tr('season_winter')+'</option></select></div>'+
       '<hr style="border-color:var(--line);margin:8px 0">'+
       '<div class="stat-line"><span>'+E.DM.tr('kills')+'</span><b>'+E.U.fmt(E.Ret.counters.kills||0)+'</b></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('gold_total')+'</span><b>'+E.U.fmt(E.Eco.gold_earned_total)+'</b></div>'+
@@ -422,6 +428,14 @@ E.UI2 = {
     E.UI.modal('⚙ '+E.DM.tr('settings'), html, [{label:E.DM.tr('close'), cls:'p'}]);
     var lang=document.getElementById('st-lang');
     lang.value=E.DM.language;
+    var seas=document.getElementById('st-season');
+    seas.value=E.Rfx.seasonPref;
+    seas.onchange=function(){
+      E.Rfx.setSeasonPref(this.value);
+      var k=E.Rfx._seasonLocKey(E.Rfx.season);
+      E.UI.toast(E.DM.tr('season')+': '+E.DM.tr(k), '#3a9e8f');
+      E.Audio.play_sfx('click');
+    };
     document.getElementById('st-mus').oninput=function(){ E.Audio.set_music_vol(this.value/100); };
     document.getElementById('st-sfx').onchange=function(){ E.Audio.set_sfx_vol(this.value/100); E.Audio.play_sfx('click'); };
     lang.onchange=function(){

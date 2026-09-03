@@ -77,3 +77,34 @@ Work Log:
 
 Stage Summary:
 - v1.1.0 "Edição do Eclipse" entregue: /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html (3,0MB, autossuficiente offline). Visual de produto comercial; fórmulas/balance/save 100% preservados (137/137 testes); único fix lógico [HTML-5] documentado no cabeçalho do HTML.
+
+---
+Task ID: 4
+Agent: main (Super Z) — Direção de Arte & UI/UX
+Task: v1.2.0 "Ciclo das Estações" — animar mais posturas do herói + biomas sazonais (escopo estritamente visual; lógica/fórmulas/save intactos)
+
+Work Log:
+- [ART-6] HERÓI ANIMADO: novo rig paramétrico (gen_hero_anim.py, espada/capa/braços/orbes/arcos/impacto em pxkit) → 7 posturas × 23 frames 96×96:
+  idle 4f (respiração + capa 4 variantes + glint), atk 4f (preparação→golpe→follow→recuperação, arco de corte),
+  crit 4f (agachamento→salto duas mãos→impacto c/ estrela+poeira→recuperação), cast 4f (braço ergue orbe eclipse
+  teal/roxo→liberação), hurt 2f (recuo), victory 3f (espada ao céu + motas), down 2f (ajoelhado c/ espada plantada).
+  Compat: hero.png/hero_attack.png regenerados (idle f0 / atk f1). 3 defeitos autocorrigidos (mão flutuante no salto,
+  punho desconectado no impacto, vão no joelho).
+- FSM no render (só eventos BUS existentes — ZERO mudança de lógica): prioridade down>victory>crit>cast/hurt>atk>idle;
+  hooks: enemy_damaged→atk/crit, skill_casted→cast, hero_damaged→hurt, combat_ended→victory/down, enemy_spawned→reset,
+  level_up→victory. Flash branco cacheado por frame (_whiteFor). Validadas as 7 posturas em navegador real.
+- [ART-7] BIOMAS SAZONAIS (só render): 4 estações por data real (hemisfério sul: verão 21/12, outono 21/3, inverno 21/6,
+  primavera 21/9) + override em Ajustes ⚙ (select, pref em localStorage PRÓPRIO eidryn_fx_prefs_v1 — save intacto).
+  Grade de cor por camada de parallax c/ cache (saturação+brilho+tinte por luminância), pétalas/motas douradas/
+  folhas/neve atrás E à frente das entidades, wash de humor, solo/névoa/acento deslocados (_seasonPal), chip HUD
+  (#season-chip, emoji+nome localizado). 1ª crítica: grade sutil → amplificada (amt .16–.25, +partículas, wash+50%).
+- i18n: +6 chaves aditivas loc_ptbr/loc_en (season, season_auto/spring/summer/autumn/winter). GAME_VERSION 1.2.0.
+- QA: build 3,08MB / 162 sprites (+23) / 24 áudios; test_node 137/137 ✓; navegador real (portrait 390×844 +
+  landscape 1280×720): 4 estações capturadas e comparadas, posturas em combate real (FSM reagiu a golpes/crits/
+  skills), FPS 61, console 0 erros/0 warnings, boss F10 com bossbar e aura intactos; reload → save F10 preservado +
+  pref de estação restaurada; landscape sem regressão vs v1.1.
+
+Stage Summary:
+- v1.2.0 entregue em /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html: herói vivo com 7 posturas
+  animadas dirigidas por eventos, mundo com 4 biomas sazonais perceptíveis (auto por calendário + seletor manual).
+  Regra de ouro mantida: nenhum arquivo de gameplay/save tocado; 137/137 testes; zero erros de console.
