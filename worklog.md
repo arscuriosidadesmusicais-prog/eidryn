@@ -159,3 +159,52 @@ Stage Summary:
   mundo vivo com 5 climas dinâmicos (auto por bioma+tempo, manual em Ajustes) e pets/
   companheiros animados por posturas que reagem a vitória/derrota/level. Regra de ouro
   mantida: nenhum arquivo de gameplay/save tocado; 137/137 testes; zero erros de console.
+
+---
+Task ID: 6
+Agent: main (Super Z) — Direção de Arte & UI/UX
+Task: v1.4.0 "Eco da Tempestade" — áudio ambiente por clima (chuva/trovão sintetizados) + poças refletivas na chuva + neblina densa dinâmica no Pântano (escopo estritamente visual/sonoro; lógica/fórmulas/save intactos)
+
+Work Log:
+- [ART-10] ÁUDIO AMBIENTE PROCEDURAL (E.Audio, aditivo): chuva em 2 camadas de ruído
+  filtrado (corpo grave lowpass 950Hz + chiado highpass 2600Hz), vento com LFO 0.09Hz
+  no corte do filtro (rajadas lentas), presets por clima (limpo .05/nublado .14/chuva
+  .34/tempestade .52/neve .10) com crossfade setTargetAtTime (τ 1.4–1.8s); TROVÃO
+  sintetizado sob demanda (ruído c/ filtro 400→60Hz + envelope exponencial + sub
+  grave 52→34Hz; próximo=peso imediato, distante=atraso 0.18–0.6s e vol menor, cap
+  3 simultâneos), gatilhado pelos relâmpagos do Rfx; pause/resume no visibilitychange
+  + resume defensivo do AudioContext; volume "Ambiente" (amb_vol default 0.5) com
+  slider em Ajustes, persistido nas prefs de FX (eidryn_fx_prefs_v1) — SAVE INTACTO.
+- [ART-11] POÇAS REFLETIVAS (Rfx): 9 poças DETERMINÍSTICAS por região (hash), emergem
+  gradualmente na chuva (0.11/s; tempestade 0.20/s) e secam ao parar (−0.045/s);
+  água tingida pela cor da chuva do bioma, brilho de céu (gradiente clipado), REFLEXO
+  real de companheiro/herói/pet/inimigo (clip elíptico + flip + squash 0.62 + tremulação
+  senoidal ±1.8px + sheen aditivo 'lighter' 0.12), ondulações elípticas onde gotas caem
+  dentro da poça (pool 14), cintilância, menisco iluminado, brilho do relâmpago na água
+  e sheen de solo encharcado; biomas de cinzas não empoçam.
+- [ART-12] NEBLINA DENSA DO PÂNTANO (Rfx): 12 bancos em deriva contínua (blob radial
+  pré-renderizado 2 tons ar/solo), 8 atrás + 4 na frente das entidades, velocidade
+  responde ao vento, "respiração" de opacidade, densidade reage ao clima (chuva +35%,
+  tempestade +60%, nublado +18%), bruma gradiente no solo.
+- Ciclos de autocrítica: 3 defeitos reais encontrados e corrigidos —
+  (1) IndexSizeError: (h>>20)%1000 negativo p/ h≥2³¹ → raio −25.04 matava o loop rAF
+      → shifts unsigned (>>>) + defesa rx≥8;
+  (2) reflexo ilegível (fundo 0.30+gradiente 0.62+alpha 0.20+squash 0.5) → água mais
+      clara c/ brilho de céu, alpha 0.34, squash 0.62, sheen 'lighter', gradiente suave;
+  (3) brilho de céu vazava fora da elipse (fillRect sem clip) → clip aplicado.
+- QA: build 3,14MB/242 sprites/24 áudios; test_node 137/137 ✓; navegador real: chuva
+  (puddleT 0→1, água c/ reflexos+menisco+shimmer), tempestade (trovão executa limpo,
+  flash/relâmpago), Pântano (12 bancos, dens 1.35 na chuva), FPS 60.5 com tudo ativo,
+  0 erros de console; portrait+landscape idênticos ao aprovado; reload → Fase 10/Nível 8
+  preservados + prefs (weather/amb_vol) persistidas; modal Ajustes c/ slider Ambiente ✓.
+  Áudio inaudível no headless (AudioContext suspenso por autoplay policy — clique
+  programático não dá user activation); grafo validado estruturalmente, mesma arquitetura
+  da música já validada com interação real.
+
+Stage Summary:
+- v1.4.0 entregue em /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html:
+  a tempestade agora tem VOZ (chuva/vento em loop sintetizado + trovão nos relâmpagos),
+  o solo tem MEMÓRIA da chuva (poças que refletem herói, pets e inimigos) e o Pântano
+  tem RESPIRAÇÃO própria (neblina densa que engole o bioma e engrossa com o clima).
+  Regra de ouro mantida: nenhum arquivo de gameplay/save tocado; 137/137 testes;
+  zero erros de console; 60.5 FPS.
