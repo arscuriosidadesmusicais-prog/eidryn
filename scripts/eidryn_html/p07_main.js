@@ -125,12 +125,17 @@ E.Game = {
   }
   // salva ao pausar/fechar (paridade NOTIFICATION_APPLICATION_PAUSED)
   document.addEventListener('visibilitychange', function(){
-    if(document.visibilityState==='hidden'){ E.Save.flush(); E.Audio.stop_music(); }
+    if(document.visibilityState==='hidden'){
+      E.Save.flush(); E.Audio.stop_music();
+      if(E.Audio.pause_ambient) E.Audio.pause_ambient(); // [ART-10] silencia o clima também
+    }
     else if(E.Game.state===E.Game.State.PLAYING){
       E.TimeM.mark_seen();
       E.TimeM.check_time_travel();
       E.Offline.compute_pending();
       if(E.Offline.has_pending()) E.Game._showOffline();
+      if(E.Audio.resume_ambient){ E.Audio.resume_ambient(); if(E.Rfx) E.Audio.set_ambient(E.Rfx.weather); } // [ART-10]
+      if(E.Audio._ctx && E.Audio._ctx.state==='suspended'){ try{ E.Audio._ctx.resume(); }catch(e){} } // política de autoplay
       E.BUS.toast_msg('Bem-vindo de volta, Marcado.', '#3a9e8f');
     }
   });

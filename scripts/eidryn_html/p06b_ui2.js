@@ -405,6 +405,7 @@ E.UI2 = {
     var self=this;
     var html='<div class="stat-line"><span>'+E.DM.tr('music')+'</span><input type="range" id="st-mus" min="0" max="100" value="'+Math.round(E.Audio.music_vol*100)+'"></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('sfx')+'</span><input type="range" id="st-sfx" min="0" max="100" value="'+Math.round(E.Audio.sfx_vol*100)+'"></div>'+
+      '<div class="stat-line"><span>'+E.DM.tr('amb')+'</span><input type="range" id="st-amb" min="0" max="100" value="'+Math.round((E.Audio.amb_vol||0)*100)+'"></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('language')+'</span><select id="st-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('season')+'</span><select id="st-season">'+
         '<option value="auto">'+E.DM.tr('season_auto')+'</option>'+
@@ -453,6 +454,7 @@ E.UI2 = {
     };
     document.getElementById('st-mus').oninput=function(){ E.Audio.set_music_vol(this.value/100); };
     document.getElementById('st-sfx').onchange=function(){ E.Audio.set_sfx_vol(this.value/100); E.Audio.play_sfx('click'); };
+    document.getElementById('st-amb').oninput=function(){ E.Audio.set_amb_vol(this.value/100); }; // [ART-10]
     lang.onchange=function(){
       E.DM.language=this.value;
       E.Save.mark_dirty();

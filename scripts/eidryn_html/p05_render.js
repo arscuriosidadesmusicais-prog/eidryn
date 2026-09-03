@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   p05_render.js — RENDER ENGINE v4 "Tempestade Viva" (só apresentação)
+   p05_render.js — RENDER ENGINE v5 "Eco da Tempestade" (só apresentação)
    - Parallax de 4 camadas por região (céu/longe/médio/perto, PNGs autorais)
    - Crossfade entre regiões + partículas atmosféricas por bioma
    - HERÓI ANIMADO: FSM com 7 posturas (idle/ataque/crítico/cast/dano/
@@ -14,6 +14,13 @@
      override manual em Ajustes (pref em chave própria — save intacto)
    - PETS CENICOS: pet + companheiro ativos acompanhando o herói com FSM de
      posturas (idle/cheer/sad) reagindo aos mesmos eventos do BUS
+   - [ART-10] ÁUDIO DO CLIMA (em E.Audio): chuva/vento sintetizados em loop
+     + trovão sob demanda — hooks em _applyWeather e nos relâmpagos
+   - [ART-11] POÇAS REFLETIVAS: na chuva, poças determinísticas por região
+     refletem as entidades (clip elíptico + flip + squash + tremulação),
+     ondulações de gota, cintilância, menisco e brilho de relâmpago na água
+   - [ART-12] NEBLINA DO PÂNTANO: bancos de névoa em deriva (blob pré-
+     renderizado), bruma de solo e densidade que reage ao clima
    - Partículas: faíscas, sangue, poeira, motas de ouro (pools fixos)
    - Dano flutuante em arco com pop-in (fonte Cinzel, cor por tipo)
    - Screenshake por trauma (com micro-rotação), barras ornamentadas
@@ -41,6 +48,9 @@ E.Rfx = {
   weatherT: 0, weatherNext: 40, wind: 0,
   rain: [], rainIdx: 0, RAIN_POOL: 150, rainOn: 0,
   splashes: [], splashIdx: 0, SPLASH_POOL: 22,
+  /* ---------- [ART-11] POÇAS + [ART-12] NEBLINA (só render) ---------- */
+  puddles: [], puddleT: 0, ripples: [], rippleIdx: 0, RIPPLE_POOL: 14,
+  fogBanks: [], fogDens: 1, _fogBlobA: null, _fogBlobB: null,
   boltT: 0, boltNext: 5, boltPts: null, flashA: 0,
   WEATHERS: {
     limpo:      { chip: '\ud83c\udf24\ufe0f', dim: 0,    wind: 0.12, wash: null },
@@ -158,6 +168,11 @@ E.Rfx = {
       this.rain.push({ on:false, x:0, y:0, sp:0, ph:0, front:false, gy:0, c:0 });
     for (var s2 = 0; s2 < this.SPLASH_POOL; s2++)
       this.splashes.push({ on:false, x:0, y:0, t:0, life:1 });
+    for (var r3 = 0; r3 < this.RIPPLE_POOL; r3++)
+      this.ripples.push({ on:false, x:0, y:0, t:0, life:1 });
+    // [ART-12] blobs de névoa pré-renderizados (2 tons — ar/solo)
+    this._fogBlobA = this._fogBlob('170,200,165');
+    this._fogBlobB = this._fogBlob('196,212,192');
     // ---------- EVENTOS ----------
     E.BUS.on('enemy_spawned', function(e){
       var key = e.sprite || 'enemy_bosque_vidro_0';
@@ -296,11 +311,14 @@ E.Rfx = {
         var p = JSON.parse(raw);
         if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season;
         if (p && p.weather && (p.weather === 'auto' || this.WEATHERS[p.weather])) this.weatherPref = p.weather;
+        if (p && p.amb_vol != null && E.Audio) E.Audio.amb_vol = E.U.clamp(Number(p.amb_vol) || 0, 0, 1); // [ART-10]
       }
     } catch (e) {}
   },
   savePrefs: function(){
-    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify({ season: this.seasonPref, weather: this.weatherPref })); } catch (e) {}
+    var p = { season: this.seasonPref, weather: this.weatherPref };
+    if (E.Audio && E.Audio.amb_vol != null) p.amb_vol = E.Audio.amb_vol; // [ART-10] volume do ambiente
+    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify(p)); } catch (e) {}
   },
   seasonNow: function(){
     // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
@@ -465,6 +483,8 @@ E.Rfx = {
       }
     }
     this._updateWeatherChip();
+    // [ART-10] o áudio ambiente acompanha o clima (crossfade suave no AudioContext)
+    if (E.Audio && E.Audio.set_ambient) E.Audio.set_ambient(wk);
   },
   _weatherTick: function(delta){
     this.weatherT += delta;
@@ -489,10 +509,12 @@ E.Rfx = {
           this.boltT = 0.26;
           this.flashA = 0.55;
           this.addShake(0.34);
+          if (E.Audio && E.Audio.thunder) E.Audio.thunder(true); // [ART-10] trovão próximo
         } else {
           this.boltPts = null;
           this.flashA = 0.20;
           this.addShake(0.08);
+          if (E.Audio && E.Audio.thunder) E.Audio.thunder(false); // [ART-10] trovão distante
         }
       }
     }
@@ -529,7 +551,10 @@ E.Rfx = {
         p.y += p.sp * delta;
         p.x += this.wind * 175 * delta;
         if (p.y > this.GROUND_Y - 4 + p.gy) {
-          if (p.front && Math.random() < 0.34) this._splash(p.x, this.GROUND_Y + 2 + p.gy);
+          if (p.front && Math.random() < 0.34) {
+            this._splash(p.x, this.GROUND_Y + 2 + p.gy);
+            this._puddleRippleAt(p.x, this.GROUND_Y + 2 + p.gy); // [ART-11] ondulação na poça
+          }
           wrapped = true;
         }
         if (p.x > this.W + 12) p.x = -10;
@@ -565,6 +590,217 @@ E.Rfx = {
     var sp = this.splashes[this.splashIdx];
     this.splashIdx = (this.splashIdx + 1) % this.SPLASH_POOL;
     sp.on = true; sp.x = x; sp.y = y; sp.t = 0; sp.life = 0.22 + Math.random() * 0.12;
+  },
+  /* ================= [ART-11] POÇAS REFLETIVAS (só render) ================= */
+  _seedPuddles: function(){
+    this.puddles.length = 0;
+    // determinísticas por região (hash): o mesmo bioma sempre tem as mesmas poças
+    for (var i = 0; i < 9; i++) {
+      var h = this._hashStr(this.regionId + ':pd:' + i);
+      var fx = (h % 1000) / 1000, fy = ((h >>> 10) % 1000) / 1000, fr = ((h >>> 20) % 1000) / 1000; // >>> sem sinal (h é uint32)
+      var rx = 30 + fr * 64;
+      if (rx < 8) rx = 8; // defesa extra: raio jamais negativo
+      this.puddles.push({
+        x: 26 + fx * (this.W - 52),
+        y: this.GROUND_Y + 16 + fy * (this.H - this.GROUND_Y - 62),
+        rx: rx, ry: rx * 0.34, ph: (h % 628) / 100, _gf: null, _sky: null
+      });
+    }
+  },
+  _puddleActive: function(){
+    var W = this.WEATHERS[this.weather];
+    return !!(W && W.rain) && this._rainStyle().mode !== 'ash'; // cinzas não empoçam
+  },
+  _puddleTick: function(delta){
+    var tgt = this._puddleActive() ? 1 : 0;
+    var rate = tgt ? (this.weather === 'tempestade' ? 0.20 : 0.11) : -0.045;
+    this.puddleT = E.U.clamp(this.puddleT + rate * delta, 0, 1);
+    for (var i = 0; i < this.ripples.length; i++) {
+      var r = this.ripples[i];
+      if (!r.on) continue;
+      r.t += delta;
+      if (r.t >= r.life) r.on = false;
+    }
+  },
+  _puddleRippleAt: function(x, y){
+    for (var i = 0; i < this.puddles.length; i++) {
+      var p = this.puddles[i], dx = (x - p.x) / p.rx, dy = (y - p.y) / p.ry;
+      if (dx * dx + dy * dy <= 1) { this._ripple(x, y); return; }
+    }
+  },
+  _ripple: function(x, y){
+    var r = this.ripples[this.rippleIdx];
+    this.rippleIdx = (this.rippleIdx + 1) % this.RIPPLE_POOL;
+    r.on = true; r.x = x; r.y = y; r.t = 0; r.life = 0.45 + Math.random() * 0.3;
+  },
+  _drawPuddles: function(){
+    if (this.puddleT < 0.015) return;
+    var ctx = this.ctx, t = this.time, P = this.puddleT;
+    var col = this._rainStyle().cols[0]; // água toma a cor da chuva da região
+    var heroX = 45 - this.heroLunge * 14;
+    var enCX = this.enemyBoss ? 372 : 390;
+    var evis = (1 - this.enemyFade) * (this.enemySpawn < 1 ? 0.4 + 0.6 * this.enemySpawn : 1);
+    for (var i = 0; i < this.puddles.length; i++) {
+      var p = this.puddles[i];
+      var a = P * (0.86 + 0.14 * Math.sin(t * 0.7 + p.ph));
+      // água (tinta do clima + fundo escuro + brilho de céu no espelho d'água)
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(' + col + ',' + (0.16 * a).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = 'rgba(6,9,18,' + (0.20 * a).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx * 0.92, p.ry * 0.9, 0, 0, 6.2832); ctx.fill();
+      if (!p._sky) {
+        p._sky = ctx.createLinearGradient(0, p.y - p.ry, 0, p.y + p.ry * 0.3);
+        p._sky.addColorStop(0, 'rgba(190,215,245,0.5)');
+        p._sky.addColorStop(1, 'rgba(190,215,245,0)');
+      }
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+      ctx.globalAlpha = 0.4 * a;
+      ctx.fillStyle = p._sky;
+      ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 1.35);
+      ctx.restore();
+      // reflexos: clip na elipse + flip vertical + squash 0.62 + tremulação da água
+      var wy = p.y + p.ry * 0.12, wob = Math.sin(t * 2.1 + p.ph) * 1.8;
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+      ctx.globalAlpha = 0.34 * a;
+      ctx.translate(0, wy); ctx.scale(1, -0.62);
+      var cf = this._petFrame(this.compKey, this.petAnim.pose);
+      if (cf && cf.complete && cf.naturalWidth) ctx.drawImage(cf, 6 + wob, -176, 176, 176);
+      var fr = this.heroFrames[this.heroAnim.pose] || [];
+      var hImg = fr[this.heroAnim.f] || this.heroImg;
+      if (hImg && hImg.complete && hImg.naturalWidth) ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+      var pf = this._petFrame(this.petKey, this.petAnim.pose);
+      if (pf && pf.complete && pf.naturalWidth) ctx.drawImage(pf, 196 + wob, -76, 76, 76);
+      if (evis > 0.02 && this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth) {
+        var sz = 240 * (this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1));
+        ctx.globalAlpha = 0.34 * a * evis;
+        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+        // sheen aditivo: o reflexo das grandes figuras brilha na água
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.12 * a * evis;
+        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+      }
+      if (hImg && hImg.complete && hImg.naturalWidth) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.12 * a;
+        ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+      }
+      ctx.restore();
+      // profundidade do reflexo + brilho de relâmpago + cintilância
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+      if (!p._gf) {
+        p._gf = ctx.createLinearGradient(0, wy + p.ry * 0.55, 0, wy + p.ry * 2.4);
+        p._gf.addColorStop(0, 'rgba(0,0,0,0)');
+        p._gf.addColorStop(1, 'rgba(4,6,12,0.42)');
+      }
+      ctx.globalAlpha = a;
+      ctx.fillStyle = p._gf;
+      ctx.fillRect(p.x - p.rx, wy, p.rx * 2, p.ry * 2.4);
+      if (this.flashA > 0.01) { // trovão espelhado na água
+        ctx.globalAlpha = Math.min(0.55, this.flashA * 0.85) * a;
+        ctx.fillStyle = 'rgba(215,228,255,1)';
+        ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 2);
+      }
+      ctx.globalAlpha = 0.09 * a;
+      ctx.fillStyle = 'rgba(220,235,255,1)';
+      for (var sh = 0; sh < 3; sh++) {
+        var sy2 = p.y - p.ry * 0.6 + ((t * 14 + p.ph * 9 + sh * 7) % (p.ry * 1.9));
+        ctx.fillRect(p.x - p.rx * 0.55 + sh * p.rx * 0.3, sy2, p.rx * 0.5, 1);
+      }
+      ctx.restore();
+      // menisco (borda superior iluminada)
+      ctx.globalAlpha = 0.35 * a;
+      ctx.strokeStyle = 'rgba(200,220,250,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+    }
+    // ondulações de impacto das gotas (sobre todas as poças)
+    ctx.strokeStyle = 'rgba(200,220,250,0.55)';
+    ctx.lineWidth = 1;
+    for (var r2 = 0; r2 < this.ripples.length; r2++) {
+      var rp = this.ripples[r2];
+      if (!rp.on) continue;
+      var pr = rp.t / rp.life;
+      ctx.globalAlpha = (1 - pr) * 0.5 * P;
+      ctx.beginPath();
+      ctx.ellipse(rp.x, rp.y, 2 + pr * 11, (2 + pr * 11) * 0.34, 0, 0, 6.2832);
+      ctx.stroke();
+    }
+    // solo encharcado (sheen sutil na faixa do chão)
+    ctx.fillStyle = 'rgba(165,195,235,' + (0.045 * P).toFixed(3) + ')';
+    ctx.fillRect(0, this.GROUND_Y, this.W, this.H - this.GROUND_Y);
+    ctx.globalAlpha = 1;
+  },
+  /* ================= [ART-12] NEBLINA DENSA — PÂNTANO (só render) ================= */
+  _fogBlob: function(rgb){
+    var c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    var cx = c.getContext('2d');
+    cx.translate(128, 64); cx.scale(1, 0.5);
+    var g = cx.createRadialGradient(0, 0, 8, 0, 0, 122);
+    g.addColorStop(0, 'rgba(' + rgb + ',0.85)');
+    g.addColorStop(0.55, 'rgba(' + rgb + ',0.38)');
+    g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    cx.fillStyle = g;
+    cx.fillRect(-128, -128, 256, 256);
+    return c;
+  },
+  _seedFog: function(rid){
+    this.fogBanks.length = 0;
+    this.fogDens = 1;
+    if (rid !== 'pantano') return; // só o Pântano tem a neblina própria densa
+    for (var i = 0; i < 12; i++) {
+      var front = i >= 8;
+      var w = 230 + Math.random() * 240;
+      this.fogBanks.push({
+        x: Math.random() * (this.W + 300) - 150,
+        y: this.GROUND_Y - 175 + Math.random() * 215,
+        w: w, h: w * (0.26 + Math.random() * 0.10),
+        sp: (5 + Math.random() * 12) * (front ? 1.5 : 1),
+        ph: Math.random() * 6.28,
+        a: (front ? 0.13 : 0.10) + Math.random() * 0.09,
+        front: front
+      });
+    }
+  },
+  _fogTick: function(delta){
+    if (!this.fogBanks.length) return;
+    // o clima engrossa a névoa (chuva +35%, tempestade +60%, nublado +18%)
+    var tgt = 1;
+    if (this.weather === 'chuva') tgt = 1.35;
+    else if (this.weather === 'tempestade') tgt = 1.6;
+    else if (this.weather === 'nublado') tgt = 1.18;
+    this.fogDens += (tgt - this.fogDens) * Math.min(1, delta * 0.6);
+    for (var i = 0; i < this.fogBanks.length; i++) {
+      var f = this.fogBanks[i];
+      f.x += f.sp * (0.5 + this.wind) * delta * 5; // deriva com o vento
+      if (f.x - f.w / 2 > this.W + 40) f.x = -f.w / 2 - 30 - Math.random() * 60;
+    }
+  },
+  _drawFog: function(front){
+    if (!this.fogBanks.length) return;
+    var ctx = this.ctx, t = this.time;
+    var dens = this.fogDens * (0.85 + 0.15 * Math.sin(t * 0.23)); // respira
+    for (var i = 0; i < this.fogBanks.length; i++) {
+      var f = this.fogBanks[i];
+      if (f.front !== front) continue;
+      var blob = f.y < this.GROUND_Y - 45 ? this._fogBlobA : this._fogBlobB;
+      ctx.globalAlpha = Math.min(0.5, f.a * dens * (0.8 + 0.2 * Math.sin(t * 0.5 + f.ph)) * (front ? 0.85 : 1));
+      ctx.drawImage(blob, f.x - f.w / 2, f.y - f.h / 2, f.w, f.h);
+    }
+    ctx.globalAlpha = 1;
+  },
+  _drawGroundMist: function(){
+    if (!this.fogBanks.length) return;
+    var ctx = this.ctx;
+    var g = ctx.createLinearGradient(0, this.GROUND_Y - 110, 0, this.GROUND_Y + 80);
+    g.addColorStop(0, 'rgba(150,180,150,0)');
+    g.addColorStop(0.55, 'rgba(150,180,150,' + (0.15 * this.fogDens).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(120,150,125,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, this.GROUND_Y - 110, this.W, 190);
   },
   _boltPath: function(){
     // relâmpago ramificado do céu até o horizonte
@@ -781,6 +1017,8 @@ E.Rfx = {
     this.layers = this.regionCache[regionId];
     this._seedAtmo(regionId);
     this._seedSeasonAtmo();
+    this._seedFog(regionId);   // [ART-12] neblina do Pântano
+    this._seedPuddles();       // [ART-11] poças determinísticas da região
     this._applyWeather(false); // clima muda suave ao entrar no bioma
     this._updateChip();
     this.regionTitleT = 2.4;
@@ -897,6 +1135,8 @@ E.Rfx = {
     var ctx = this.ctx, W = this.W, H = this.H;
     this.time += delta;
     this._weatherTick(delta);          // clima: vento/relâmpagos/precipitação
+    this._puddleTick(delta);           // [ART-11] poças encharcando/secando
+    this._fogTick(delta);              // [ART-12] deriva e densidade da névoa
     this._petTick(delta);              // FSM cênica dos pets
     this._petCardsTick(delta);         // cards animados no painel de Pets
     ctx.save();
@@ -944,6 +1184,9 @@ E.Rfx = {
       ctx.fillRect(0, this.GROUND_Y, W, 4);
       ctx.globalAlpha = 1;
     }
+    // ---- 4.5) [ART-12] névoa densa (camada de trás + bruma do solo) ----
+    this._drawFog(false);
+    this._drawGroundMist();
     // ---- 5) anéis de efeito (atrás das entidades) ----
     this._drawRings(delta);
     // ---- 5.5) spotlight (separação entidade/fundo) ----
@@ -955,11 +1198,15 @@ E.Rfx = {
     // ---- 6) entidades ----
     this._heroTick(delta);
     this._drawEntities(delta);
+    // ---- 6.4) [ART-11] poças refletivas (reflexo das entidades na chuva) ----
+    this._drawPuddles();
     // ---- 7) partículas de combate + estação em primeiro plano ----
     this._drawParts(delta);
     this._drawSeasonAtmo(delta, true);
     // ---- 7.2) clima à frente: precipitação grossa + splash + relâmpago ----
     this._drawWeatherFront(delta);
+    // ---- 7.3) [ART-12] névoa de frente (vela a chuva junto à câmera) ----
+    this._drawFog(true);
     // ---- 7.5) wash de humor (estação + clima) ----
     var Sw = this.SEASONS[this.season];
     if (Sw && Sw.wash) { ctx.fillStyle = Sw.wash; ctx.fillRect(-30, -30, W + 60, H + 60); }

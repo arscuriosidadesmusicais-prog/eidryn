@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0710">
 <title>Eidryn — O Ciclo do Eclipse</title>
 <!--
-  Eidryn — O Ciclo do Eclipse — v1.3.0 "Tempestade Viva" (HTML/Web)
+  Eidryn — O Ciclo do Eclipse — v1.4.0 "Eco da Tempestade" (HTML/Web)
   v1.0.0: porta fiel da build Godot 4.4 (mesmos JSONs, fórmulas, save SHA-256+backup).
   v1.1.0: REVOLUÇÃO VISUAL (escopo estritamente estético — zero alteração de lógica):
    [ART-1] 97 sprites refeitos em pixel art autoral (contorno+luz direcional+rim light);
@@ -46,6 +46,30 @@
            animam o idle automaticamente.
    Fixes de paridade herdados (v1.0.0): [HTML-1..4] — pity Rara+, World Boss 30s,
            XP do Passe, primeiro boot sem offline fantasma.
+  v1.4.0 "Eco da Tempestade" (escopo estritamente estético/sonoro — zero alteração
+           de lógica; save do jogo intacto):
+   [ART-10] ÁUDIO AMBIENTE POR CLIMA (síntese procedural no AudioContext — sem
+           amostras): chuva em duas camadas de ruído filtrado (corpo grave + chiado
+           agudo), vento com LFO no corte do filtro (rajadas lentas), presets por
+           clima (limpo/nublado/chuva/tempestade/neve) com crossfade suave, TROVÃO
+           sintetizado sob demanda (ruído com filtro que fecha 400→60Hz + sub grave
+           52→34Hz; próximo = peso, distante = atraso e volume menor), disparado
+           pelos relâmpagos do render. Volume próprio "Ambiente" em Ajustes,
+           persistido nas prefs de FX (eidryn_fx_prefs_v1) — SAVE INTACTO; pausa
+           junto com a aba (visibilitychange).
+   [ART-11] POÇAS REFLETIVAS: na chuva/tempestade (exceto biomas de cinzas),
+           poças determinísticas por região emergem gradualmente (enchendo na
+           chuva, secando ao parar); água tingida pela cor da chuva do bioma,
+           REFLEXO real das entidades (companheiro, herói, pet e inimigo) via clip
+           elíptico + espelhamento vertical + squash + tremulação senoidal,
+           ondulações elípticas onde as gotas caem dentro da poça, cintilância da
+           superfície, menisco iluminado, brilho do relâmpago espelhado na água e
+           sheen de solo encharcado.
+   [ART-12] NEBLINA DENSA DO PÂNTANO: 12 bancos de névoa em deriva contínua
+           (blob radial pré-renderizado em 2 tons — ar esverdeado/solo pálido),
+           velocidade responde ao vento, "respiração" global de opacidade, densidade
+           que reage ao clima (chuva +35%, tempestade +60%, nublado +18%), bruma
+           gradiente sobre o solo e camada frontal que vela a chuva junto à câmera.
   QA: 137 asserções headless (test_node.js) + smoke test em navegador real.
 -->
 <style>

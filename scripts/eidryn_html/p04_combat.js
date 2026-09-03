@@ -445,6 +445,8 @@ E.Audio = {
       for(var i=0;i<this.SFX_POOL_SIZE;i++) this._sfx_pool.push(this._makeChannel());
       this._ready=true;
       this.apply_volumes();
+      // [ART-10] ambiente do clima começa junto (o render já escolheu um clima no boot)
+      this.set_ambient(this._ambWant||'limpo');
     }catch(e){ console.error('Audio init', e); }
   },
   _makeChannel: function(){
@@ -518,6 +520,105 @@ E.Audio = {
       src.start();
       slot.source=src;
     });
+  },
+  /* ---------- [ART-10] AMBIENTE POR CLIMA (síntese procedural — chuva/vento/trovão) ----------
+     Camada 100% de apresentação: ruído filtrado em loop para chuva/vento + trovão
+     sintetizado sob demanda (gatilhado pelo relâmpago do render). Volume próprio
+     (amb_vol) guardado nas prefs de FX do render (eidryn_fx_prefs_v1) — SAVE DO JOGO
+     INTACTO. Sem amostras externas: tudo gerado pelo AudioContext. */
+  amb_vol: 0.5, _amb: null, _ambWant: 'limpo', _thunderN: 0, _nbCache: null,
+  AMB_PRESET: {
+    limpo:      { rain: 0.00, wind: 0.050 },
+    nublado:    { rain: 0.00, wind: 0.140 },
+    chuva:      { rain: 0.34, wind: 0.160 },
+    tempestade: { rain: 0.52, wind: 0.270 },
+    neve:       { rain: 0.00, wind: 0.100 }
+  },
+  _noiseBuf: function(secs){
+    var key='n'+secs;
+    if(this._nbCache && this._nbCache[key]) return this._nbCache[key];
+    if(!this._nbCache) this._nbCache={};
+    var len=Math.floor(this._ctx.sampleRate*secs);
+    var buf=this._ctx.createBuffer(1,len,this._ctx.sampleRate);
+    var d=buf.getChannelData(0), last=0;
+    for(var i=0;i<len;i++){ var w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=w*0.55+last*2.1; }
+    this._nbCache[key]=buf; return buf;
+  },
+  _ensureAmb: function(){
+    if(this._amb) return this._amb;
+    var c=this._ctx;
+    var master=c.createGain(); master.gain.value=this.amb_vol; master.connect(this._master());
+    // chuva: corpo (ruído grave filtrado) + chiado (ruído agudo fino)
+    var rainBody=c.createBufferSource(); rainBody.buffer=this._noiseBuf(2.7); rainBody.loop=true;
+    var rHP=c.createBiquadFilter(); rHP.type='highpass'; rHP.frequency.value=380;
+    var rLP=c.createBiquadFilter(); rLP.type='lowpass'; rLP.frequency.value=950; rLP.Q.value=0.4;
+    var rainHi=c.createBufferSource(); rainHi.buffer=this._noiseBuf(2.7); rainHi.loop=true;
+    rainHi.playbackRate.value=1.13;
+    var hHP=c.createBiquadFilter(); hHP.type='highpass'; hHP.frequency.value=2600; hHP.Q.value=0.5;
+    var gRainB=c.createGain(); gRainB.gain.value=0;
+    var gRainH=c.createGain(); gRainH.gain.value=0;
+    rainBody.connect(rHP); rHP.connect(rLP); rLP.connect(gRainB); gRainB.connect(master);
+    rainHi.connect(hHP); hHP.connect(gRainH); gRainH.connect(master);
+    // vento: ruído grave com LFO no corte do filtro (assobio lento,rajadas)
+    var wind=c.createBufferSource(); wind.buffer=this._noiseBuf(3.1); wind.loop=true;
+    var wLP=c.createBiquadFilter(); wLP.type='lowpass'; wLP.frequency.value=300; wLP.Q.value=1.1;
+    var lfo=c.createOscillator(); lfo.frequency.value=0.09;
+    var lfoG=c.createGain(); lfoG.gain.value=150;
+    lfo.connect(lfoG); lfoG.connect(wLP.frequency);
+    var gWind=c.createGain(); gWind.gain.value=0;
+    wind.connect(wLP); wLP.connect(gWind); gWind.connect(master);
+    rainBody.start(); rainHi.start(); wind.start(); lfo.start();
+    this._amb={master:master,gRainB:gRainB,gRainH:gRainH,gWind:gWind};
+    return this._amb;
+  },
+  set_ambient: function(wk){
+    this._ambWant=this.AMB_PRESET[wk]?wk:'limpo';
+    if(!this._ready) return;
+    var A=this._ensureAmb(), P=this.AMB_PRESET[this._ambWant], t=this._ctx.currentTime;
+    A.gRainB.gain.setTargetAtTime(P.rain, t, 1.4);
+    A.gRainH.gain.setTargetAtTime(P.rain*0.55, t, 1.4);
+    A.gWind.gain.setTargetAtTime(P.wind, t, 1.8);
+  },
+  set_amb_vol: function(v){
+    this.amb_vol=E.U.clamp(v,0,1);
+    if(this._ready&&this._amb) this._amb.master.gain.setTargetAtTime(this.amb_vol, this._ctx.currentTime, 0.15);
+    if(E.Rfx&&E.Rfx.savePrefs) E.Rfx.savePrefs();
+  },
+  pause_ambient: function(){
+    if(this._ready&&this._amb) this._amb.master.gain.setTargetAtTime(0, this._ctx.currentTime, 0.3);
+  },
+  resume_ambient: function(){
+    if(this._ready&&this._amb) this._amb.master.gain.setTargetAtTime(this.amb_vol, this._ctx.currentTime, 0.6);
+  },
+  thunder: function(near){
+    if(!this._ready||this._thunderN>=3) return;
+    var c=this._ctx, self=this;
+    var t0=c.currentTime+(near?0.04+Math.random()*0.08:0.18+Math.random()*0.42);
+    this._thunderN++;
+    setTimeout(function(){ self._thunderN--; }, 4200);
+    var dest=this._ensureAmb().master;
+    // rumble: ruído com filtro que fecha (400→60Hz) e envelope exponencial
+    var src=c.createBufferSource(); src.buffer=this._noiseBuf(3.4); src.loop=true;
+    src.playbackRate.value=0.72+Math.random()*0.4;
+    var lp=c.createBiquadFilter(); lp.type='lowpass';
+    lp.frequency.setValueAtTime(near?420:300, t0);
+    lp.frequency.exponentialRampToValueAtTime(near?58:75, t0+2.3);
+    var g=c.createGain(); g.gain.setValueAtTime(0.0001, t0);
+    var peak=(near?0.85:0.30)*(0.75+Math.random()*0.35);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.002,peak), t0+(near?0.05:0.22));
+    g.gain.exponentialRampToValueAtTime(0.0008, t0+(near?2.9:2.2));
+    src.connect(lp); lp.connect(g); g.connect(dest);
+    if(near){ // sub grave dá o "peso" do trovão próximo
+      var o=c.createOscillator(); o.type='sine';
+      o.frequency.setValueAtTime(52, t0);
+      o.frequency.exponentialRampToValueAtTime(34, t0+1.7);
+      var og=c.createGain(); og.gain.setValueAtTime(0.0001, t0);
+      og.gain.exponentialRampToValueAtTime(0.5, t0+0.06);
+      og.gain.exponentialRampToValueAtTime(0.0008, t0+1.9);
+      o.connect(og); og.connect(dest);
+      o.start(t0); o.stop(t0+2.1);
+    }
+    src.start(t0); src.stop(t0+3.6);
   },
   save_state: function(){ return {music_vol:this.music_vol, sfx_vol:this.sfx_vol}; },
   load_state: function(d){
