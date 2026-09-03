@@ -412,6 +412,13 @@ E.UI2 = {
         '<option value="verao">☀ '+E.DM.tr('season_summer')+'</option>'+
         '<option value="outono">🍂 '+E.DM.tr('season_autumn')+'</option>'+
         '<option value="inverno">❄ '+E.DM.tr('season_winter')+'</option></select></div>'+
+      '<div class="stat-line"><span>'+E.DM.tr('weather')+'</span><select id="st-weather">'+
+        '<option value="auto">'+E.DM.tr('weather_auto')+'</option>'+
+        '<option value="limpo">🌤 '+E.DM.tr('w_clear')+'</option>'+
+        '<option value="nublado">☁ '+E.DM.tr('w_cloudy')+'</option>'+
+        '<option value="chuva">🌧 '+E.DM.tr('w_rain')+'</option>'+
+        '<option value="tempestade">⚡ '+E.DM.tr('w_storm')+'</option>'+
+        '<option value="neve">🌨 '+E.DM.tr('w_snow')+'</option></select></div>'+
       '<hr style="border-color:var(--line);margin:8px 0">'+
       '<div class="stat-line"><span>'+E.DM.tr('kills')+'</span><b>'+E.U.fmt(E.Ret.counters.kills||0)+'</b></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('gold_total')+'</span><b>'+E.U.fmt(E.Eco.gold_earned_total)+'</b></div>'+
@@ -434,6 +441,14 @@ E.UI2 = {
       E.Rfx.setSeasonPref(this.value);
       var k=E.Rfx._seasonLocKey(E.Rfx.season);
       E.UI.toast(E.DM.tr('season')+': '+E.DM.tr(k), '#3a9e8f');
+      E.Audio.play_sfx('click');
+    };
+    var wx=document.getElementById('st-weather');
+    wx.value=E.Rfx.weatherPref;
+    wx.onchange=function(){
+      E.Rfx.setWeatherPref(this.value);
+      var k2=E.Rfx._weatherLocKey(E.Rfx.weather);
+      E.UI.toast(E.DM.tr('weather')+': '+E.DM.tr(k2), '#5a8fd0');
       E.Audio.play_sfx('click');
     };
     document.getElementById('st-mus').oninput=function(){ E.Audio.set_music_vol(this.value/100); };

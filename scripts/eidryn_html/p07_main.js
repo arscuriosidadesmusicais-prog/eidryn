@@ -14,6 +14,7 @@ E.Game = {
     var self=this;
     E.TimeM.mark_seen();
     E.Save.boot_load();
+    if(E.Rfx && E.Rfx.setPetVisuals) E.Rfx.setPetVisuals(); // pets ativos pós-save (só visual)
     E.TimeM.check_time_travel();
     E.Offline.compute_pending();
     E.Ret.check_login_day();

@@ -1,6 +1,6 @@
 'use strict';
 /* =====================================================================
-   p05_render.js — RENDER ENGINE v3 "Edição do Eclipse" (só apresentação)
+   p05_render.js — RENDER ENGINE v4 "Tempestade Viva" (só apresentação)
    - Parallax de 4 camadas por região (céu/longe/médio/perto, PNGs autorais)
    - Crossfade entre regiões + partículas atmosféricas por bioma
    - HERÓI ANIMADO: FSM com 7 posturas (idle/ataque/crítico/cast/dano/
@@ -8,6 +8,12 @@
    - BIOMAS SAZONAIS: grade de cor por camada (cache), partículas sazonais
      (pétalas/motas/folhas/neve), wash de humor, solo/acento deslocados;
      estação detectada pela data real (hemisfério sul) com override em Ajustes
+   - CLIMA DINÂMICO: limpo/nublado/chuva/tempestade/neve — muda sozinho por
+     região+tempo (determinístico), com vento, relâmpagos ramificados, splash
+     no solo e variantes temáticas por bioma (cinzas/sangue/ácido/nevasca);
+     override manual em Ajustes (pref em chave própria — save intacto)
+   - PETS CENICOS: pet + companheiro ativos acompanhando o herói com FSM de
+     posturas (idle/cheer/sad) reagindo aos mesmos eventos do BUS
    - Partículas: faíscas, sangue, poeira, motas de ouro (pools fixos)
    - Dano flutuante em arco com pop-in (fonte Cinzel, cor por tipo)
    - Screenshake por trauma (com micro-rotação), barras ornamentadas
@@ -30,6 +36,49 @@ E.Rfx = {
   parts: [], partIdx: 0, PART_POOL: 150,
   rings: [], ringIdx: 0, RING_POOL: 8,
   atmo: [], seasonAtmo: [], shake: 0,
+  /* ---------- CLIMA DINÂMICO (apenas render) ---------- */
+  weather: 'limpo', weatherPrev: 'limpo', weatherPref: 'auto', weatherBlend: 1,
+  weatherT: 0, weatherNext: 40, wind: 0,
+  rain: [], rainIdx: 0, RAIN_POOL: 150, rainOn: 0,
+  splashes: [], splashIdx: 0, SPLASH_POOL: 22,
+  boltT: 0, boltNext: 5, boltPts: null, flashA: 0,
+  WEATHERS: {
+    limpo:      { chip: '\ud83c\udf24\ufe0f', dim: 0,    wind: 0.12, wash: null },
+    nublado:    { chip: '\u2601\ufe0f',      dim: 0.10, wind: 0.30, wash: 'rgba(64,68,84,0.10)' },
+    chuva:      { chip: '\ud83c\udf27\ufe0f', dim: 0.15, wind: 0.55, wash: 'rgba(38,56,92,0.11)',
+      rain: { n: 92, sp: [430, 600], len: [7, 11], al: 0.50 } },
+    tempestade: { chip: '\u26a1',           dim: 0.21, wind: 1.0,  wash: 'rgba(16,24,50,0.15)',
+      rain: { n: 132, sp: [560, 790], len: [9, 14], al: 0.62 }, bolt: true },
+    neve:       { chip: '\ud83c\udf28\ufe0f', dim: 0.07, wind: 0.40, wash: 'rgba(178,198,235,0.08)',
+      snow: { n: 72 } }
+  },
+  // pesos automáticos por região (abismo não tem clima — vazio não chove)
+  REGION_WEATHER: {
+    bosque_vidro:   { limpo: .30, nublado: .25, chuva: .30, tempestade: .15 },
+    pantano:        { limpo: .08, nublado: .30, chuva: .42, tempestade: .20 },
+    cidadela:       { limpo: .45, nublado: .35, chuva: .15, tempestade: .05 },
+    deserto_cinzas: { limpo: .52, nublado: .26, chuva: .18, tempestade: .04 },
+    picos:          { limpo: .24, nublado: .24, chuva: .06, tempestade: .10, neve: .36 },
+    coracao:        { limpo: .14, nublado: .24, chuva: .32, tempestade: .30 },
+    abismo:         { limpo: .55, nublado: .45 }
+  },
+  // variante temática da precipitação por região (só paleta/forma)
+  RAIN_STYLE: {
+    default:        { mode: 'line', cols: ['170,195,235', '150,178,220'] },
+    pantano:        { mode: 'line', cols: ['168,208,120', '140,190,100'] },
+    coracao:        { mode: 'line', cols: ['230,90,110', '205,70,95'] },
+    deserto_cinzas: { mode: 'ash',  cols: ['150,142,150', '120,112,122'] },
+    abismo:         { mode: 'ash',  cols: ['90,80,120', '70,62,100'] },
+    picos:          { mode: 'dot',  cols: ['226,238,252', '206,226,248'] }
+  },
+  /* ---------- PETS CENICOS (só render; bônus já aplicados em Char) ---------- */
+  PET_POSES: {
+    idle:  { fps: 6,   loop: true },
+    cheer: { fps: 6,   loop: true },
+    sad:   { fps: 3.2, loop: true }
+  },
+  petFrames: {}, petAnim: { pose: 'idle', f: 0, t: 0 },
+  petKey: '', compKey: '', petCards: [], _cardT: 0, cheerUntil: 0,
   /* ---------- BIOMAS SAZONAIS (apenas render; detecta pela data real) ---------- */
   PREF_KEY: 'eidryn_fx_prefs_v1',
   seasonPref: 'auto', season: 'primavera', _chipT: 0,
@@ -94,6 +143,9 @@ E.Rfx = {
     // prefs visuais (chave PRÓPRIA — save do jogo permanece intacto)
     this.loadPrefs();
     this.season = this.seasonKey();
+    this.weather = this.weatherKey();
+    // frames dos pets cênicos (idle/cheer/sad por espécie; fallback: base estática)
+    this.loadPetFrames();
     // flash de impacto: versões brancas geradas/cachedas por frame em _whiteFor()
     for (var i = 0; i < this.FLOAT_POOL; i++)
       this.floats.push({ on:false, x:0, y:0, vx:0, vy:0, text:'', color:'#fff', size:20, t:0, crit:false });
@@ -101,6 +153,11 @@ E.Rfx = {
       this.parts.push({ on:false, type:0, x:0, y:0, vx:0, vy:0, t:0, life:1, size:2, color:'#fff', grav:0 });
     for (var k = 0; k < this.RING_POOL; k++)
       this.rings.push({ on:false, x:0, y:0, t:0, life:1, r0:10, r1:80, color:'#fff', width:3 });
+    // pools de clima (precipitação + splash no solo)
+    for (var r2 = 0; r2 < this.RAIN_POOL; r2++)
+      this.rain.push({ on:false, x:0, y:0, sp:0, ph:0, front:false, gy:0, c:0 });
+    for (var s2 = 0; s2 < this.SPLASH_POOL; s2++)
+      this.splashes.push({ on:false, x:0, y:0, t:0, life:1 });
     // ---------- EVENTOS ----------
     E.BUS.on('enemy_spawned', function(e){
       var key = e.sprite || 'enemy_bosque_vidro_0';
@@ -112,6 +169,7 @@ E.Rfx = {
       self.enemyBerserk = false;
       self.enemyHpShown = 0; self.heroHpShown = 0;
       self._heroPose('idle', true); // nova luta → herói volta à guarda
+      self._petPose('idle'); self.cheerUntil = 0; // pets também
       var el = document.getElementById('enemy-name');
       var em = document.getElementById('enemy-mods');
       if (el) el.textContent = e.name || '';
@@ -149,6 +207,8 @@ E.Rfx = {
     E.BUS.on('skill_casted', function(){ self._heroPose('cast'); });
     E.BUS.on('combat_ended', function(result){
       self._heroPose(result === 'win' ? 'victory' : 'down');
+      self._petPose(result === 'win' ? 'cheer' : 'sad');
+      if (result === 'win') self.cheerUntil = self.time + 3.4;
     });
     E.BUS.on('enemy_killed', function(enemy){
       self.enemyFade = 0.0001;
@@ -162,10 +222,14 @@ E.Rfx = {
       self._heroPose('victory');
       self._ring(165, 640, 10, 150, 'rgba(120,240,180,0.9)', 5, 0.9);
       self._motes(165, 620, 12, '#8af0b0');
+      self._petPose('cheer'); self.cheerUntil = self.time + 2.6;
     });
+    E.BUS.on('pet_changed', function(){ self.setPetVisuals(); });
     E.BUS.on('region_changed', function(rid){ self.setRegion(rid); });
     this.setRegion('bosque_vidro');
     this._applySeason();
+    this._applyWeather(true);
+    this.setPetVisuals();
   },
   _img: function(dataUri){
     if (!dataUri) return null;
@@ -228,11 +292,15 @@ E.Rfx = {
   loadPrefs: function(){
     try {
       var raw = globalThis.localStorage.getItem(this.PREF_KEY);
-      if (raw) { var p = JSON.parse(raw); if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season; }
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season;
+        if (p && p.weather && (p.weather === 'auto' || this.WEATHERS[p.weather])) this.weatherPref = p.weather;
+      }
     } catch (e) {}
   },
   savePrefs: function(){
-    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify({ season: this.seasonPref })); } catch (e) {}
+    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify({ season: this.seasonPref, weather: this.weatherPref })); } catch (e) {}
   },
   seasonNow: function(){
     // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
@@ -340,12 +408,12 @@ E.Rfx = {
       if (!!p.front !== front) continue;
       if (S.mode === 'rise') { // verão: motas douradas sobem
         p.y -= p.sp * delta * 0.7;
-        p.x += Math.sin(t * 1.1 + p.ph) * 12 * delta;
+        p.x += (Math.sin(t * 1.1 + p.ph) * 12 + this.wind * 30) * delta;
         if (p.y < -6) { p.y = this.GROUND_Y + Math.random() * 40; p.x = Math.random() * this.W; }
         ctx.globalAlpha = (0.22 + 0.34 * (0.5 + 0.5 * Math.sin(t * 2.4 + p.ph))) * (front ? 1.3 : 1);
       } else {                 // queda: pétalas / folhas / neve
         p.y += p.sp * delta;
-        p.x += Math.sin(t * S.sway + p.ph) * S.swayA * delta;
+        p.x += (Math.sin(t * S.sway + p.ph) * S.swayA * (1 + this.wind * 1.1) + this.wind * 36) * delta;
         if (p.y > this.GROUND_Y + 8) { p.y = -8; p.x = Math.random() * this.W; }
         ctx.globalAlpha = S.alpha * (front ? 1.25 : 1);
       }
@@ -356,6 +424,348 @@ E.Rfx = {
         ctx.fillRect(p.x, p.y, p.sz * 0.55, p.sz);
     }
     ctx.globalAlpha = 1;
+  },
+  /* ================= CLIMA DINÂMICO (só render) ================= */
+  weatherNow: function(){
+    // escolha determinística por região + janela de 2,5min → o mundo respira sozinho
+    var slot = Math.floor(Date.now() / 150000);
+    var h = this._hashStr(this.regionId + ':wx:' + slot);
+    var W = this.REGION_WEATHER[this.regionId] || this.REGION_WEATHER.bosque_vidro;
+    var total = 0, k;
+    for (k in W) total += W[k];
+    var r = (h % 10000) / 10000 * total, acc = 0;
+    var wk = 'limpo';
+    for (k in W) { acc += W[k]; if (r < acc) { wk = k; break; } }
+    // coerência sazonal: no inverno, chuva vira neve (tempestade permanece — gelo)
+    if (wk === 'chuva' && this.seasonKey() === 'inverno') wk = 'neve';
+    return wk;
+  },
+  weatherKey: function(){
+    if (this.weatherPref !== 'auto') return this.WEATHERS[this.weatherPref] ? this.weatherPref : this.weatherNow();
+    return this.weatherNow();
+  },
+  setWeatherPref: function(v){
+    this.weatherPref = (v === 'auto' || this.WEATHERS[v]) ? v : 'auto';
+    this.savePrefs();
+    this._applyWeather(true);
+  },
+  _weatherLocKey: function(w){
+    return w === 'limpo' ? 'w_clear' : w === 'nublado' ? 'w_cloudy' :
+      w === 'chuva' ? 'w_rain' : w === 'tempestade' ? 'w_storm' : 'w_snow';
+  },
+  _applyWeather: function(force){
+    var wk = this.weatherKey();
+    if (force || wk !== this.weather) {
+      if (wk !== this.weather || force) {
+        this.weatherPrev = force ? wk : this.weather;
+        this.weather = wk;
+        this.weatherBlend = force ? 1 : 0;
+        this.rainOn = 0; // repovoamento gradual do pool
+        this.boltNext = 2 + Math.random() * 4;
+      }
+    }
+    this._updateWeatherChip();
+  },
+  _weatherTick: function(delta){
+    this.weatherT += delta;
+    if (this.weatherPref === 'auto' && this.weatherT >= 40) {
+      this.weatherT = 0;
+      var wk = this.weatherNow();
+      if (wk !== this.weather) this._applyWeather(false);
+    }
+    this.weatherBlend = Math.min(1, this.weatherBlend + delta * 0.8);
+    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+    // vento com rajadas (afeta chuva, neve e partículas sazonais)
+    var gust = this.weather === 'tempestade' ? Math.sin(this.time * 2.3) * 0.25 : Math.sin(this.time * 0.6) * 0.1;
+    this.wind = W.wind * (0.75 + 0.25 * Math.sin(this.time * 0.6)) + Math.max(0, gust);
+    // relâmpagos
+    if (W.bolt) {
+      this.boltNext -= delta;
+      if (this.boltNext <= 0) {
+        this.boltNext = 2.6 + Math.random() * 5.4;
+        var near = Math.random() < 0.45;
+        if (near) {
+          this.boltPts = this._boltPath();
+          this.boltT = 0.26;
+          this.flashA = 0.55;
+          this.addShake(0.34);
+        } else {
+          this.boltPts = null;
+          this.flashA = 0.20;
+          this.addShake(0.08);
+        }
+      }
+    }
+    if (this.boltT > 0) this.boltT -= delta;
+    if (this.flashA > 0) this.flashA = Math.max(0, this.flashA - delta * 2.6);
+    this._rainTick(delta);
+  },
+  _rainStyle: function(){
+    return this.RAIN_STYLE[this.regionId] || this.RAIN_STYLE.default;
+  },
+  _rainTick: function(delta){
+    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+    var def = W.rain || W.snow;
+    var target = def ? Math.round(def.n * (0.35 + 0.65 * this.weatherBlend)) : 0;
+    // repovoamento/esvaziamento gradual (sem pop)
+    if (this.rainOn < target) this.rainOn = Math.min(target, this.rainOn + 5);
+    else if (this.rainOn > target) this.rainOn = Math.max(target, this.rainOn - 8);
+    var isSnow = !!W.snow, isAsh = this._rainStyle().mode === 'ash';
+    var alive = 0;
+    for (var i = 0; i < this.rain.length; i++) {
+      var p = this.rain[i];
+      if (!p.on) {
+        if (alive < this.rainOn) { this._resetDrop(p, true); alive++; }
+        continue;
+      }
+      var wrapped = false;
+      if (isSnow || isAsh) {
+        // neve / cinzas: deriva suave com vento
+        p.y += p.sp * delta * (isAsh ? 0.35 : 0.45);
+        p.x += (Math.sin(this.time * 1.2 + p.ph) * 16 + this.wind * 46) * delta;
+        if (p.y > this.GROUND_Y + 6) wrapped = true;
+        if (p.x > this.W + 8) { p.x = -8; }
+      } else {
+        p.y += p.sp * delta;
+        p.x += this.wind * 175 * delta;
+        if (p.y > this.GROUND_Y - 4 + p.gy) {
+          if (p.front && Math.random() < 0.34) this._splash(p.x, this.GROUND_Y + 2 + p.gy);
+          wrapped = true;
+        }
+        if (p.x > this.W + 12) p.x = -10;
+      }
+      if (wrapped) {
+        alive++;
+        if (alive > this.rainOn) { p.on = false; continue; }
+        this._resetDrop(p, true);
+      } else alive++;
+    }
+    // splashes do solo
+    for (var s = 0; s < this.splashes.length; s++) {
+      var sp = this.splashes[s];
+      if (!sp.on) continue;
+      sp.t += delta;
+      if (sp.t >= sp.life) { sp.on = false; continue; }
+    }
+  },
+  _resetDrop: function(p, keepOn){
+    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+    var def = W.rain || W.snow || {};
+    var sp = def.sp || [430, 600];
+    p.on = keepOn !== false;
+    p.x = Math.random() * (this.W + 90) - 45;
+    p.y = -12 - Math.random() * 60;
+    p.sp = sp[0] + Math.random() * (sp[1] - sp[0]);
+    p.ph = Math.random() * 6.28;
+    p.front = Math.random() < 0.32;
+    p.gy = Math.random() * 26;
+    p.c = Math.random();
+  },
+  _splash: function(x, y){
+    var sp = this.splashes[this.splashIdx];
+    this.splashIdx = (this.splashIdx + 1) % this.SPLASH_POOL;
+    sp.on = true; sp.x = x; sp.y = y; sp.t = 0; sp.life = 0.22 + Math.random() * 0.12;
+  },
+  _boltPath: function(){
+    // relâmpago ramificado do céu até o horizonte
+    var x = 60 + Math.random() * (this.W - 160), y = 0;
+    var pts = [[x, y]];
+    var endY = 250 + Math.random() * 160;
+    while (y < endY) {
+      y += 24 + Math.random() * 34;
+      x += (Math.random() * 2 - 1) * 34;
+      pts.push([x, y]);
+    }
+    return pts;
+  },
+  _drawWeatherBack: function(delta){
+    // camada de trás: precipitação ao fundo + escurecimento do céu
+    var ctx = this.ctx, W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+    var prevW = this.WEATHERS[this.weatherPrev] || this.WEATHERS.limpo;
+    var b = this.weatherBlend;
+    if (W.dim > 0 || (b < 1 && prevW.dim > 0)) {
+      var dim = W.dim * b + prevW.dim * (1 - b);
+      if (dim > 0.004) {
+        ctx.fillStyle = 'rgba(10,14,30,' + Math.min(0.5, dim) + ')';
+        ctx.fillRect(0, 0, this.W, this.H);
+      }
+    }
+    var def = W.rain || W.snow;
+    if (!def || this.rainOn < 1) return;
+    var st = this._rainStyle();
+    var isSnow = !!W.snow, isAsh = st.mode === 'ash';
+    ctx.save();
+    for (var i = 0; i < this.rain.length; i++) {
+      var p = this.rain[i];
+      if (!p.on || p.front) continue;
+      var col = st.cols[(p.c * st.cols.length) | 0];
+      var al = (W.rain ? W.rain.al * 0.62 : 0.5) * b;
+      if (isSnow || isAsh) {
+        ctx.fillStyle = 'rgba(' + col + ',' + (al * 0.8).toFixed(3) + ')';
+        var sz = isAsh ? 2 : 1.6 + (p.ph % 1);
+        ctx.fillRect(p.x, p.y, sz, sz);
+      } else {
+        ctx.strokeStyle = 'rgba(' + col + ',' + al.toFixed(3) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - this.wind * 4.4, p.y - 7 - p.c * 4);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  },
+  _drawWeatherFront: function(delta){
+    // camada da frente: precipitação grossa + splashes + relâmpago + flash
+    var ctx = this.ctx, W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+    var def = W.rain || W.snow;
+    var b = this.weatherBlend;
+    if (def && this.rainOn > 0) {
+      var st = this._rainStyle();
+      var isSnow = !!W.snow, isAsh = st.mode === 'ash';
+      for (var i = 0; i < this.rain.length; i++) {
+        var p = this.rain[i];
+        if (!p.on || !p.front) continue;
+        var col = st.cols[(p.c * st.cols.length) | 0];
+        if (isSnow || isAsh) {
+          ctx.fillStyle = 'rgba(' + col + ',' + (0.75 * b).toFixed(3) + ')';
+          ctx.fillRect(p.x, p.y, isAsh ? 2.4 : 2.2, isAsh ? 2.4 : 2.2);
+        } else {
+          ctx.strokeStyle = 'rgba(' + col + ',' + ((W.rain ? W.rain.al : 0.5) * b).toFixed(3) + ')';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - this.wind * 5.4, p.y - (W.rain ? W.rain.len[1] : 10));
+          ctx.stroke();
+        }
+      }
+      // splashes no solo (só chuva)
+      if (W.rain && !isAsh) {
+        ctx.strokeStyle = 'rgba(190,210,240,' + (0.4 * b).toFixed(3) + ')';
+        ctx.lineWidth = 1;
+        for (var s = 0; s < this.splashes.length; s++) {
+          var sp = this.splashes[s];
+          if (!sp.on) continue;
+          var pr = sp.t / sp.life;
+          ctx.globalAlpha = (1 - pr) * 0.7;
+          ctx.beginPath();
+          ctx.ellipse(sp.x, sp.y, 1.5 + pr * 7, (1.5 + pr * 7) * 0.32, 0, 0, 6.2832);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+    // relâmpago (ramificado, com brilho duplo) + flash de tela
+    if (this.boltT > 0 && this.boltPts) {
+      var bt = this.boltT / 0.26;
+      var boltCol = this.regionId === 'deserto_cinzas' ? '255,190,110' :
+        this.regionId === 'coracao' ? '255,120,150' : '215,228,255';
+      ctx.save();
+      ctx.globalAlpha = bt;
+      ctx.strokeStyle = 'rgba(' + boltCol + ',0.32)';
+      ctx.lineWidth = 6;
+      this._strokeBolt(ctx);
+      ctx.strokeStyle = 'rgba(' + boltCol + ',0.95)';
+      ctx.lineWidth = 2;
+      this._strokeBolt(ctx);
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 0.8;
+      this._strokeBolt(ctx);
+      ctx.restore();
+    }
+    if (this.flashA > 0.004) {
+      ctx.fillStyle = 'rgba(210,222,255,' + Math.min(0.5, this.flashA).toFixed(3) + ')';
+      ctx.fillRect(0, 0, this.W, this.H);
+    }
+  },
+  _strokeBolt: function(ctx){
+    ctx.beginPath();
+    ctx.moveTo(this.boltPts[0][0], this.boltPts[0][1]);
+    for (var i = 1; i < this.boltPts.length; i++) ctx.lineTo(this.boltPts[i][0], this.boltPts[i][1]);
+    ctx.stroke();
+  },
+  _updateWeatherChip: function(){
+    var el = document.getElementById('weather-chip');
+    if (!el) return;
+    var W = this.WEATHERS[this.weather];
+    var name = (E.DM && E.DM.tr) ? E.DM.tr(this._weatherLocKey(this.weather)) : this.weather;
+    var ico = el.querySelector('.ico'), nm = el.querySelector('.nm');
+    if (ico) ico.textContent = W ? W.chip : '';
+    if (nm) nm.textContent = name;
+  },
+  /* ================= PETS CENICOS (só render) ================= */
+  loadPetFrames: function(){
+    this.petFrames = {};
+    var re = /^pets\/((?:pet|cmp)_[a-z]+)_(idle|cheer|sad)_(\d+)$/;
+    for (var key in E.IMG) {
+      var m = re.exec(key);
+      if (!m) continue;
+      var base = m[1], pose = m[2], idx = m[3] | 0;
+      if (!this.petFrames[base]) this.petFrames[base] = {};
+      if (!this.petFrames[base][pose]) this.petFrames[base][pose] = [];
+      this.petFrames[base][pose][idx] = this._img(E.IMG[key]);
+    }
+    // compacta (remove buracos)
+    for (var b2 in this.petFrames) {
+      for (var p2 in this.petFrames[b2]) {
+        var arr = [];
+        for (var i2 = 0; i2 < this.petFrames[b2][p2].length; i2++)
+          if (this.petFrames[b2][p2][i2]) arr.push(this.petFrames[b2][p2][i2]);
+        if (arr.length) this.petFrames[b2][p2] = arr;
+        else delete this.petFrames[b2][p2];
+      }
+    }
+  },
+  setPetVisuals: function(){
+    var pk = '', ck = '';
+    if (E.Pet) {
+      if (E.Pet.active_pet && E.Pet.is_owned(E.Pet.active_pet)) {
+        var d1 = E.Pet.def(E.Pet.active_pet);
+        if (d1.icon && this.petFrames[d1.icon]) pk = d1.icon;
+      }
+      if (E.Pet.active_companion && E.Pet.is_owned(E.Pet.active_companion)) {
+        var d2 = E.Pet.def(E.Pet.active_companion);
+        if (d2.icon && this.petFrames[d2.icon]) ck = d2.icon;
+      }
+    }
+    this.petKey = pk; this.compKey = ck;
+    if (this.petAnim.pose !== 'idle') { this.petAnim.pose = 'idle'; this.petAnim.f = 0; this.petAnim.t = 0; }
+  },
+  _petPose: function(p){
+    if (!this.petFrames[this.petKey] && !this.petFrames[this.compKey]) return;
+    if (!this.PET_POSES[p]) return;
+    this.petAnim.pose = p; this.petAnim.f = 0; this.petAnim.t = 0;
+  },
+  _petTick: function(delta){
+    var a = this.petAnim, def = this.PET_POSES[a.pose];
+    var fr = (this.petFrames[this.petKey] || {})[a.pose] || (this.petFrames[this.compKey] || {})[a.pose];
+    if (!def || !fr || !fr.length) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+    if (a.pose === 'cheer' && this.time > this.cheerUntil) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+    a.t += delta;
+    a.f = Math.floor(a.t * def.fps) % fr.length;
+  },
+  _petFrame: function(key, pose){
+    var fr = (this.petFrames[key] || {})[pose];
+    if (!fr || !fr.length) return null;
+    return fr[this.petAnim.f % fr.length];
+  },
+  registerPetCard: function(el, key){
+    if (!el || !key) return;
+    this.petCards.push({ el: el, key: key, i: 0 });
+  },
+  resetPetCards: function(){ this.petCards.length = 0; },
+  _petCardsTick: function(delta){
+    this._cardT += delta;
+    if (this._cardT < 0.22 || !this.petCards.length) return;
+    this._cardT = 0;
+    for (var i = 0; i < this.petCards.length; i++) {
+      var c = this.petCards[i];
+      var frames = (this.petFrames[c.key.replace('pets/', '')] || {}).idle;
+      if (!frames || frames.length < 2) continue;
+      c.i = (c.i + 1) % frames.length;
+      var uri = frames[c.i] && frames[c.i].src ? frames[c.i].src : E.IMG[c.key];
+      if (uri && c.el.getAttribute('src') !== uri) c.el.src = uri;
+    }
   },
   /* ================= REGIÃO / PARALLAX ================= */
   setRegion: function(regionId){
@@ -371,6 +781,7 @@ E.Rfx = {
     this.layers = this.regionCache[regionId];
     this._seedAtmo(regionId);
     this._seedSeasonAtmo();
+    this._applyWeather(false); // clima muda suave ao entrar no bioma
     this._updateChip();
     this.regionTitleT = 2.4;
   },
@@ -485,6 +896,9 @@ E.Rfx = {
   render: function(delta){
     var ctx = this.ctx, W = this.W, H = this.H;
     this.time += delta;
+    this._weatherTick(delta);          // clima: vento/relâmpagos/precipitação
+    this._petTick(delta);              // FSM cênica dos pets
+    this._petCardsTick(delta);         // cards animados no painel de Pets
     ctx.save();
     // ---- screenshake por trauma (offset + micro-rotação) ----
     if (this.shake > 0.001) {
@@ -500,6 +914,8 @@ E.Rfx = {
     ctx.clearRect(-30, -30, W + 60, H + 60);
     // ---- 1) céu ----
     this._drawLayers(delta);
+    // ---- 1.5) clima atrás: escurecimento + precipitação de fundo ----
+    this._drawWeatherBack(delta);
     // ---- 2) névoa oscilante (paleta da estação) ----
     var palDraw = this.palSeason || this.pal;
     if (palDraw) {
@@ -542,9 +958,25 @@ E.Rfx = {
     // ---- 7) partículas de combate + estação em primeiro plano ----
     this._drawParts(delta);
     this._drawSeasonAtmo(delta, true);
-    // ---- 7.5) wash de humor da estação ----
+    // ---- 7.2) clima à frente: precipitação grossa + splash + relâmpago ----
+    this._drawWeatherFront(delta);
+    // ---- 7.5) wash de humor (estação + clima) ----
     var Sw = this.SEASONS[this.season];
     if (Sw && Sw.wash) { ctx.fillStyle = Sw.wash; ctx.fillRect(-30, -30, W + 60, H + 60); }
+    var Wx = this.WEATHERS[this.weather];
+    if (Wx && Wx.wash) {
+      var prevX = this.WEATHERS[this.weatherPrev];
+      var wa = this.weatherBlend;
+      ctx.globalAlpha = wa;
+      ctx.fillStyle = Wx.wash;
+      ctx.fillRect(-30, -30, W + 60, H + 60);
+      if (prevX && prevX.wash && wa < 1) {
+        ctx.globalAlpha = 1 - wa;
+        ctx.fillStyle = prevX.wash;
+        ctx.fillRect(-30, -30, W + 60, H + 60);
+      }
+      ctx.globalAlpha = 1;
+    }
     // ---- 8) barras de vida ----
     this._bar(ctx, 20, 470, 230, 30, this.heroHpShown, this.heroGhost, '#3a9e5f', '#7a3030', this.heroHpLabel, '#58e07a');
     this._bar(ctx, 290, 470, 230, 30, this.enemyHpShown, this.enemyGhost, '#d0455f', '#7a3030', this.enemyHpLabel, '#ff7a8a');
@@ -565,9 +997,9 @@ E.Rfx = {
       ctx.fillText((this._regionName() || '').toUpperCase(), W / 2, 128);
       ctx.globalAlpha = 1;
     }
-    // ---- chip da estação (refresh barato p/ troca de idioma) ----
+    // ---- chip da estação/clima (refresh barato p/ troca de idioma) ----
     this._chipT += delta;
-    if (this._chipT > 2) { this._chipT = 0; this._updateChip(); }
+    if (this._chipT > 2) { this._chipT = 0; this._updateChip(); this._updateWeatherChip(); }
     ctx.restore();
   },
   _drawLayers: function(delta){
@@ -611,14 +1043,14 @@ E.Rfx = {
       var p = this.atmo[i];
       if (p.kind === 4) { // neve caindo
         p.y += p.sp * delta * 2.2;
-        p.x += Math.sin(t * 1.4 + p.ph) * 14 * delta;
+        p.x += (Math.sin(t * 1.4 + p.ph) * 14 + this.wind * 30) * delta;
         if (p.y > this.GROUND_Y) { p.y = -6; p.x = Math.random() * W; }
         ctx.globalAlpha = 0.5 + Math.sin(t + p.ph) * 0.2;
         ctx.fillStyle = '#dceafc';
         ctx.fillRect(p.x, p.y, p.s + 0.6, p.s + 0.6);
       } else {           // motas flutuantes
         p.y -= p.sp * delta * 0.55;
-        p.x += Math.sin(t * 0.9 + p.ph) * 10 * delta;
+        p.x += (Math.sin(t * 0.9 + p.ph) * 10 + this.wind * 18) * delta;
         if (p.y < -8) { p.y = this.GROUND_Y + Math.random() * 60; p.x = Math.random() * W; }
         var tw = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.2 + p.ph));
         ctx.globalAlpha = tw;
@@ -673,6 +1105,15 @@ E.Rfx = {
       ctx.beginPath(); ctx.ellipse(enCX, 770, 100 * bossScale * spawnE, 15 * bossScale, 0, 0, 6.2832); ctx.fill();
     }
     ctx.globalAlpha = 1;
+    // ---- pets cênicos: companheiro atrás do herói ----
+    var hopY = this.petAnim.pose === 'cheer' ? -Math.abs(Math.sin(t * 7)) * 6 : 0;
+    var cf = this._petFrame(this.compKey, this.petAnim.pose);
+    if (cf && cf.complete && cf.naturalWidth) {
+      ctx.globalAlpha = 0.3; ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(94, 771, 54, 10, 0, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.drawImage(cf, 6, 589 + hopY, 176, 176);
+    }
     // ---- herói (FSM: frame da postura corrente + flash por frame) ----
     var fr = this.heroFrames[this.heroAnim.pose] || [];
     var hImg = fr[this.heroAnim.f] || this.heroImg;
@@ -686,6 +1127,14 @@ E.Rfx = {
         ctx.globalAlpha = 1;
         this.heroFlash = Math.max(0, this.heroFlash - delta * 3.4);
       }
+    }
+    // ---- pet aos pés do herói (à frente, próximo do inimigo) ----
+    var pf = this._petFrame(this.petKey, this.petAnim.pose);
+    if (pf && pf.complete && pf.naturalWidth) {
+      ctx.globalAlpha = 0.34; ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.ellipse(234, 772, 38, 8, 0, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.drawImage(pf, 196, 694 + hopY, 76, 76);
     }
     // inimigo (aura de chefe + spawn + fade)
     if (this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth > 0) {

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0710">
 <title>Eidryn — O Ciclo do Eclipse</title>
 <!--
-  Eidryn — O Ciclo do Eclipse — v1.2.0 "Edição do Eclipse" (HTML/Web)
+  Eidryn — O Ciclo do Eclipse — v1.3.0 "Tempestade Viva" (HTML/Web)
   v1.0.0: porta fiel da build Godot 4.4 (mesmos JSONs, fórmulas, save SHA-256+backup).
   v1.1.0: REVOLUÇÃO VISUAL (escopo estritamente estético — zero alteração de lógica):
    [ART-1] 97 sprites refeitos em pixel art autoral (contorno+luz direcional+rim light);
@@ -29,6 +29,21 @@
            (cache), partículas sazonais (pétalas/motas douradas/folhas/neve) atrás e à
            frente das entidades, wash de humor, solo/névoa/acento deslocados, chip HUD.
            Preferência em localStorage próprio (eidryn_fx_prefs_v1) — SAVE INTACTO.
+  v1.3.0 "Tempestade Viva" (escopo estritamente estético — zero alteração de lógica):
+   [ART-8] CLIMA DINÂMICO: limpo/nublado/chuva/tempestade/neve — escolha automática
+           determinística por região+tempo (janela de 2,5min, pesos por bioma; o Abismo
+           não tem clima), com coerência sazonal (inverno: chuva→neve), vento com rajadas
+           que inclina a chuva e arrasta partículas sazonais, relâmpagos ramificados com
+           glow triplo + flash de tela + screenshake, splash no solo, escurecimento/wash
+           com crossfade, variantes temáticas por bioma (chuva ácida no Pântano, chuva de
+           sangue no Coração, tempestade de cinzas/brasas no Deserto, flocos nos Picos) e
+           override manual em Ajustes (prefs próprias — SAVE INTACTO). Chip de clima no HUD.
+   [ART-9] PETS CENICOS ANIMADOS: 10 pets/companheiros × 8 frames (idle 4f, cheer 2f,
+           sad 2f) gerados por rig paramétrico sobre a arte base (gen_pet_anim.py);
+           pet + companheiro ativos acompanham o herói na cena de combate com sombra,
+           FSM de posturas dirigida pelos eventos existentes (vitória→cheer com salto,
+           derrota→sad, level_up→cheer, novo inimigo→idle); cards do painel de Pets
+           animam o idle automaticamente.
    Fixes de paridade herdados (v1.0.0): [HTML-1..4] — pity Rara+, World Boss 30s,
            XP do Passe, primeiro boot sem offline fantasma.
   QA: 137 asserções headless (test_node.js) + smoke test em navegador real.
@@ -137,13 +152,15 @@ img{image-rendering:pixelated}
 #cv-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(4,2,8,.5) 100%)}
 #enemy-info{position:absolute;top:6px;right:8px;text-align:right;pointer-events:none;max-width:62%}
-#season-chip{position:absolute;top:6px;left:8px;display:flex;align-items:center;gap:5px;z-index:5;
+#fx-chips{position:absolute;top:6px;left:8px;display:flex;gap:6px;z-index:5;pointer-events:none}
+#season-chip,#weather-chip{display:flex;align-items:center;gap:5px;
   background:linear-gradient(180deg,rgba(36,26,51,.85),rgba(20,14,30,.92));border:1px solid var(--line);
   border-radius:10px;padding:2px 9px 2px 6px;font-size:11px;font-weight:700;color:var(--txt);
-  pointer-events:none;text-shadow:0 1px 2px #000;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  text-shadow:0 1px 2px #000;box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
   animation:seasonIn .5s ease-out}
-#season-chip .ico{font-size:12px;filter:drop-shadow(0 0 5px rgba(255,255,255,.3))}
-#season-chip .nm{letter-spacing:.4px}
+#weather-chip{animation-delay:.12s}
+#season-chip .ico,#weather-chip .ico{font-size:12px;filter:drop-shadow(0 0 5px rgba(255,255,255,.3))}
+#season-chip .nm,#weather-chip .nm{letter-spacing:.4px}
 @keyframes seasonIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 #enemy-name{font-family:var(--f-disp);font-weight:700;font-size:13px;letter-spacing:.5px;
   text-shadow:0 1px 3px #000, 0 0 10px rgba(0,0,0,.8)}
@@ -365,7 +382,7 @@ textarea{width:100%;height:70px;font-size:10px;resize:none}
   <div class="divider"><i></i></div>
   <select id="splash-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select>
   <button class="tap" id="btn-start">Toque para despertar o Selo</button>
-  <div class="ver" id="splash-ver">v1.2.0 — Ciclo das Estações</div>
+  <div class="ver" id="splash-ver">v1.3.0 — Tempestade Viva</div>
 </div>
 <div id="app" class="hidden">
   <header id="hud">
@@ -383,7 +400,7 @@ textarea{width:100%;height:70px;font-size:10px;resize:none}
     <section id="view-battle">
       <div id="cv-wrap">
         <canvas id="cv" width="540" height="960"></canvas>
-        <div id="season-chip"><span class="ico">🌸</span><span class="nm">Primavera</span></div>
+        <div id="fx-chips"><div id="season-chip"><span class="ico">🌸</span><span class="nm">Primavera</span></div><div id="weather-chip"><span class="ico">🌤️</span><span class="nm">Limpo</span></div></div>
         <div id="enemy-info"><div id="enemy-name"></div><div id="enemy-mods"></div></div>
         <div id="bossbar" class="hidden"><div id="bossbar-fill"></div><span id="bossbar-label"></span></div>
         <div id="banner"></div>

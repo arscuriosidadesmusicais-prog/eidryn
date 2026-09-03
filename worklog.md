@@ -108,3 +108,54 @@ Stage Summary:
 - v1.2.0 entregue em /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html: herói vivo com 7 posturas
   animadas dirigidas por eventos, mundo com 4 biomas sazonais perceptíveis (auto por calendário + seletor manual).
   Regra de ouro mantida: nenhum arquivo de gameplay/save tocado; 137/137 testes; zero erros de console.
+
+---
+Task ID: 5
+Agent: main (Super Z) — Direção de Arte & UI/UX
+Task: v1.3.0 "Tempestade Viva" — clima dinâmico (chuva/tempestade) + posturas para os pets (escopo estritamente visual; lógica/fórmulas/save intactos)
+
+Work Log:
+- [ART-9] POSTURAS DOS PETS: gen_pet_anim.py — engine de transformações paramétricas
+  (shift/squash/band_shear/dim/lift_region) sobre a arte base autoral de gen_sprites_v2 +
+  FX por espécie (faíscas, lágrima, poeira, brilho, suspiro). 10 pets × 8 frames = 80 PNGs
+  96×96: idle 4f (respiração/flutuação/rastejo/hop por espécie), cheer 2f (agacha→salto com
+  burst de faíscas na cor de cada pet; cavaleiro ergue a espada), sad 2f (abatido, escurecido,
+  lágrima + suspiro). Contact sheet sheet_pet_anim.png.
+  Autocrítica 1: lift do cavaleiro apagava o braço direito (box invadia x≤65) → dividido em
+  2 lifts (lâmina+guarda) sem tocar o braço; grilo idle nervoso demais → pulo -5→-3, squash
+  suavizado. Reaprovado com zoom nas frames corrigidas.
+- [ART-8] CLIMA DINÂMICO no render (p05_render.js v4): 5 estados (limpo/nublado/chuva/
+  tempestade/neve) com escolha automática DETERMINÍSTICA por região+janela de 2,5min
+  (hash regionId:wx:slot, pesos por bioma — Pântano chuvoso, Cidadela seca, Abismo sem
+  clima) + coerência sazonal (inverno: chuva→neve). Vento com rajadas (inclina os riscos
+  de chuva, arrasta neve/cinzas/pétalas/motas). Pool fixo 150 gotas c/ camadas trás/frente,
+  repovoamento gradual (sem pop), splash em elipse no solo, relâmpagos ramificados c/
+  glow triplo + flash de tela + screenshake (0,34 próximo / 0,08 distante), escurecimento
+  do céu + wash com crossfade entre climas. Variantes temáticas por bioma: chuva ácida
+  (Pântano), chuva de sangue (Coração), cinzas/tempestade de brasas c/ raio laranja
+  (Deserto), flocos (Picos). Chip #weather-chip no HUD ao lado do chip de estação
+  (container #fx-chips flex). Override manual em Ajustes (auto/limpo/nublado/chuva/
+  tempestade/neve) — prefs em eidryn_fx_prefs_v1 (chave própria; save intacto) e
+  persistindo entre sessões (validado).
+- [ART-9 cont.] PETS CÊNICOS NO COMBATE: pet + companheiro ativos desenhados na cena
+  (companheiro atrás do herói 176px c/ sombra, pet aos pés 76px c/ sombra), FSM de
+  posturas (idle 6fps loop / cheer 6fps loop c/ salto senoidal / sad 3,2fps) dirigida
+  SOMENTE por eventos existentes: combat_ended win→cheer 3,4s, lose→sad, level_up→cheer
+  2,6s, enemy_spawned→idle, pet_changed→setPetVisuals (também após boot_load). Cards do
+  painel de Pets animam o idle via ticker 0,22s (registerPetCard/resetPetCards — validado
+  "ANIMANDO ✓" comparando src).
+- i18n: +7 chaves aditivas (weather, weather_auto, w_clear/cloudy/rain/storm/snow) em
+  loc_ptbr/loc_en. GAME_VERSION 1.3.0. Splash + cabeçalho do HTML documentados ([ART-8/9]).
+- QA: build 3,12MB / 242 sprites (+80) / 24 áudios; test_node 137/137 ✓; navegador real
+  (portrait 390×844 + landscape 1280×720): chuva c/ vento ✓, tempestade c/ relâmpago
+  capturado em frame congelado ✓, neve ✓, chips ✓, pets idle/cheer/sad em combate real ✓
+  (win→cheer→idle verificado por listener), painel animado ✓, 61 FPS ✓, 0 erros de
+  console ✓, prefs persistindo ✓, save novo íntegro ✓. Incidente "Fase NAN" investigado:
+  artefato de evento sintético fora de banda no teste (estado real stage:10 íntegro);
+  não alcançável em jogo real. localStorage de teste limpo antes da entrega.
+
+Stage Summary:
+- v1.3.0 entregue em /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html:
+  mundo vivo com 5 climas dinâmicos (auto por bioma+tempo, manual em Ajustes) e pets/
+  companheiros animados por posturas que reagem a vitória/derrota/level. Regra de ouro
+  mantida: nenhum arquivo de gameplay/save tocado; 137/137 testes; zero erros de console.

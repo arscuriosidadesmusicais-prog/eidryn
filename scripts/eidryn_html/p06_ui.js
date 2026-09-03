@@ -619,6 +619,7 @@ E.UI = {
   /* ================= PAINEL: PETS ================= */
   render_pets: function(body){
     var self=this;
+    if(E.Rfx) E.Rfx.resetPetCards(); // cards são recriados a cada render
     [['pets',E.DM.cfg_pets.pets,E.DM.tr('pets')],['companions',E.DM.cfg_pets.companions,'Companheiros']].forEach(function(grp){
       var sec=self.h('div','sec','<h3>'+grp[2]+'</h3>');
       var grid=self.h('div','pet-grid');
@@ -628,6 +629,7 @@ E.UI = {
         var act=(E.Pet.active_pet===p.id||E.Pet.active_companion===p.id);
         var card=self.h('div','pet-card'+(act?' act':'')+(owned?'':' muted'));
         var im=self.img('pets/'+p.icon); im.style.opacity=owned?'1':'.35';
+        if(E.Rfx) E.Rfx.registerPetCard(im, 'pets/'+p.icon); // idle animado no card
         card.appendChild(im);
         var st='';
         for(var i=1;i<=E.DM.cfg_pets.max_stars;i++) st+= i<=stars? '★':'<span class="off">★</span>';
