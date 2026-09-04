@@ -35,7 +35,9 @@ E.UI = {
       E.Audio.play_sfx('click');
     };
     E.BUS.on('toast', function(msg, color){ self.toast(msg, color); });
-    E.BUS.on('currency_changed', function(){ self._panelDirty=true; self._buildCurChips(); });
+    /* [AUDIT-A2] moedas: update LEVE por referência — o ouro muda a cada kill,
+       reconstruir os 7 chips (innerHTML + 7 imgs base64) em cada um era desperdício */
+    E.BUS.on('currency_changed', function(id){ self._panelDirty=true; self._updateCurChip(id); });
     E.BUS.on('stats_recalculated', function(){ self._panelDirty=true; });
     E.BUS.on('stage_changed', function(st, isBoss, isMini){
       var el=document.getElementById('hud-stage');
@@ -101,6 +103,35 @@ E.UI = {
         [{label:E.DM.tr('ok'), cls:'p'}]);
     });
     E.BUS.on('tower_floor_reached', function(){ self._panelDirty=true; });
+    // [AUDIT-B2] o evento skill_ready JÁ existia no BUS e ninguém escutava —
+    // agora o slot pisca quando a habilidade recarrega (leitura instantânea de "pronto")
+    E.BUS.on('skill_ready', function(id){
+      var idx=['lamina_eclipse','guarda_sombras','sedenta','rumo_vazio','cataclismo'].indexOf(id);
+      var bar=document.getElementById('skillbar');
+      if(idx<0||!bar) return;
+      var slot=bar.querySelectorAll('.sk-slot')[idx];
+      if(!slot) return;
+      slot.classList.remove('flash');
+      void slot.offsetWidth; // reinicia a animação
+      slot.classList.add('flash');
+      setTimeout(function(){ slot.classList.remove('flash'); }, 700);
+    });
+    // [AUDIT-B3] troca de fase pulsa no HUD (feedback de progresso)
+    E.BUS.on('stage_changed', function(){
+      var el=document.getElementById('hud-stage');
+      if(!el) return;
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+    });
+    // [AUDIT-D3] autosave visível: ⚙ pulsa em verde quando o Selo é gravado
+    E.BUS.on('save_flushed', function(){
+      var c=document.getElementById('btn-config');
+      if(!c) return;
+      c.classList.remove('save-pulse');
+      void c.offsetWidth;
+      c.classList.add('save-pulse');
+    });
     // refresh loop (200ms)
     setInterval(function(){
       document.getElementById('hud-pc').textContent=E.DM.tr('pc')+' '+E.U.fmt(E.Char.pc());
@@ -220,14 +251,23 @@ E.UI = {
     box.innerHTML='';
     var order=['ouro','gemas','essencia','chaves','fragmentos_equip','fragmentos_alma','gloria'];
     var self=this;
+    this._curRefs={};
     order.forEach(function(id){
       var c=self.h('div','chip');
       var ic=self.img('ui/'+self.CUR_ICON[id]);
       ic.title=E.DM.tr('details');
-      c.appendChild(ic);
-      c.appendChild(document.createTextNode(E.U.fmt(E.Eco.get_cur(id))));
+      var txt=document.createTextNode(E.U.fmt(E.Eco.get_cur(id)));
+      c.appendChild(ic); c.appendChild(txt);
       box.appendChild(c);
+      self._curRefs[id]={chip:c, txt:txt};
     });
+  },
+  /* [AUDIT-A2] refresh barato de UM chip (textContent apenas — zero reflow de imagens) */
+  _updateCurChip: function(id){
+    var r=id && this._curRefs && this._curRefs[id];
+    if(!r){ this._buildCurChips(); return; }
+    var v=E.U.fmt(E.Eco.get_cur(id));
+    if(r.txt.textContent!==v) r.txt.textContent=v;
   },
   _updateBadge: function(){
     var n=0, list=E.DM.cfg_missions.daily, i;

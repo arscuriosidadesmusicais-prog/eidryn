@@ -1,0 +1,630 @@
+     1→'use strict';
+     2→/* =====================================================================
+     3→   p04_combat.js — CombatManager + SaveManager + AudioManager
+     4→   Porta 1:1 de combat_manager.gd / save_manager.gd / audio_manager.gd
+     5→   ===================================================================== */
+     6→
+     7→/* ---------- COMBAT (loop automático, skills, modificadores, recompensas) ---------- */
+     8→E.Combat = {
+     9→  ENEMY_INTERVAL: 2.0,
+    10→  RESPAWN_DELAY: 0.7,
+    11→  active: false,
+    12→  mode: 'campaign',
+    13→  stage: 1,
+    14→  enemy: {}, enemy_hp: 0, enemy_shield: 0, enemy_berserk: false,
+    15→  hero_hp: 0, hero_shield: 0, revive_used: false,
+    16→  _hero_t: 0, _enemy_t: 0, _spawn_t: 0, _boss_t: 0,
+    17→  _buff_atk_pct: 0, _buff_time: 0,
+    18→  _dot_dmg: 0, _dot_time: 0, _dot_per_s: 0, _dot_lifesteal: false,
+    19→  _enemy_atk_shred: 0, _enemy_def_shred: 0, _stun_t: 0, _reflect_pct: 0,
+    20→  _mode_callback: '', _restart_pending: false,
+    21→
+    22→  start_campaign: function(stage){
+    23→    this.mode='campaign'; this.stage=stage; this._begin();
+    24→  },
+    25→  start_custom: function(ctx){
+    26→    this.mode=ctx.mode||'tower';
+    27→    this.stage=ctx.stage||1;
+    28→    this.enemy=ctx.enemy||{};
+    29→    this._mode_callback=ctx.callback||'';
+    30→    this._begin_with_enemy();
+    31→  },
+    32→  stop: function(){ this.active=false; },
+    33→  _begin: function(){
+    34→    this.enemy=E.DM.enemy_for_stage(this.stage);
+    35→    this._begin_with_enemy();
+    36→  },
+    37→  _begin_with_enemy: function(){
+    38→    var stats=E.Char.stats();
+    39→    this.hero_hp=stats.hp; this.hero_shield=0; this.revive_used=false;
+    40→    this._reset_effects();
+    41→    this.active=true;
+    42→    this._spawn_t=0; this._hero_t=0; this._enemy_t=0; this._restart_pending=false;
+    43→    this.enemy_hp=this._enemy_max_hp();
+    44→    if(this.enemy.boss) this._boss_t=E.DM.cfg_enemies.boss_timer_s;
+    45→    else this._boss_t=0;
+    46→    this._apply_spawn_modifiers();
+    47→    E.BUS.emit('combat_started', this.stage, !!this.enemy.boss);
+    48→    E.BUS.emit('enemy_spawned', this.enemy);
+    49→    E.BUS.emit('enemy_hp_changed', this.enemy_hp+this.enemy_shield, this._enemy_max_hp());
+    50→    E.BUS.emit('hero_hp_changed', this.hero_hp, stats.hp);
+    51→  },
+    52→  _reset_effects: function(){
+    53→    this._buff_atk_pct=0; this._buff_time=0;
+    54→    this._dot_dmg=0; this._dot_time=0; this._dot_per_s=0; this._dot_lifesteal=false;
+    55→    this._enemy_atk_shred=0; this._enemy_def_shred=0;
+    56→    this._stun_t=0; this._reflect_pct=0;
+    57→  },
+    58→  _apply_spawn_modifiers: function(){
+    59→    this.enemy_shield=0; this.enemy_berserk=false;
+    60→    var mods=this.enemy.modifiers||[];
+    61→    if(mods.indexOf('escudo')>=0) this.enemy_shield=this._enemy_max_hp()*0.25;
+    62→    if(mods.indexOf('reforçado')>=0) this.enemy.def=this.enemy.def*1.2;
+    63→  },
+    64→  _enemy_max_hp: function(){ return this.enemy.hp||1; },
+    65→  _enemy_atk: function(){
+    66→    var a=this.enemy.atk||1;
+    67→    if(this.enemy_berserk) a*=1.5;
+    68→    if(this._enemy_atk_shred>0) a*=1-this._enemy_atk_shred/100;
+    69→    return a;
+    70→  },
+    71→  /* ---------- LOOP ---------- */
+    72→  process: function(delta){
+    73→    if(!this.active) return;
+    74→    var stats=E.Char.stats();
+    75→    if(this._spawn_t>0){
+    76→      this._spawn_t-=delta;
+    77→      if(this._spawn_t<=0){
+    78→        if(this._restart_pending){ this.stage=E.Prog.current_stage; this._begin(); } // [HTML-5]
+    79→        else this._next_after_win();
+    80→      }
+    81→      return;
+    82→    }
+    83→    if(!this._alive()) return;
+    84→    this._auto_cast();
+    85→    E.Skill.tick_cooldowns(delta);
+    86→    if(stats.regen>0) this.hero_hp=Math.min(this.hero_hp+stats.regen*delta, stats.hp);
+    87→    if(this._buff_time>0){
+    88→      this._buff_time-=delta;
+    89→      if(this._buff_time<=0) this._buff_atk_pct=0;
+    90→    }
+    91→    if(this._dot_time>0){
+    92→      this._dot_time-=delta;
+    93→      var tick=this._dot_per_s*delta;
+    94→      this._apply_damage_to_enemy(tick, false, '#9b59d0', true);
+    95→      if(this._dot_lifesteal) this._heal_hero(tick*0.5);
+    96→      if(this._dot_time<=0) this._enemy_atk_shred=0;
+    97→    }
+    98→    if(this._stun_t>0) this._stun_t-=delta;
+    99→    this._hero_t+=delta;
+   100→    var interval=stats.atk_interval;
+   101→    if(this._hero_t>=interval){
+   102→      this._hero_t-=interval;
+   103→      this._hero_attack();
+   104→    }
+   105→    if(this._stun_t<=0){
+   106→      this._enemy_t+=delta;
+   107→      if(this._enemy_t>=this.ENEMY_INTERVAL){
+   108→        this._enemy_t-=this.ENEMY_INTERVAL;
+   109→        this._enemy_attack(stats);
+   110→      }
+   111→    }
+   112→    if(this._boss_t>0){
+   113→      this._boss_t-=delta;
+   114→      E.BUS.emit('boss_timer', this._boss_t);
+   115→      if(this._boss_t<=0 && this._alive()) this._fail('timeout');
+   116→    }
+   117→    if(this._alive() && (this.enemy.modifiers||[]).indexOf('curandeiro')>=0){
+   118→      this.enemy_hp=Math.min(this.enemy_hp+this._enemy_max_hp()*0.02*delta, this._enemy_max_hp());
+   119→      E.BUS.emit('enemy_hp_changed', this.enemy_hp+this.enemy_shield, this._enemy_max_hp());
+   120→    }
+   121→  },
+   122→  enemy_interval: function(){ return this.ENEMY_INTERVAL; },
+   123→  _alive: function(){ return this.active && this.enemy_hp>0 && this.hero_hp>0; },
+   124→  /* ---------- ATAQUES ---------- */
+   125→  _hero_attack: function(){ this._apply_damage_to_enemy(0, false, '#e8e0d0', false); },
+   126→  _enemy_attack: function(stats){
+   127→    var mods=this.enemy.modifiers||[];
+   128→    var dodge=stats.dodge||0;
+   129→    if(Math.random()*100<=dodge){
+   130→      E.BUS.emit('floating_damage', 0, false, 'hero', '#9aa0a6');
+   131→      return;
+   132→    }
+   133→    var raw=this._enemy_atk();
+   134→    var dmg=E.DM.damage_taken(raw, stats.def);
+   135→    this.hero_hp-=dmg;
+   136→    E.BUS.emit('hero_damaged', dmg);
+   137→    E.BUS.emit('floating_damage', -dmg, false, 'hero', '#d0455f');
+   138→    E.BUS.emit('screenshake', this.enemy.boss?0.25:0.1);
+   139→    if(this.hero_shield>0){
+   140→      var absorbed=Math.min(this.hero_shield, dmg);
+   141→      this.hero_shield-=absorbed;
+   142→      if(this._reflect_pct>0){
+   143→        var ref=dmg*this._reflect_pct/100;
+   144→        this._apply_damage_to_enemy(ref, false, '#3a7bd5', true);
+   145→      }
+   146→    }
+   147→    E.BUS.emit('hero_hp_changed', Math.max(this.hero_hp,0), stats.hp);
+   148→    if(mods.indexOf('berserk')>=0 && !this.enemy_berserk && this.enemy_hp<this._enemy_max_hp()*0.3){
+   149→      this.enemy_berserk=true;
+   150→      E.BUS.toast_msg((this.enemy.name||'?')+' ficou Enfurecido!', '#d0455f');
+   151→    }
+   152→    if(this.hero_hp<=0) this._hero_down();
+   153→  },
+   154→  _hero_down: function(){
+   155→    if(!this.revive_used && E.Asc.has_revive()){
+   156→      this.revive_used=true;
+   157→      this.hero_hp=E.Char.stats().hp*0.5;
+   158→      E.BUS.emit('hero_hp_changed', this.hero_hp, E.Char.stats().hp);
+   159→      E.BUS.toast_msg('Sombra Guardiã — renasceu!', '#3a9e8f');
+   160→      return;
+   161→    }
+   162→    this._fail('death');
+   163→  },
+   164→  _apply_damage_to_enemy: function(skill_mult, _is_skill, color_hex, no_effects){
+   165→    if(!this._alive()) return;
+   166→    var stats=E.Char.stats();
+   167→    var mods=this.enemy.modifiers||[];
+   168→    if(!no_effects && mods.indexOf('elusivo')>=0 && Math.random()*100<=10){
+   169→      E.BUS.emit('floating_damage', 0, false, 'enemy', '#9aa0a6');
+   170→      return;
+   171→    }
+   172→    var crit=E.DM.roll_crit({randf_range:function(a,b){return a+Math.random()*(b-a);}}, stats.crit_rate);
+   173→    var buffs=1+this._buff_atk_pct/100;
+   174→    var skill_m=skill_mult<=0?1:skill_mult;
+   175→    var dmg=E.DM.damage_final(stats.atk, 1, skill_m, buffs);
+   176→    if(this.enemy.boss||this.enemy.miniboss) dmg*=1+(stats.boss_damage||0)/100;
+   177→    if(crit) dmg*=stats.crit_damage/100;
+   178→    var edef=(this.enemy.def||0)*(1-this._enemy_def_shred/100);
+   179→    dmg=E.DM.damage_taken(dmg, edef);
+   180→    if(this.enemy_shield>0){
+   181→      var absorbed=Math.min(this.enemy_shield, dmg);
+   182→      this.enemy_shield-=absorbed;
+   183→      dmg-=absorbed;
+   184→    }
+   185→    this.enemy_hp-=dmg;
+   186→    E.BUS.emit('floating_damage', dmg, crit, 'enemy', crit?'#e8833a':color_hex);
+   187→    if(crit) E.BUS.emit('screenshake', 0.3);
+   188→    E.BUS.emit('enemy_damaged', dmg, crit);
+   189→    E.BUS.emit('enemy_hp_changed', Math.max(this.enemy_hp,0)+this.enemy_shield, this._enemy_max_hp());
+   190→    var heal=E.DM.lifesteal_heal(dmg, stats.lifesteal);
+   191→    if(heal>0) this._heal_hero(heal);
+   192→    if(this.enemy_hp<=0) this._kill_enemy();
+   193→  },
+   194→  _heal_hero: function(amount){
+   195→    var max_hp=E.Char.stats().hp;
+   196→    var before=this.hero_hp;
+   197→    this.hero_hp=Math.min(this.hero_hp+amount, max_hp);
+   198→    if(this.hero_hp-before>0.5) E.BUS.emit('hero_hp_changed', this.hero_hp, max_hp);
+   199→  },
+   200→  /* ---------- SKILLS ---------- */
+   201→  cast_skill: function(id){
+   202→    var stats=E.Char.stats();
+   203→    var s=E.Skill.skill_def(id);
+   204→    if(!s.id) return false;
+   205→    if(!E.Skill.cast(id)) return false;
+   206→    var mult=E.Skill.active_mult(id)/100;
+   207→    var evolved=!!E.Skill.evolved[id];
+   208→    if(id==='lamina_eclipse'){
+   209→      this._apply_damage_to_enemy(mult, true, '#e8833a', false);
+   210→      if(evolved) this._stun_t=s.evolve.extra_stun;
+   211→    } else if(id==='guarda_sombras'){
+   212→      this.hero_shield=stats.hp*mult;
+   213→      this._reflect_pct=evolved?s.evolve.reflect:0;
+   214→      E.BUS.toast_msg(s.name+'!', '#3a7bd5');
+   215→    } else if(id==='sedenta'){
+   216→      this._dot_per_s=stats.atk*mult/s.base.dur;
+   217→      this._dot_time=s.base.dur;
+   218→      this._dot_lifesteal=true;
+   219→      if(evolved) this._enemy_atk_shred=s.evolve.atk_shred;
+   220→      E.BUS.toast_msg(s.name+'!', '#9b59d0');
+   221→    } else if(id==='rumo_vazio'){
+   222→      this._enemy_def_shred=evolved?s.evolve.def_shred:0;
+   223→      this._apply_damage_to_enemy(mult, true, '#3a9e8f', false);
+   224→    } else if(id==='cataclismo'){
+   225→      this._apply_damage_to_enemy(mult, true, '#f5e6c8', false);
+   226→      this._buff_atk_pct=E.Skill.scaled_value(id,'buff_pct');
+   227→      this._buff_time=s.base.buff_dur;
+   228→      E.BUS.emit('screenshake', 0.8);
+   229→      E.BUS.toast_msg('☾ '+s.name+' ☽', '#f5e6c8');
+   230→    }
+   231→    return true;
+   232→  },
+   233→  _auto_cast: function(){
+   234→    var ready=E.Skill.ready_skills(true);
+   235→    for(var i=0;i<ready.length;i++) this.cast_skill(ready[i].id);
+   236→  },
+   237→  /* ---------- MORTE / RECOMPENSAS ---------- */
+   238→  _kill_enemy: function(){
+   239→    this.enemy_hp=0;
+   240→    var stats=E.Char.stats();
+   241→    if((this.enemy.modifiers||[]).indexOf('explosivo')>=0){
+   242→      var boom=(this.enemy.atk||0)*0.15;
+   243→      this.hero_hp-=E.DM.damage_taken(boom, stats.def);
+   244→      E.BUS.emit('floating_damage', -boom, false, 'hero', '#d0455f');
+   245→      E.BUS.emit('hero_hp_changed', Math.max(this.hero_hp,0), stats.hp);
+   246→      if(this.hero_hp<=0){ this._hero_down(); return; }
+   247→    }
+   248→    var gold=(this.enemy.gold||0)*(1+(stats.gold_find||0)/100)*E.Eco.gold_mult();
+   249→    var xp=(this.enemy.xp||0)*(1+(stats.xp_gain||0)/100);
+   250→    E.Eco.add('ouro', gold);
+   251→    E.Char.gain_xp(xp);
+   252→    E.Inv.try_drop(this.stage, !!this.enemy.boss, stats);
+   253→    E.Ret.track('kills', 1);
+   254→    E.Ret.bp_add_xp(E.DM.cfg_battlepass.xp_sources.kills); // [HTML-3]
+   255→    if(this.enemy.boss||this.enemy.miniboss){
+   256→      E.Ret.track('boss_kills', 1);
+   257→      E.Ret.bp_add_xp(E.DM.cfg_battlepass.xp_sources.boss_kills); // [HTML-3]
+   258→    }
+   259→    E.BUS.emit('enemy_killed', this.enemy);
+   260→    E.BUS.emit('combat_ended', 'win', this.stage);
+   261→    this._spawn_t=this.RESPAWN_DELAY;
+   262→    if(this._mode_callback!=='') E.Modes.on_mode_combat_end(this._mode_callback, 'win', this.stage);
+   263→  },
+   264→  _fail: function(reason){
+   265→    E.BUS.emit('combat_ended', 'fail', this.stage);
+   266→    if(this._mode_callback!=='') E.Modes.on_mode_combat_end(this._mode_callback, 'fail', this.stage);
+   267→    if(this.mode==='campaign'){
+   268→      this._restart_pending=true;
+   269→      this._spawn_t=this.RESPAWN_DELAY;
+   270→    } else {
+   271→      this.active=false;
+   272→    }
+   273→  },
+   274→  _next_after_win: function(){
+   275→    if(this.mode==='campaign'){ this.stage=E.Prog.current_stage; this._begin(); } // [HTML-5]
+   276→    else { this.active=false; E.Modes.request_next(this.mode); }
+   277→  }
+   278→};
+   279→
+   280→/* ---------- SAVE (checksum SHA-256, backup, migração, anticheat) ---------- */
+   281→E.Save = {
+   282→  SAVE_VERSION: 1,
+   283→  SALT: 'EIDRYN_VELUN_CICLO_DO_ECLIPSE_SALT',
+   284→  PASS: 'EIDRYN_SeloDoCrepusculo_EIDRYN_VELUN_CICLO_DO_ECLIPSE_SALT',
+   285→  FLUSH_DEBOUNCE_S: 3,
+   286→  KEY: 'eidryn_save_v1',
+   287→  BAK_KEY: 'eidryn_save_bak_v1',
+   288→  _dirty: false, _timer: 0, _boot_done: false, _violations: [],
+   289→  _store: {
+   290→    get: function(k){ try{ return globalThis.localStorage.getItem(k); }catch(e){ return null; } },
+   291→    set: function(k,v){ try{ globalThis.localStorage.setItem(k,v); }catch(e){ console.error('save storage cheio?', e); } },
+   292→    del: function(k){ try{ globalThis.localStorage.removeItem(k); }catch(e){} }
+   293→  },
+   294→  /* obfuscação leve (paridade do AES do Godot — camada de ofuscação local) */
+   295→  _xor: function(text){
+   296→    var out='';
+   297→    for(var i=0;i<text.length;i++) out+=String.fromCharCode(text.charCodeAt(i) ^ this.PASS.charCodeAt(i%this.PASS.length));
+   298→    return out;
+   299→  },
+   300→  boot_load: function(){
+   301→    var d=this._read(this.KEY);
+   302→    if(!d){
+   303→      var bak=this._read(this.BAK_KEY);
+   304→      if(bak){ d=bak; E.BUS.toast_msg(E.DM.tr('save_corrupt'), '#e8a33a'); }
+   305→    }
+   306→    if(!d) d={};
+   307→    this._apply_migrations(d);
+   308→    this._distribute(d);
+   309→    this._boot_done=true;
+   310→    this._validate_all();
+   311→    E.BUS.emit('save_flushed');
+   312→  },
+   313→  _read: function(key){
+   314→    var raw=this._store.get(key);
+   315→    if(!raw) return null;
+   316→    try{
+   317→      var text=this._xor(atob_compat(raw));
+   318→      var payload=JSON.parse(text);
+   319→      var data_json=payload.data_json||'';
+   320→      if(data_json==='' || payload.checksum!==E.U.sha256(data_json)) return null;
+   321→      return JSON.parse(data_json);
+   322→    }catch(e){ return null; }
+   323→  },
+   324→  flush: function(){
+   325→    if(!this._boot_done) return;
+   326→    var data=this.collect();
+   327→    var data_json=JSON.stringify(data);
+   328→    var payload={version:this.SAVE_VERSION, checksum:E.U.sha256(data_json), data_json:data_json};
+   329→    var text=JSON.stringify(payload);
+   330→    var prev=this._store.get(this.KEY);
+   331→    if(prev) this._store.set(this.BAK_KEY, prev);
+   332→    this._store.set(this.KEY, btoa_compat(this._xor(text)));
+   333→    this._dirty=false;
+   334→    E.TimeM.mark_seen();
+   335→    E.BUS.emit('save_flushed');
+   336→  },
+   337→  collect: function(){
+   338→    return {
+   339→      version:this.SAVE_VERSION,
+   340→      time:E.TimeM.save_state(),
+   341→      economy:E.Eco.save_state(),
+   342→      character:E.Char.save_state(),
+   343→      inventory:E.Inv.save_state(),
+   344→      skills:E.Skill.save_state(),
+   345→      pets:E.Pet.save_state(),
+   346→      progression:E.Prog.save_state(),
+   347→      modes:E.Modes.save_state(),
+   348→      ascension:E.Asc.save_state(),
+   349→      gacha:E.Gacha.save_state(),
+   350→      retention:E.Ret.save_state(),
+   351→      audio:E.Audio.save_state(),
+   352→      system:{language:E.DM.language, game_version:E.DM.GAME_VERSION}
+   353→    };
+   354→  },
+   355→  _distribute: function(d){
+   356→    E.DM.language=((d.system||{}).language)||'ptbr';
+   357→    E.TimeM.load_state(d.time||{});
+   358→    E.Eco.load_state(d.economy||{});
+   359→    E.Char.load_state(d.character||{});
+   360→    E.Inv.load_state(d.inventory||{});
+   361→    E.Skill.load_state(d.skills||{});
+   362→    E.Pet.load_state(d.pets||{});
+   363→    E.Prog.load_state(d.progression||{});
+   364→    E.Modes.load_state(d.modes||{});
+   365→    E.Asc.load_state(d.ascension||{});
+   366→    E.Gacha.load_state(d.gacha||{});
+   367→    E.Ret.load_state(d.retention||{});
+   368→    E.Audio.load_state(d.audio||{});
+   369→  },
+   370→  _apply_migrations: function(d){
+   371→    var v=d.version||0;
+   372→    while(v<this.SAVE_VERSION){ v++; } // v0 → v1: estrutura idêntica
+   373→    d.version=this.SAVE_VERSION;
+   374→  },
+   375→  mark_dirty: function(){ this._dirty=true; },
+   376→  process: function(delta){
+   377→    if(!this._boot_done) return;
+   378→    if(this._dirty){
+   379→      this._timer+=delta;
+   380→      if(this._timer>=this.FLUSH_DEBOUNCE_S){ this._timer=0; this.flush(); }
+   381→    } else this._timer=0;
+   382→  },
+   383→  export_save: function(){
+   384→    var data=this.collect();
+   385→    var data_json=JSON.stringify(data);
+   386→    return btoa_compat(unescape(encodeURIComponent(JSON.stringify({version:this.SAVE_VERSION, checksum:E.U.sha256(data_json), data_json:data_json}))));
+   387→  },
+   388→  import_save: function(b64){
+   389→    try{
+   390→      var text=decodeURIComponent(escape(atob_compat(b64.trim())));
+   391→      var payload=JSON.parse(text);
+   392→      if(payload.checksum!==E.U.sha256(payload.data_json)) return false;
+   393→      var d=JSON.parse(payload.data_json);
+   394→      this._apply_migrations(d);
+   395→      this._distribute(d);
+   396→      this._validate_all();
+   397→      E.Char.recalc();
+   398→      this.flush();
+   399→      return true;
+   400→    }catch(e){ return false; }
+   401→  },
+   402→  _validate_all: function(){
+   403→    this._violations=[];
+   404→    var cur=E.Eco.currencies, caps=E.DM.cfg_currencies.caps;
+   405→    for(var id in cur){
+   406→      if(Number(cur[id])<0){ cur[id]=0; this._violations.push('moeda negativa: '+id); }
+   407→      if(caps[id]!=null && Number(cur[id])>Number(caps[id])){ cur[id]=Number(caps[id]); this._violations.push('moeda acima do cap: '+id); }
+   408→    }
+   409→    var cap=E.DM.cfg_attributes.level.cap;
+   410→    if(E.Char.level>cap){ E.Char.level=cap; this._violations.push('nível acima do cap'); }
+   411→    if(E.Char.level<1){ E.Char.level=1; this._violations.push('nível inválido'); }
+   412→    if(E.Prog.current_stage<1){ E.Prog.current_stage=1; this._violations.push('fase inválida'); }
+   413→    if(this._violations.length>0){
+   414→      E.BUS.toast_msg(E.DM.tr('anticheat'), '#d0455f');
+   415→      E.BUS.emit('currency_changed', 'all', 0);
+   416→      this.mark_dirty();
+   417→    }
+   418→  },
+   419→  violation_count: function(){ return this._violations.length; },
+   420→  wipe: function(){ this._store.del(this.KEY); this._store.del(this.BAK_KEY); }
+   421→};
+   422→function btoa_compat(s){ return typeof btoa!=='undefined'? btoa(s) : Buffer.from(s,'binary').toString('base64'); }
+   423→function atob_compat(s){ return typeof atob!=='undefined'? atob(s) : Buffer.from(s,'base64').toString('binary'); }
+   424→E.Util_atob_compat = atob_compat;
+   425→
+   426→/* ---------- AUDIO (música contextual crossfade + SFX pool — WAVs embutidos) ---------- */
+   427→E.Audio = {
+   428→  music_vol: 0.7, sfx_vol: 0.8,
+   429→  MUSIC: {menu:'menu_theme', combat:'combat_theme', boss:'boss_theme', dungeon:'dungeon_theme'},
+   430→  SFX: {hit:'hit', crit:'crit', levelup:'levelup', coin:'coin', loot_common:'loot_common',
+   431→    loot_rare:'loot_rare', loot_epic:'loot_epic', loot_legend:'loot_legend', click:'click',
+   432→    equip:'equip', fail:'fail', win:'win', boss_roar:'boss_roar', skill:'skill',
+   433→    supreme:'supreme', gacha:'gacha', ascend:'ascend', offline:'offline',
+   434→    reinforce:'reinforce', evolve:'evolve'},
+   435→  SFX_POOL_SIZE: 10,
+   436→  _ctx: null, _musicA: null, _musicB: null, _useA: true, _current_music: '',
+   437→  _sfx_pool: [], _sfx_idx: 0, _cache: {}, _ready: false,
+   438→  init: function(){
+   439→    if(this._ready) return;
+   440→    var AC=globalThis.AudioContext||globalThis.webkitAudioContext;
+   441→    if(!AC || !E.WAV) return;
+   442→    try{
+   443→      this._ctx=new AC();
+   444→      this._musicA=this._makeChannel(); this._musicB=this._makeChannel();
+   445→      for(var i=0;i<this.SFX_POOL_SIZE;i++) this._sfx_pool.push(this._makeChannel());
+   446→      this._ready=true;
+   447→      this.apply_volumes();
+   448→      // [ART-10] ambiente do clima começa junto (o render já escolheu um clima no boot)
+   449→      this.set_ambient(this._ambWant||'limpo');
+   450→    }catch(e){ console.error('Audio init', e); }
+   451→  },
+   452→  _makeChannel: function(){
+   453→    var src=this._ctx.createGain();
+   454→    src.connect(this._master());
+   455→    return {gain:src, source:null};
+   456→  },
+   457→  _master: function(){
+   458→    if(!this._masterGain) { this._masterGain=this._ctx.createGain(); this._masterGain.connect(this._ctx.destination); }
+   459→    return this._masterGain;
+   460→  },
+   461→  _decode: function(name){
+   462→    if(this._cache[name]) return Promise.resolve(this._cache[name]);
+   463→    if(!E.WAV || !E.WAV[name]) return Promise.resolve(null);
+   464→    var self=this;
+   465→    var b64=E.WAV[name];
+   466→    var bin=atob_compat(b64);
+   467→    var bytes=new Uint8Array(bin.length);
+   468→    for(var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i)&0xff;
+   469→    return new Promise(function(resolve){
+   470→      self._ctx.decodeAudioData(bytes.buffer, function(buf){ self._cache[name]=buf; resolve(buf); },
+   471→        function(){ resolve(null); });
+   472→    });
+   473→  },
+   474→  apply_volumes: function(){
+   475→    if(!this._ready) return;
+   476→    this._masterGain.gain.value=1;
+   477→    if(this._musicA) this._musicA.gain.gain.value=this.music_vol;
+   478→    if(this._musicB) this._musicB.gain.gain.value=this.music_vol;
+   479→  },
+   480→  set_music_vol: function(v){ this.music_vol=E.U.clamp(v,0,1); this.apply_volumes(); E.Save.mark_dirty(); },
+   481→  set_sfx_vol: function(v){ this.sfx_vol=E.U.clamp(v,0,1); E.Save.mark_dirty(); },
+   482→  play_music: function(context){
+   483→    if(this._current_music===context) return;
+   484→    if(!this.MUSIC[context]) return;
+   485→    this._current_music=context;
+   486→    if(!this._ready) return;
+   487→    var self=this;
+   488→    var slot=this._useA?this._musicA:this._musicB;
+   489→    var old=this._useA?this._musicB:this._musicA;
+   490→    this._useA=!this._useA;
+   491→    this._decode(this.MUSIC[context]).then(function(buf){
+   492→      if(!buf) return;
+   493→      if(old.source){ try{ old.source.stop(); }catch(e){} old.source=null; }
+   494→      if(slot.source){ try{ slot.source.stop(); }catch(e){} }
+   495→      var src=self._ctx.createBufferSource();
+   496→      src.buffer=buf; src.loop=true;
+   497→      src.connect(slot.gain);
+   498→      src.start();
+   499→      slot.source=src;
+   500→      slot.gain.gain.setValueAtTime(0.0001, self._ctx.currentTime);
+   501→      slot.gain.gain.linearRampToValueAtTime(self.music_vol, self._ctx.currentTime+1.2);
+   502→    });
+   503→  },
+   504→  stop_music: function(){ this._current_music=''; if(!this._ready) return;
+   505→    if(this._musicA&&this._musicA.source){ try{this._musicA.source.stop();}catch(e){} this._musicA.source=null; }
+   506→    if(this._musicB&&this._musicB.source){ try{this._musicB.source.stop();}catch(e){} this._musicB.source=null; } },
+   507→  play_sfx: function(name){
+   508→    if(!this.SFX[name] || !this._ready) return;
+   509→    var self=this;
+   510→    this._decode(this.SFX[name]).then(function(buf){
+   511→      if(!buf) return;
+   512→      var slot=self._sfx_pool[self._sfx_idx];
+   513→      self._sfx_idx=(self._sfx_idx+1)%self.SFX_POOL_SIZE;
+   514→      if(slot.source){ try{ slot.source.stop(); }catch(e){} }
+   515→      var src=self._ctx.createBufferSource();
+   516→      src.buffer=buf;
+   517→      var g=self._ctx.createGain();
+   518→      g.gain.value=self.sfx_vol;
+   519→      src.connect(g); g.connect(self._master());
+   520→      src.start();
+   521→      slot.source=src;
+   522→    });
+   523→  },
+   524→  /* ---------- [ART-10] AMBIENTE POR CLIMA (síntese procedural — chuva/vento/trovão) ----------
+   525→     Camada 100% de apresentação: ruído filtrado em loop para chuva/vento + trovão
+   526→     sintetizado sob demanda (gatilhado pelo relâmpago do render). Volume próprio
+   527→     (amb_vol) guardado nas prefs de FX do render (eidryn_fx_prefs_v1) — SAVE DO JOGO
+   528→     INTACTO. Sem amostras externas: tudo gerado pelo AudioContext. */
+   529→  amb_vol: 0.5, _amb: null, _ambWant: 'limpo', _thunderN: 0, _nbCache: null,
+   530→  AMB_PRESET: {
+   531→    limpo:      { rain: 0.00, wind: 0.050 },
+   532→    nublado:    { rain: 0.00, wind: 0.140 },
+   533→    chuva:      { rain: 0.34, wind: 0.160 },
+   534→    tempestade: { rain: 0.52, wind: 0.270 },
+   535→    neve:       { rain: 0.00, wind: 0.100 }
+   536→  },
+   537→  _noiseBuf: function(secs){
+   538→    var key='n'+secs;
+   539→    if(this._nbCache && this._nbCache[key]) return this._nbCache[key];
+   540→    if(!this._nbCache) this._nbCache={};
+   541→    var len=Math.floor(this._ctx.sampleRate*secs);
+   542→    var buf=this._ctx.createBuffer(1,len,this._ctx.sampleRate);
+   543→    var d=buf.getChannelData(0), last=0;
+   544→    for(var i=0;i<len;i++){ var w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=w*0.55+last*2.1; }
+   545→    this._nbCache[key]=buf; return buf;
+   546→  },
+   547→  _ensureAmb: function(){
+   548→    if(this._amb) return this._amb;
+   549→    var c=this._ctx;
+   550→    var master=c.createGain(); master.gain.value=this.amb_vol; master.connect(this._master());
+   551→    // chuva: corpo (ruído grave filtrado) + chiado (ruído agudo fino)
+   552→    var rainBody=c.createBufferSource(); rainBody.buffer=this._noiseBuf(2.7); rainBody.loop=true;
+   553→    var rHP=c.createBiquadFilter(); rHP.type='highpass'; rHP.frequency.value=380;
+   554→    var rLP=c.createBiquadFilter(); rLP.type='lowpass'; rLP.frequency.value=950; rLP.Q.value=0.4;
+   555→    var rainHi=c.createBufferSource(); rainHi.buffer=this._noiseBuf(2.7); rainHi.loop=true;
+   556→    rainHi.playbackRate.value=1.13;
+   557→    var hHP=c.createBiquadFilter(); hHP.type='highpass'; hHP.frequency.value=2600; hHP.Q.value=0.5;
+   558→    var gRainB=c.createGain(); gRainB.gain.value=0;
+   559→    var gRainH=c.createGain(); gRainH.gain.value=0;
+   560→    rainBody.connect(rHP); rHP.connect(rLP); rLP.connect(gRainB); gRainB.connect(master);
+   561→    rainHi.connect(hHP); hHP.connect(gRainH); gRainH.connect(master);
+   562→    // vento: ruído grave com LFO no corte do filtro (assobio lento,rajadas)
+   563→    var wind=c.createBufferSource(); wind.buffer=this._noiseBuf(3.1); wind.loop=true;
+   564→    var wLP=c.createBiquadFilter(); wLP.type='lowpass'; wLP.frequency.value=300; wLP.Q.value=1.1;
+   565→    var lfo=c.createOscillator(); lfo.frequency.value=0.09;
+   566→    var lfoG=c.createGain(); lfoG.gain.value=150;
+   567→    lfo.connect(lfoG); lfoG.connect(wLP.frequency);
+   568→    var gWind=c.createGain(); gWind.gain.value=0;
+   569→    wind.connect(wLP); wLP.connect(gWind); gWind.connect(master);
+   570→    rainBody.start(); rainHi.start(); wind.start(); lfo.start();
+   571→    this._amb={master:master,gRainB:gRainB,gRainH:gRainH,gWind:gWind};
+   572→    return this._amb;
+   573→  },
+   574→  set_ambient: function(wk){
+   575→    this._ambWant=this.AMB_PRESET[wk]?wk:'limpo';
+   576→    if(!this._ready) return;
+   577→    var A=this._ensureAmb(), P=this.AMB_PRESET[this._ambWant], t=this._ctx.currentTime;
+   578→    A.gRainB.gain.setTargetAtTime(P.rain, t, 1.4);
+   579→    A.gRainH.gain.setTargetAtTime(P.rain*0.55, t, 1.4);
+   580→    A.gWind.gain.setTargetAtTime(P.wind, t, 1.8);
+   581→  },
+   582→  set_amb_vol: function(v){
+   583→    this.amb_vol=E.U.clamp(v,0,1);
+   584→    if(this._ready&&this._amb) this._amb.master.gain.setTargetAtTime(this.amb_vol, this._ctx.currentTime, 0.15);
+   585→    if(E.Rfx&&E.Rfx.savePrefs) E.Rfx.savePrefs();
+   586→  },
+   587→  pause_ambient: function(){
+   588→    if(this._ready&&this._amb) this._amb.master.gain.setTargetAtTime(0, this._ctx.currentTime, 0.3);
+   589→  },
+   590→  resume_ambient: function(){
+   591→    if(this._ready&&this._amb) this._amb.master.gain.setTargetAtTime(this.amb_vol, this._ctx.currentTime, 0.6);
+   592→  },
+   593→  thunder: function(near){
+   594→    if(!this._ready||this._thunderN>=3) return;
+   595→    var c=this._ctx, self=this;
+   596→    var t0=c.currentTime+(near?0.04+Math.random()*0.08:0.18+Math.random()*0.42);
+   597→    this._thunderN++;
+   598→    setTimeout(function(){ self._thunderN--; }, 4200);
+   599→    var dest=this._ensureAmb().master;
+   600→    // rumble: ruído com filtro que fecha (400→60Hz) e envelope exponencial
+   601→    var src=c.createBufferSource(); src.buffer=this._noiseBuf(3.4); src.loop=true;
+   602→    src.playbackRate.value=0.72+Math.random()*0.4;
+   603→    var lp=c.createBiquadFilter(); lp.type='lowpass';
+   604→    lp.frequency.setValueAtTime(near?420:300, t0);
+   605→    lp.frequency.exponentialRampToValueAtTime(near?58:75, t0+2.3);
+   606→    var g=c.createGain(); g.gain.setValueAtTime(0.0001, t0);
+   607→    var peak=(near?0.85:0.30)*(0.75+Math.random()*0.35);
+   608→    g.gain.exponentialRampToValueAtTime(Math.max(0.002,peak), t0+(near?0.05:0.22));
+   609→    g.gain.exponentialRampToValueAtTime(0.0008, t0+(near?2.9:2.2));
+   610→    src.connect(lp); lp.connect(g); g.connect(dest);
+   611→    if(near){ // sub grave dá o "peso" do trovão próximo
+   612→      var o=c.createOscillator(); o.type='sine';
+   613→      o.frequency.setValueAtTime(52, t0);
+   614→      o.frequency.exponentialRampToValueAtTime(34, t0+1.7);
+   615→      var og=c.createGain(); og.gain.setValueAtTime(0.0001, t0);
+   616→      og.gain.exponentialRampToValueAtTime(0.5, t0+0.06);
+   617→      og.gain.exponentialRampToValueAtTime(0.0008, t0+1.9);
+   618→      o.connect(og); og.connect(dest);
+   619→      o.start(t0); o.stop(t0+2.1);
+   620→    }
+   621→    src.start(t0); src.stop(t0+3.6);
+   622→  },
+   623→  save_state: function(){ return {music_vol:this.music_vol, sfx_vol:this.sfx_vol}; },
+   624→  load_state: function(d){
+   625→    if(!d) return;
+   626→    this.music_vol=(d.music_vol!=null)?Number(d.music_vol):0.7;
+   627→    this.sfx_vol=(d.sfx_vol!=null)?Number(d.sfx_vol):0.8;
+   628→  }
+   629→};
+   630→

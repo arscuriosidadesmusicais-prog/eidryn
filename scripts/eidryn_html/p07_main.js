@@ -44,6 +44,13 @@ E.Game = {
     E.Combat.start_campaign(E.Prog.current_stage);
     E.Audio.play_music('combat');
     E.BUS.toast_msg('☾ '+E.DM.tr('app_title'), '#e8833a');
+    // [AUDIT-D2] dicas da primeira sessão (uma única vez; flag nas prefs de FX — save intacto)
+    if(!E.Rfx._tipsDone){
+      E.Rfx._tipsDone=true; E.Rfx.savePrefs();
+      setTimeout(function(){ E.BUS.toast_msg(E.DM.tr('tip1'), '#e8a33a'); }, 4000);
+      setTimeout(function(){ E.BUS.toast_msg(E.DM.tr('tip2'), '#3a9e8f'); }, 16000);
+      setTimeout(function(){ E.BUS.toast_msg(E.DM.tr('tip3'), '#5a8fd0'); }, 28000);
+    }
     // recompensas offline
     if(E.Offline.has_pending()) this._showOffline();
     // login diário
@@ -92,8 +99,10 @@ E.Game = {
   },
   loop: function(t){
     var self=E.Game;
-    var delta=Math.min((t-self._lastT)/1000 || 0, 0.05);
+    var rawD=(t-self._lastT)/1000 || 0;            // delta CRU (pré-clamp)
+    var delta=Math.min(rawD, 0.05);
     self._lastT=t;
+    E.Rfx._rawDelta=rawD; // [AUDIT-C2] medição real p/ desempenho adaptativo
     if(self.state===self.State.PLAYING){
       self.playtime_s+=delta;
       E.Combat.process(delta);

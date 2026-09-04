@@ -1,0 +1,802 @@
+     1→'use strict';
+     2→/* =====================================================================
+     3→   p05_render.js — RENDER ENGINE v5 "Eco da Tempestade" (só apresentação)
+     4→   - Parallax de 4 camadas por região (céu/longe/médio/perto, PNGs autorais)
+     5→   - Crossfade entre regiões + partículas atmosféricas por bioma
+     6→   - HERÓI ANIMADO: FSM com 7 posturas (idle/ataque/crítico/cast/dano/
+     7→     vitória/derrota) × 23 frames — dirigida SÓ por eventos do BUS
+     8→   - BIOMAS SAZONAIS: grade de cor por camada (cache), partículas sazonais
+     9→     (pétalas/motas/folhas/neve), wash de humor, solo/acento deslocados;
+    10→     estação detectada pela data real (hemisfério sul) com override em Ajustes
+    11→   - CLIMA DINÂMICO: limpo/nublado/chuva/tempestade/neve — muda sozinho por
+    12→     região+tempo (determinístico), com vento, relâmpagos ramificados, splash
+    13→     no solo e variantes temáticas por bioma (cinzas/sangue/ácido/nevasca);
+    14→     override manual em Ajustes (pref em chave própria — save intacto)
+    15→   - PETS CENICOS: pet + companheiro ativos acompanhando o herói com FSM de
+    16→     posturas (idle/cheer/sad) reagindo aos mesmos eventos do BUS
+    17→   - [ART-10] ÁUDIO DO CLIMA (em E.Audio): chuva/vento sintetizados em loop
+    18→     + trovão sob demanda — hooks em _applyWeather e nos relâmpagos
+    19→   - [ART-11] POÇAS REFLETIVAS: na chuva, poças determinísticas por região
+    20→     refletem as entidades (clip elíptico + flip + squash + tremulação),
+    21→     ondulações de gota, cintilância, menisco e brilho de relâmpago na água
+    22→   - [ART-12] NEBLINA DO PÂNTANO: bancos de névoa em deriva (blob pré-
+    23→     renderizado), bruma de solo e densidade que reage ao clima
+    24→   - Partículas: faíscas, sangue, poeira, motas de ouro (pools fixos)
+    25→   - Dano flutuante em arco com pop-in (fonte Cinzel, cor por tipo)
+    26→   - Screenshake por trauma (com micro-rotação), barras ornamentadas
+    27→   Nenhuma lógica de gameplay aqui — apenas consumo de eventos do BUS.
+    28→   ===================================================================== */
+    29→E.Rfx = {
+    30→  W: 540, H: 960, GROUND_Y: 760, BG_W: 540,
+    31→  cv: null, ctx: null, time: 0, fontReady: false,
+    32→  regionId: '', regionCache: {}, layers: [], oldLayers: null, oldAlpha: 0,
+    33→  pal: null, palSeason: null, regionTitleT: 0,
+    34→  heroImg: null, heroAtkImg: null, heroFrames: {}, heroWhiteCache: {},
+    35→  heroAnim: { pose: 'idle', f: 0, t: 0 },
+    36→  enemyImg: null, enemyWhite: null, enemySpriteKey: '',
+    37→  hasEnemy: false, enemyBoss: false, enemyMini: false, enemyBerserk: false,
+    38→  heroHpShown: 1, enemyHpShown: 1, heroGhost: 1, enemyGhost: 1,
+    39→  heroHpLabel: '', enemyHpLabel: '',
+    40→  heroLunge: 0, enemyLunge: 0, enemyFade: 0, enemySpawn: 1,
+    41→  heroFlash: 0, enemyFlash: 0,
+    42→  floats: [], floatIdx: 0, FLOAT_POOL: 28,
+    43→  parts: [], partIdx: 0, PART_POOL: 150,
+    44→  rings: [], ringIdx: 0, RING_POOL: 8,
+    45→  atmo: [], seasonAtmo: [], shake: 0,
+    46→  /* ---------- CLIMA DINÂMICO (apenas render) ---------- */
+    47→  weather: 'limpo', weatherPrev: 'limpo', weatherPref: 'auto', weatherBlend: 1,
+    48→  weatherT: 0, weatherNext: 40, wind: 0,
+    49→  rain: [], rainIdx: 0, RAIN_POOL: 150, rainOn: 0,
+    50→  splashes: [], splashIdx: 0, SPLASH_POOL: 22,
+    51→  /* ---------- [ART-11] POÇAS + [ART-12] NEBLINA (só render) ---------- */
+    52→  puddles: [], puddleT: 0, ripples: [], rippleIdx: 0, RIPPLE_POOL: 14,
+    53→  fogBanks: [], fogDens: 1, _fogBlobA: null, _fogBlobB: null,
+    54→  boltT: 0, boltNext: 5, boltPts: null, flashA: 0,
+    55→  WEATHERS: {
+    56→    limpo:      { chip: '\ud83c\udf24\ufe0f', dim: 0,    wind: 0.12, wash: null },
+    57→    nublado:    { chip: '\u2601\ufe0f',      dim: 0.10, wind: 0.30, wash: 'rgba(64,68,84,0.10)' },
+    58→    chuva:      { chip: '\ud83c\udf27\ufe0f', dim: 0.15, wind: 0.55, wash: 'rgba(38,56,92,0.11)',
+    59→      rain: { n: 92, sp: [430, 600], len: [7, 11], al: 0.50 } },
+    60→    tempestade: { chip: '\u26a1',           dim: 0.21, wind: 1.0,  wash: 'rgba(16,24,50,0.15)',
+    61→      rain: { n: 132, sp: [560, 790], len: [9, 14], al: 0.62 }, bolt: true },
+    62→    neve:       { chip: '\ud83c\udf28\ufe0f', dim: 0.07, wind: 0.40, wash: 'rgba(178,198,235,0.08)',
+    63→      snow: { n: 72 } }
+    64→  },
+    65→  // pesos automáticos por região (abismo não tem clima — vazio não chove)
+    66→  REGION_WEATHER: {
+    67→    bosque_vidro:   { limpo: .30, nublado: .25, chuva: .30, tempestade: .15 },
+    68→    pantano:        { limpo: .08, nublado: .30, chuva: .42, tempestade: .20 },
+    69→    cidadela:       { limpo: .45, nublado: .35, chuva: .15, tempestade: .05 },
+    70→    deserto_cinzas: { limpo: .52, nublado: .26, chuva: .18, tempestade: .04 },
+    71→    picos:          { limpo: .24, nublado: .24, chuva: .06, tempestade: .10, neve: .36 },
+    72→    coracao:        { limpo: .14, nublado: .24, chuva: .32, tempestade: .30 },
+    73→    abismo:         { limpo: .55, nublado: .45 }
+    74→  },
+    75→  // variante temática da precipitação por região (só paleta/forma)
+    76→  RAIN_STYLE: {
+    77→    default:        { mode: 'line', cols: ['170,195,235', '150,178,220'] },
+    78→    pantano:        { mode: 'line', cols: ['168,208,120', '140,190,100'] },
+    79→    coracao:        { mode: 'line', cols: ['230,90,110', '205,70,95'] },
+    80→    deserto_cinzas: { mode: 'ash',  cols: ['150,142,150', '120,112,122'] },
+    81→    abismo:         { mode: 'ash',  cols: ['90,80,120', '70,62,100'] },
+    82→    picos:          { mode: 'dot',  cols: ['226,238,252', '206,226,248'] }
+    83→  },
+    84→  /* ---------- PETS CENICOS (só render; bônus já aplicados em Char) ---------- */
+    85→  PET_POSES: {
+    86→    idle:  { fps: 6,   loop: true },
+    87→    cheer: { fps: 6,   loop: true },
+    88→    sad:   { fps: 3.2, loop: true }
+    89→  },
+    90→  petFrames: {}, petAnim: { pose: 'idle', f: 0, t: 0 },
+    91→  petKey: '', compKey: '', petCards: [], _cardT: 0, cheerUntil: 0,
+    92→  /* ---------- BIOMAS SAZONAIS (apenas render; detecta pela data real) ---------- */
+    93→  PREF_KEY: 'eidryn_fx_prefs_v1',
+    94→  seasonPref: 'auto', season: 'primavera', _chipT: 0,
+    95→  SEASONS: {
+    96→    primavera: { chip: '\ud83c\udf38', tint: [150, 235, 170], amt: 0.16, sat: 1.16, bright: 1.07,
+    97→      wash: 'rgba(150,235,170,0.06)', mode: 'fall', n: 22, sp: [16, 32], sz: [2.2, 3.2],
+    98→      cols: ['#f2b8cf', '#f8dce8', '#e0c2e8', '#d8f0c0'], flutter: true, sway: 1.5, swayA: 24, alpha: 0.78 },
+    99→    verao:     { chip: '\u2600\ufe0f', tint: [255, 190, 100], amt: 0.18, sat: 1.10, bright: 1.10,
+   100→      wash: 'rgba(255,190,100,0.065)', mode: 'rise', n: 18, sp: [10, 24], sz: [1.8, 3],
+   101→      cols: ['#ffd27a', '#ffb860', '#fff0c0'], flutter: false, sway: 1.1, swayA: 14, alpha: 0.62 },
+   102→    outono:    { chip: '\ud83c\udf42', tint: [230, 122, 52], amt: 0.23, sat: 0.96, bright: 0.99,
+   103→      wash: 'rgba(230,122,52,0.07)', mode: 'fall', n: 26, sp: [24, 46], sz: [2.4, 3.6],
+   104→      cols: ['#d08030', '#b05a28', '#e0a040', '#8a4a20'], flutter: true, sway: 1.2, swayA: 30, alpha: 0.82 },
+   105→    inverno:   { chip: '\u2744\ufe0f', tint: [168, 208, 255], amt: 0.25, sat: 0.78, bright: 1.05,
+   106→      wash: 'rgba(168,208,255,0.075)', mode: 'fall', n: 30, sp: [20, 40], sz: [2, 3.4],
+   107→      cols: ['#e8f2fc', '#d0e4f8', '#ffffff'], flutter: false, sway: 0.8, swayA: 14, alpha: 0.8 }
+   108→  },
+   109→  /* ---------- FSM DO HERÓI (prioridade: down > victory > crit > cast/hurt > atk > idle) ---------- */
+   110→  POSES: {
+   111→    idle:    { fps: 5.5, loop: true,  prio: 0 },
+   112→    atk:     { fps: 14,  loop: false, prio: 1, next: 'idle' },
+   113→    hurt:    { fps: 8,   loop: false, prio: 2, next: 'idle' },
+   114→    cast:    { fps: 9,   loop: false, prio: 2, next: 'idle' },
+   115→    crit:    { fps: 12,  loop: false, prio: 3, next: 'idle' },
+   116→    victory: { fps: 5,   loop: false, prio: 4, next: 'idle', hold: true },
+   117→    down:    { fps: 3.5, loop: false, prio: 5, next: 'down', hold: true }
+   118→  },
+   119→
+   120→  init: function(){
+   121→    this.cv = document.getElementById('cv');
+   122→    this.ctx = this.cv.getContext('2d');
+   123→    this.ctx.imageSmoothingEnabled = false;
+   124→    var self = this;
+   125→    // texturas de UI → variáveis CSS (painéis pedra/metal/pergaminho + moldura 9-slice)
+   126→    var rootStyle = document.documentElement.style;
+   127→    var texMap = { '--tex-stone': 'ui/tex_stone', '--tex-metal': 'ui/tex_metal',
+   128→      '--tex-parch': 'ui/tex_parch', '--tex-frame': 'ui/tex_frame' };
+   129→    for (var tv in texMap) {
+   130→      if (E.IMG[texMap[tv]]) rootStyle.setProperty(tv, 'url("' + E.IMG[texMap[tv]] + '")');
+   131→    }
+   132→    // fonte Cinzel para o canvas (dano flutuante / títulos)
+   133→    if (document.fonts && document.fonts.load) {
+   134→      document.fonts.load('900 24px Cinzel').then(function(){ self.fontReady = true; })
+   135→        .catch(function(){ self.fontReady = false; });
+   136→    }
+   137→    this.heroImg = this._img(E.IMG['hero/hero']);
+   138→    this.heroAtkImg = this._img(E.IMG['hero/hero_attack']) || this.heroImg;
+   139→    // ---- frames do herói (7 posturas × N frames; fallback p/ 2 posturas antigas) ----
+   140→    var frameSets = { idle: 'hero_idle', atk: 'hero_atk', crit: 'hero_crit',
+   141→      cast: 'hero_cast', hurt: 'hero_hurt', victory: 'hero_victory', down: 'hero_down' };
+   142→    for (var fs in frameSets) {
+   143→      var arr = [];
+   144→      for (var fi = 0; fi < 8; fi++) {
+   145→        var uri = E.IMG['hero/' + frameSets[fs] + '_' + fi];
+   146→        if (!uri) break;
+   147→        arr.push(this._img(uri));
+   148→      }
+   149→      if (arr.length) this.heroFrames[fs] = arr;
+   150→    }
+   151→    if (!this.heroFrames.idle) this.heroFrames.idle = [this.heroImg];
+   152→    if (!this.heroFrames.atk) this.heroFrames.atk = [this.heroAtkImg];
+   153→    // prefs visuais (chave PRÓPRIA — save do jogo permanece intacto)
+   154→    this.loadPrefs();
+   155→    this.season = this.seasonKey();
+   156→    this.weather = this.weatherKey();
+   157→    // frames dos pets cênicos (idle/cheer/sad por espécie; fallback: base estática)
+   158→    this.loadPetFrames();
+   159→    // flash de impacto: versões brancas geradas/cachedas por frame em _whiteFor()
+   160→    for (var i = 0; i < this.FLOAT_POOL; i++)
+   161→      this.floats.push({ on:false, x:0, y:0, vx:0, vy:0, text:'', color:'#fff', size:20, t:0, crit:false });
+   162→    for (var j = 0; j < this.PART_POOL; j++)
+   163→      this.parts.push({ on:false, type:0, x:0, y:0, vx:0, vy:0, t:0, life:1, size:2, color:'#fff', grav:0 });
+   164→    for (var k = 0; k < this.RING_POOL; k++)
+   165→      this.rings.push({ on:false, x:0, y:0, t:0, life:1, r0:10, r1:80, color:'#fff', width:3 });
+   166→    // pools de clima (precipitação + splash no solo)
+   167→    for (var r2 = 0; r2 < this.RAIN_POOL; r2++)
+   168→      this.rain.push({ on:false, x:0, y:0, sp:0, ph:0, front:false, gy:0, c:0 });
+   169→    for (var s2 = 0; s2 < this.SPLASH_POOL; s2++)
+   170→      this.splashes.push({ on:false, x:0, y:0, t:0, life:1 });
+   171→    for (var r3 = 0; r3 < this.RIPPLE_POOL; r3++)
+   172→      this.ripples.push({ on:false, x:0, y:0, t:0, life:1 });
+   173→    // [ART-12] blobs de névoa pré-renderizados (2 tons — ar/solo)
+   174→    this._fogBlobA = this._fogBlob('170,200,165');
+   175→    this._fogBlobB = this._fogBlob('196,212,192');
+   176→    // ---------- EVENTOS ----------
+   177→    E.BUS.on('enemy_spawned', function(e){
+   178→      var key = e.sprite || 'enemy_bosque_vidro_0';
+   179→      self.enemySpriteKey = key;
+   180→      self.enemyImg = self._img(E.IMG['enemies/' + key]) || self._img(E.IMG['enemies/enemy_generic']);
+   181→      self.enemyWhite = null;
+   182→      self.hasEnemy = true; self.enemyFade = 0; self.enemySpawn = 0;
+   183→      self.enemyBoss = !!e.boss; self.enemyMini = !!e.miniboss;
+   184→      self.enemyBerserk = false;
+   185→      self.enemyHpShown = 0; self.heroHpShown = 0;
+   186→      self._heroPose('idle', true); // nova luta → herói volta à guarda
+   187→      self._petPose('idle'); self.cheerUntil = 0; // pets também
+   188→      var el = document.getElementById('enemy-name');
+   189→      var em = document.getElementById('enemy-mods');
+   190→      if (el) el.textContent = e.name || '';
+   191→      if (em) {
+   192→        var tags = '', mods = e.modifiers || [];
+   193→        for (var i = 0; i < mods.length; i++) tags += '[' + mods[i] + '] ';
+   194→        em.textContent = tags;
+   195→      }
+   196→      if (self.enemyBoss) { self._ring(385, 640, 30, 190, 'rgba(232,163,58,0.8)', 4, 0.9); self.addShake(0.35); }
+   197→    });
+   198→    E.BUS.on('enemy_hp_changed', function(hp, max_hp){
+   199→      self.enemyHpShown = E.U.clamp(hp / Math.max(max_hp, 1), 0, 1);
+   200→      self.enemyHpLabel = E.U.fmt(Math.max(hp, 0)) + ' / ' + E.U.fmt(max_hp);
+   201→    });
+   202→    E.BUS.on('hero_hp_changed', function(hp, max_hp){
+   203→      self.heroHpShown = E.U.clamp(hp / Math.max(max_hp, 1), 0, 1);
+   204→      self.heroHpLabel = E.U.fmt(Math.max(hp, 0)) + ' / ' + E.U.fmt(max_hp);
+   205→    });
+   206→    E.BUS.on('floating_damage', function(amount, crit, side, color){
+   207→      self._float(amount, crit, side, color);
+   208→    });
+   209→    E.BUS.on('screenshake', function(i){ self.addShake(i); });
+   210→    E.BUS.on('enemy_damaged', function(dmg, crit){
+   211→      self.heroLunge = 1; self.enemyFlash = crit ? 0.9 : 0.55;
+   212→      self._heroPose(crit ? 'crit' : 'atk');
+   213→      self._sparks(385, 620, crit ? 14 : 7);
+   214→      self._blood(385, 640, crit ? 9 : 4);
+   215→      if (crit) { self._ring(385, 640, 6, 84, 'rgba(255,190,90,0.9)', 4, 0.5); self.addShake(0.22); }
+   216→    });
+   217→    E.BUS.on('hero_damaged', function(){
+   218→      self.enemyLunge = 1; self.heroFlash = 0.6;
+   219→      self._heroPose('hurt');
+   220→      self._blood(155, 640, 6, '#d0455f');
+   221→    });
+   222→    E.BUS.on('skill_casted', function(){ self._heroPose('cast'); });
+   223→    E.BUS.on('combat_ended', function(result){
+   224→      self._heroPose(result === 'win' ? 'victory' : 'down');
+   225→      self._petPose(result === 'win' ? 'cheer' : 'sad');
+   226→      if (result === 'win') self.cheerUntil = self.time + 3.4;
+   227→    });
+   228→    E.BUS.on('enemy_killed', function(enemy){
+   229→      self.enemyFade = 0.0001;
+   230→      var boss = !!(enemy && enemy.boss);
+   231→      self._dust(385, 700, boss ? 22 : 12);
+   232→      self._motes(385, 600, boss ? 14 : 6);
+   233→      if (boss) { self._explosion(385, 620); self.addShake(1.0); }
+   234→      else self.addShake(0.18);
+   235→    });
+   236→    E.BUS.on('level_up', function(){
+   237→      self._heroPose('victory');
+   238→      self._ring(165, 640, 10, 150, 'rgba(120,240,180,0.9)', 5, 0.9);
+   239→      self._motes(165, 620, 12, '#8af0b0');
+   240→      self._petPose('cheer'); self.cheerUntil = self.time + 2.6;
+   241→    });
+   242→    E.BUS.on('pet_changed', function(){ self.setPetVisuals(); });
+   243→    E.BUS.on('region_changed', function(rid){ self.setRegion(rid); });
+   244→    this.setRegion('bosque_vidro');
+   245→    this._applySeason();
+   246→    this._applyWeather(true);
+   247→    this.setPetVisuals();
+   248→  },
+   249→  _img: function(dataUri){
+   250→    if (!dataUri) return null;
+   251→    var im = new Image();
+   252→    im.src = dataUri;
+   253→    return im;
+   254→  },
+   255→  _makeWhite: function(img){
+   256→    if (!img || !img.complete || !img.naturalWidth) return null;
+   257→    var c = document.createElement('canvas');
+   258→    c.width = img.naturalWidth; c.height = img.naturalHeight;
+   259→    var cx = c.getContext('2d');
+   260→    cx.drawImage(img, 0, 0);
+   261→    cx.globalCompositeOperation = 'source-in';
+   262→    cx.fillStyle = '#fff';
+   263→    cx.fillRect(0, 0, c.width, c.height);
+   264→    return c;
+   265→  },
+   266→  _hashStr: function(s){
+   267→    var h = 5381;
+   268→    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+   269→    return h;
+   270→  },
+   271→  /* ================= FSM DO HERÓI ================= */
+   272→  _heroPose: function(p, force){
+   273→    var def = this.POSES[p], frames = this.heroFrames[p];
+   274→    if (!def || !frames || !frames.length) return;
+   275→    var curP = this.heroAnim.pose, cur = this.POSES[curP];
+   276→    if (!force && cur && def.prio < cur.prio) {
+   277→      var curFr = this.heroFrames[curP] || [];
+   278→      var curDone = cur.loop ? false : (this.heroAnim.t * cur.fps >= curFr.length);
+   279→      if (!curDone) return; // não interrompe postura mais prioritária
+   280→    }
+   281→    if (!force && p === curP && this.heroAnim.t < 0.05) return;
+   282→    this.heroAnim.pose = p; this.heroAnim.f = 0; this.heroAnim.t = 0;
+   283→  },
+   284→  _heroTick: function(delta){
+   285→    var a = this.heroAnim, def = this.POSES[a.pose], fr = this.heroFrames[a.pose];
+   286→    if (!def || !fr || !fr.length) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+   287→    a.t += delta;
+   288→    var idx = Math.floor(a.t * def.fps);
+   289→    if (def.loop) { a.f = idx % fr.length; }
+   290→    else if (idx >= fr.length) {
+   291→      if (def.hold) { a.f = fr.length - 1; } // segura até evento (spawn/respawn)
+   292→      else {
+   293→        var nx = def.next && this.heroFrames[def.next] ? def.next : 'idle';
+   294→        a.pose = nx; a.t = 0; a.f = 0;
+   295→      }
+   296→    } else a.f = idx;
+   297→  },
+   298→  _whiteFor: function(img, key){
+   299→    var w = this.heroWhiteCache[key];
+   300→    if (w) return w;
+   301→    if (!img || !img.complete || !img.naturalWidth) return null;
+   302→    w = this._makeWhite(img);
+   303→    if (w) this.heroWhiteCache[key] = w;
+   304→    return w;
+   305→  },
+   306→  /* ================= ESTAÇÕES (só render) ================= */
+   307→  loadPrefs: function(){
+   308→    try {
+   309→      var raw = globalThis.localStorage.getItem(this.PREF_KEY);
+   310→      if (raw) {
+   311→        var p = JSON.parse(raw);
+   312→        if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season;
+   313→        if (p && p.weather && (p.weather === 'auto' || this.WEATHERS[p.weather])) this.weatherPref = p.weather;
+   314→        if (p && p.amb_vol != null && E.Audio) E.Audio.amb_vol = E.U.clamp(Number(p.amb_vol) || 0, 0, 1); // [ART-10]
+   315→      }
+   316→    } catch (e) {}
+   317→  },
+   318→  savePrefs: function(){
+   319→    var p = { season: this.seasonPref, weather: this.weatherPref };
+   320→    if (E.Audio && E.Audio.amb_vol != null) p.amb_vol = E.Audio.amb_vol; // [ART-10] volume do ambiente
+   321→    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify(p)); } catch (e) {}
+   322→  },
+   323→  seasonNow: function(){
+   324→    // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
+   325→    var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+   326→    if (md >= 1221 || md < 321) return 'verao';
+   327→    if (md >= 921) return 'primavera';
+   328→    if (md >= 621) return 'inverno';
+   329→    return 'outono';
+   330→  },
+   331→  seasonKey: function(){
+   332→    if (this.seasonPref !== 'auto') return this.SEASONS[this.seasonPref] ? this.seasonPref : this.seasonNow();
+   333→    return this.seasonNow();
+   334→  },
+   335→  setSeasonPref: function(v){
+   336→    this.seasonPref = (v === 'auto' || this.SEASONS[v]) ? v : 'auto';
+   337→    this.savePrefs();
+   338→    this._applySeason();
+   339→  },
+   340→  _applySeason: function(){
+   341→    var sk = this.seasonKey();
+   342→    var changed = sk !== this.season;
+   343→    this.season = sk;
+   344→    if (changed) {
+   345→      for (var rid in this.regionCache) {
+   346→        var ls = this.regionCache[rid];
+   347→        for (var i = 0; i < ls.length; i++) ls[i].tinted = {};
+   348→      }
+   349→      this.palSeason = this.pal ? this._seasonPal(this.pal, this.SEASONS[sk]) : null;
+   350→      this._seedSeasonAtmo();
+   351→    }
+   352→    this._updateChip();
+   353→  },
+   354→  _seasonLocKey: function(s){
+   355→    return s === 'primavera' ? 'season_spring' : s === 'verao' ? 'season_summer' :
+   356→      s === 'outono' ? 'season_autumn' : 'season_winter';
+   357→  },
+   358→  _updateChip: function(){
+   359→    var el = document.getElementById('season-chip');
+   360→    if (!el) return;
+   361→    var S = this.SEASONS[this.season];
+   362→    var name = (E.DM && E.DM.tr) ? E.DM.tr(this._seasonLocKey(this.season)) : this.season;
+   363→    var ico = el.querySelector('.ico'), nm = el.querySelector('.nm');
+   364→    if (ico) ico.textContent = S ? S.chip : '';
+   365→    if (nm) nm.textContent = name;
+   366→  },
+   367→  _seasonPal: function(pal, S){
+   368→    if (!S) return pal;
+   369→    return { sky_top: pal.sky_top, sky_bot: pal.sky_bot, far: pal.far, mid: pal.mid, near: pal.near,
+   370→      ground: this._shiftHex(pal.ground, S, 1.05, 1.03), accent: this._shiftHex(pal.accent, S, 0.5, 1.08) };
+   371→  },
+   372→  _shiftHex: function(hex, S, k, br){
+   373→    var r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+   374→    var lum = (r * 0.3 + g * 0.59 + b * 0.11) / 255;
+   375→    var t = S.tint, w = S.amt * k;
+   376→    r = (r * br) * (1 - w * 0.7) + t[0] * w * 0.7 * (0.35 + lum * 0.65);
+   377→    g = (g * br) * (1 - w * 0.7) + t[1] * w * 0.7 * (0.35 + lum * 0.65);
+   378→    b = (b * br) * (1 - w * 0.7) + t[2] * w * 0.7 * (0.35 + lum * 0.65);
+   379→    return 'rgb(' + (r > 255 ? 255 : r | 0) + ',' + (g > 255 ? 255 : g | 0) + ',' + (b > 255 ? 255 : b | 0) + ')';
+   380→  },
+   381→  _tintImg: function(img, S){
+   382→    if (!img || !img.complete || !img.naturalWidth || !S) return null;
+   383→    var c = document.createElement('canvas');
+   384→    c.width = img.naturalWidth; c.height = img.naturalHeight;
+   385→    var cx = c.getContext('2d');
+   386→    cx.drawImage(img, 0, 0);
+   387→    try {
+   388→      var id = cx.getImageData(0, 0, c.width, c.height), px = id.data;
+   389→      var t = S.tint, sat = S.sat, br = S.bright, amt = S.amt;
+   390→      for (var i = 0; i < px.length; i += 4) {
+   391→        if (!px[i + 3]) continue;
+   392→        var r = px[i], g = px[i + 1], b = px[i + 2];
+   393→        var lum = r * 0.3 + g * 0.59 + b * 0.11;
+   394→        r = lum + (r - lum) * sat; g = lum + (g - lum) * sat; b = lum + (b - lum) * sat;
+   395→        r *= br; g *= br; b *= br;
+   396→        var w = amt * (0.3 + lum / 255 * 0.7);
+   397→        r = r * (1 - w) + t[0] * w * 1.06;
+   398→        g = g * (1 - w) + t[1] * w * 1.06;
+   399→        b = b * (1 - w) + t[2] * w * 1.06;
+   400→        px[i] = r > 255 ? 255 : r | 0; px[i + 1] = g > 255 ? 255 : g | 0; px[i + 2] = b > 255 ? 255 : b | 0;
+   401→      }
+   402→      cx.putImageData(id, 0, 0);
+   403→    } catch (e) { return c; }
+   404→    return c;
+   405→  },
+   406→  _seedSeasonAtmo: function(){
+   407→    this.seasonAtmo.length = 0;
+   408→    var S = this.SEASONS[this.season];
+   409→    if (!S) return;
+   410→    for (var i = 0; i < S.n; i++) {
+   411→      this.seasonAtmo.push({
+   412→        x: Math.random() * this.W, y: Math.random() * this.GROUND_Y,
+   413→        ph: Math.random() * 6.28, sp: S.sp[0] + Math.random() * (S.sp[1] - S.sp[0]),
+   414→        sz: S.sz[0] + Math.random() * (S.sz[1] - S.sz[0]),
+   415→        col: S.cols[(Math.random() * S.cols.length) | 0],
+   416→        front: i >= S.n * 0.62
+   417→      });
+   418→    }
+   419→  },
+   420→  _drawSeasonAtmo: function(delta, front){
+   421→    var S = this.SEASONS[this.season];
+   422→    if (!S || !this.seasonAtmo.length) return;
+   423→    var ctx = this.ctx, t = this.time;
+   424→    for (var i = 0; i < this.seasonAtmo.length; i++) {
+   425→      var p = this.seasonAtmo[i];
+   426→      if (!!p.front !== front) continue;
+   427→      if (S.mode === 'rise') { // verão: motas douradas sobem
+   428→        p.y -= p.sp * delta * 0.7;
+   429→        p.x += (Math.sin(t * 1.1 + p.ph) * 12 + this.wind * 30) * delta;
+   430→        if (p.y < -6) { p.y = this.GROUND_Y + Math.random() * 40; p.x = Math.random() * this.W; }
+   431→        ctx.globalAlpha = (0.22 + 0.34 * (0.5 + 0.5 * Math.sin(t * 2.4 + p.ph))) * (front ? 1.3 : 1);
+   432→      } else {                 // queda: pétalas / folhas / neve
+   433→        p.y += p.sp * delta;
+   434→        p.x += (Math.sin(t * S.sway + p.ph) * S.swayA * (1 + this.wind * 1.1) + this.wind * 36) * delta;
+   435→        if (p.y > this.GROUND_Y + 8) { p.y = -8; p.x = Math.random() * this.W; }
+   436→        ctx.globalAlpha = S.alpha * (front ? 1.25 : 1);
+   437→      }
+   438→      ctx.fillStyle = p.col;
+   439→      if (S.flutter && (Math.floor(t * 3 + p.ph * 3) % 2 === 0))
+   440→        ctx.fillRect(p.x, p.y, p.sz, p.sz * 0.55);
+   441→      else
+   442→        ctx.fillRect(p.x, p.y, p.sz * 0.55, p.sz);
+   443→    }
+   444→    ctx.globalAlpha = 1;
+   445→  },
+   446→  /* ================= CLIMA DINÂMICO (só render) ================= */
+   447→  weatherNow: function(){
+   448→    // escolha determinística por região + janela de 2,5min → o mundo respira sozinho
+   449→    var slot = Math.floor(Date.now() / 150000);
+   450→    var h = this._hashStr(this.regionId + ':wx:' + slot);
+   451→    var W = this.REGION_WEATHER[this.regionId] || this.REGION_WEATHER.bosque_vidro;
+   452→    var total = 0, k;
+   453→    for (k in W) total += W[k];
+   454→    var r = (h % 10000) / 10000 * total, acc = 0;
+   455→    var wk = 'limpo';
+   456→    for (k in W) { acc += W[k]; if (r < acc) { wk = k; break; } }
+   457→    // coerência sazonal: no inverno, chuva vira neve (tempestade permanece — gelo)
+   458→    if (wk === 'chuva' && this.seasonKey() === 'inverno') wk = 'neve';
+   459→    return wk;
+   460→  },
+   461→  weatherKey: function(){
+   462→    if (this.weatherPref !== 'auto') return this.WEATHERS[this.weatherPref] ? this.weatherPref : this.weatherNow();
+   463→    return this.weatherNow();
+   464→  },
+   465→  setWeatherPref: function(v){
+   466→    this.weatherPref = (v === 'auto' || this.WEATHERS[v]) ? v : 'auto';
+   467→    this.savePrefs();
+   468→    this._applyWeather(true);
+   469→  },
+   470→  _weatherLocKey: function(w){
+   471→    return w === 'limpo' ? 'w_clear' : w === 'nublado' ? 'w_cloudy' :
+   472→      w === 'chuva' ? 'w_rain' : w === 'tempestade' ? 'w_storm' : 'w_snow';
+   473→  },
+   474→  _applyWeather: function(force){
+   475→    var wk = this.weatherKey();
+   476→    if (force || wk !== this.weather) {
+   477→      if (wk !== this.weather || force) {
+   478→        this.weatherPrev = force ? wk : this.weather;
+   479→        this.weather = wk;
+   480→        this.weatherBlend = force ? 1 : 0;
+   481→        this.rainOn = 0; // repovoamento gradual do pool
+   482→        this.boltNext = 2 + Math.random() * 4;
+   483→      }
+   484→    }
+   485→    this._updateWeatherChip();
+   486→    // [ART-10] o áudio ambiente acompanha o clima (crossfade suave no AudioContext)
+   487→    if (E.Audio && E.Audio.set_ambient) E.Audio.set_ambient(wk);
+   488→  },
+   489→  _weatherTick: function(delta){
+   490→    this.weatherT += delta;
+   491→    if (this.weatherPref === 'auto' && this.weatherT >= 40) {
+   492→      this.weatherT = 0;
+   493→      var wk = this.weatherNow();
+   494→      if (wk !== this.weather) this._applyWeather(false);
+   495→    }
+   496→    this.weatherBlend = Math.min(1, this.weatherBlend + delta * 0.8);
+   497→    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   498→    // vento com rajadas (afeta chuva, neve e partículas sazonais)
+   499→    var gust = this.weather === 'tempestade' ? Math.sin(this.time * 2.3) * 0.25 : Math.sin(this.time * 0.6) * 0.1;
+   500→    this.wind = W.wind * (0.75 + 0.25 * Math.sin(this.time * 0.6)) + Math.max(0, gust);
+   501→    // relâmpagos
+   502→    if (W.bolt) {
+   503→      this.boltNext -= delta;
+   504→      if (this.boltNext <= 0) {
+   505→        this.boltNext = 2.6 + Math.random() * 5.4;
+   506→        var near = Math.random() < 0.45;
+   507→        if (near) {
+   508→          this.boltPts = this._boltPath();
+   509→          this.boltT = 0.26;
+   510→          this.flashA = 0.55;
+   511→          this.addShake(0.34);
+   512→          if (E.Audio && E.Audio.thunder) E.Audio.thunder(true); // [ART-10] trovão próximo
+   513→        } else {
+   514→          this.boltPts = null;
+   515→          this.flashA = 0.20;
+   516→          this.addShake(0.08);
+   517→          if (E.Audio && E.Audio.thunder) E.Audio.thunder(false); // [ART-10] trovão distante
+   518→        }
+   519→      }
+   520→    }
+   521→    if (this.boltT > 0) this.boltT -= delta;
+   522→    if (this.flashA > 0) this.flashA = Math.max(0, this.flashA - delta * 2.6);
+   523→    this._rainTick(delta);
+   524→  },
+   525→  _rainStyle: function(){
+   526→    return this.RAIN_STYLE[this.regionId] || this.RAIN_STYLE.default;
+   527→  },
+   528→  _rainTick: function(delta){
+   529→    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   530→    var def = W.rain || W.snow;
+   531→    var target = def ? Math.round(def.n * (0.35 + 0.65 * this.weatherBlend)) : 0;
+   532→    // repovoamento/esvaziamento gradual (sem pop)
+   533→    if (this.rainOn < target) this.rainOn = Math.min(target, this.rainOn + 5);
+   534→    else if (this.rainOn > target) this.rainOn = Math.max(target, this.rainOn - 8);
+   535→    var isSnow = !!W.snow, isAsh = this._rainStyle().mode === 'ash';
+   536→    var alive = 0;
+   537→    for (var i = 0; i < this.rain.length; i++) {
+   538→      var p = this.rain[i];
+   539→      if (!p.on) {
+   540→        if (alive < this.rainOn) { this._resetDrop(p, true); alive++; }
+   541→        continue;
+   542→      }
+   543→      var wrapped = false;
+   544→      if (isSnow || isAsh) {
+   545→        // neve / cinzas: deriva suave com vento
+   546→        p.y += p.sp * delta * (isAsh ? 0.35 : 0.45);
+   547→        p.x += (Math.sin(this.time * 1.2 + p.ph) * 16 + this.wind * 46) * delta;
+   548→        if (p.y > this.GROUND_Y + 6) wrapped = true;
+   549→        if (p.x > this.W + 8) { p.x = -8; }
+   550→      } else {
+   551→        p.y += p.sp * delta;
+   552→        p.x += this.wind * 175 * delta;
+   553→        if (p.y > this.GROUND_Y - 4 + p.gy) {
+   554→          if (p.front && Math.random() < 0.34) {
+   555→            this._splash(p.x, this.GROUND_Y + 2 + p.gy);
+   556→            this._puddleRippleAt(p.x, this.GROUND_Y + 2 + p.gy); // [ART-11] ondulação na poça
+   557→          }
+   558→          wrapped = true;
+   559→        }
+   560→        if (p.x > this.W + 12) p.x = -10;
+   561→      }
+   562→      if (wrapped) {
+   563→        alive++;
+   564→        if (alive > this.rainOn) { p.on = false; continue; }
+   565→        this._resetDrop(p, true);
+   566→      } else alive++;
+   567→    }
+   568→    // splashes do solo
+   569→    for (var s = 0; s < this.splashes.length; s++) {
+   570→      var sp = this.splashes[s];
+   571→      if (!sp.on) continue;
+   572→      sp.t += delta;
+   573→      if (sp.t >= sp.life) { sp.on = false; continue; }
+   574→    }
+   575→  },
+   576→  _resetDrop: function(p, keepOn){
+   577→    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   578→    var def = W.rain || W.snow || {};
+   579→    var sp = def.sp || [430, 600];
+   580→    p.on = keepOn !== false;
+   581→    p.x = Math.random() * (this.W + 90) - 45;
+   582→    p.y = -12 - Math.random() * 60;
+   583→    p.sp = sp[0] + Math.random() * (sp[1] - sp[0]);
+   584→    p.ph = Math.random() * 6.28;
+   585→    p.front = Math.random() < 0.32;
+   586→    p.gy = Math.random() * 26;
+   587→    p.c = Math.random();
+   588→  },
+   589→  _splash: function(x, y){
+   590→    var sp = this.splashes[this.splashIdx];
+   591→    this.splashIdx = (this.splashIdx + 1) % this.SPLASH_POOL;
+   592→    sp.on = true; sp.x = x; sp.y = y; sp.t = 0; sp.life = 0.22 + Math.random() * 0.12;
+   593→  },
+   594→  /* ================= [ART-11] POÇAS REFLETIVAS (só render) ================= */
+   595→  _seedPuddles: function(){
+   596→    this.puddles.length = 0;
+   597→    // determinísticas por região (hash): o mesmo bioma sempre tem as mesmas poças
+   598→    for (var i = 0; i < 9; i++) {
+   599→      var h = this._hashStr(this.regionId + ':pd:' + i);
+   600→      var fx = (h % 1000) / 1000, fy = ((h >>> 10) % 1000) / 1000, fr = ((h >>> 20) % 1000) / 1000; // >>> sem sinal (h é uint32)
+   601→      var rx = 30 + fr * 64;
+   602→      if (rx < 8) rx = 8; // defesa extra: raio jamais negativo
+   603→      this.puddles.push({
+   604→        x: 26 + fx * (this.W - 52),
+   605→        y: this.GROUND_Y + 16 + fy * (this.H - this.GROUND_Y - 62),
+   606→        rx: rx, ry: rx * 0.34, ph: (h % 628) / 100, _gf: null, _sky: null
+   607→      });
+   608→    }
+   609→  },
+   610→  _puddleActive: function(){
+   611→    var W = this.WEATHERS[this.weather];
+   612→    return !!(W && W.rain) && this._rainStyle().mode !== 'ash'; // cinzas não empoçam
+   613→  },
+   614→  _puddleTick: function(delta){
+   615→    var tgt = this._puddleActive() ? 1 : 0;
+   616→    var rate = tgt ? (this.weather === 'tempestade' ? 0.20 : 0.11) : -0.045;
+   617→    this.puddleT = E.U.clamp(this.puddleT + rate * delta, 0, 1);
+   618→    for (var i = 0; i < this.ripples.length; i++) {
+   619→      var r = this.ripples[i];
+   620→      if (!r.on) continue;
+   621→      r.t += delta;
+   622→      if (r.t >= r.life) r.on = false;
+   623→    }
+   624→  },
+   625→  _puddleRippleAt: function(x, y){
+   626→    for (var i = 0; i < this.puddles.length; i++) {
+   627→      var p = this.puddles[i], dx = (x - p.x) / p.rx, dy = (y - p.y) / p.ry;
+   628→      if (dx * dx + dy * dy <= 1) { this._ripple(x, y); return; }
+   629→    }
+   630→  },
+   631→  _ripple: function(x, y){
+   632→    var r = this.ripples[this.rippleIdx];
+   633→    this.rippleIdx = (this.rippleIdx + 1) % this.RIPPLE_POOL;
+   634→    r.on = true; r.x = x; r.y = y; r.t = 0; r.life = 0.45 + Math.random() * 0.3;
+   635→  },
+   636→  _drawPuddles: function(){
+   637→    if (this.puddleT < 0.015) return;
+   638→    var ctx = this.ctx, t = this.time, P = this.puddleT;
+   639→    var col = this._rainStyle().cols[0]; // água toma a cor da chuva da região
+   640→    var heroX = 45 - this.heroLunge * 14;
+   641→    var enCX = this.enemyBoss ? 372 : 390;
+   642→    var evis = (1 - this.enemyFade) * (this.enemySpawn < 1 ? 0.4 + 0.6 * this.enemySpawn : 1);
+   643→    for (var i = 0; i < this.puddles.length; i++) {
+   644→      var p = this.puddles[i];
+   645→      var a = P * (0.86 + 0.14 * Math.sin(t * 0.7 + p.ph));
+   646→      // água (tinta do clima + fundo escuro + brilho de céu no espelho d'água)
+   647→      ctx.globalAlpha = 1;
+   648→      ctx.fillStyle = 'rgba(' + col + ',' + (0.16 * a).toFixed(3) + ')';
+   649→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.fill();
+   650→      ctx.fillStyle = 'rgba(6,9,18,' + (0.20 * a).toFixed(3) + ')';
+   651→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx * 0.92, p.ry * 0.9, 0, 0, 6.2832); ctx.fill();
+   652→      if (!p._sky) {
+   653→        p._sky = ctx.createLinearGradient(0, p.y - p.ry, 0, p.y + p.ry * 0.3);
+   654→        p._sky.addColorStop(0, 'rgba(190,215,245,0.5)');
+   655→        p._sky.addColorStop(1, 'rgba(190,215,245,0)');
+   656→      }
+   657→      ctx.save();
+   658→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+   659→      ctx.globalAlpha = 0.4 * a;
+   660→      ctx.fillStyle = p._sky;
+   661→      ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 1.35);
+   662→      ctx.restore();
+   663→      // reflexos: clip na elipse + flip vertical + squash 0.62 + tremulação da água
+   664→      var wy = p.y + p.ry * 0.12, wob = Math.sin(t * 2.1 + p.ph) * 1.8;
+   665→      ctx.save();
+   666→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+   667→      ctx.globalAlpha = 0.34 * a;
+   668→      ctx.translate(0, wy); ctx.scale(1, -0.62);
+   669→      var cf = this._petFrame(this.compKey, this.petAnim.pose);
+   670→      if (cf && cf.complete && cf.naturalWidth) ctx.drawImage(cf, 6 + wob, -176, 176, 176);
+   671→      var fr = this.heroFrames[this.heroAnim.pose] || [];
+   672→      var hImg = fr[this.heroAnim.f] || this.heroImg;
+   673→      if (hImg && hImg.complete && hImg.naturalWidth) ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+   674→      var pf = this._petFrame(this.petKey, this.petAnim.pose);
+   675→      if (pf && pf.complete && pf.naturalWidth) ctx.drawImage(pf, 196 + wob, -76, 76, 76);
+   676→      if (evis > 0.02 && this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth) {
+   677→        var sz = 240 * (this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1));
+   678→        ctx.globalAlpha = 0.34 * a * evis;
+   679→        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+   680→        // sheen aditivo: o reflexo das grandes figuras brilha na água
+   681→        ctx.globalCompositeOperation = 'lighter';
+   682→        ctx.globalAlpha = 0.12 * a * evis;
+   683→        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+   684→      }
+   685→      if (hImg && hImg.complete && hImg.naturalWidth) {
+   686→        ctx.globalCompositeOperation = 'lighter';
+   687→        ctx.globalAlpha = 0.12 * a;
+   688→        ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+   689→      }
+   690→      ctx.restore();
+   691→      // profundidade do reflexo + brilho de relâmpago + cintilância
+   692→      ctx.save();
+   693→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+   694→      if (!p._gf) {
+   695→        p._gf = ctx.createLinearGradient(0, wy + p.ry * 0.55, 0, wy + p.ry * 2.4);
+   696→        p._gf.addColorStop(0, 'rgba(0,0,0,0)');
+   697→        p._gf.addColorStop(1, 'rgba(4,6,12,0.42)');
+   698→      }
+   699→      ctx.globalAlpha = a;
+   700→      ctx.fillStyle = p._gf;
+   701→      ctx.fillRect(p.x - p.rx, wy, p.rx * 2, p.ry * 2.4);
+   702→      if (this.flashA > 0.01) { // trovão espelhado na água
+   703→        ctx.globalAlpha = Math.min(0.55, this.flashA * 0.85) * a;
+   704→        ctx.fillStyle = 'rgba(215,228,255,1)';
+   705→        ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 2);
+   706→      }
+   707→      ctx.globalAlpha = 0.09 * a;
+   708→      ctx.fillStyle = 'rgba(220,235,255,1)';
+   709→      for (var sh = 0; sh < 3; sh++) {
+   710→        var sy2 = p.y - p.ry * 0.6 + ((t * 14 + p.ph * 9 + sh * 7) % (p.ry * 1.9));
+   711→        ctx.fillRect(p.x - p.rx * 0.55 + sh * p.rx * 0.3, sy2, p.rx * 0.5, 1);
+   712→      }
+   713→      ctx.restore();
+   714→      // menisco (borda superior iluminada)
+   715→      ctx.globalAlpha = 0.35 * a;
+   716→      ctx.strokeStyle = 'rgba(200,220,250,0.5)';
+   717→      ctx.lineWidth = 1;
+   718→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+   719→    }
+   720→    // ondulações de impacto das gotas (sobre todas as poças)
+   721→    ctx.strokeStyle = 'rgba(200,220,250,0.55)';
+   722→    ctx.lineWidth = 1;
+   723→    for (var r2 = 0; r2 < this.ripples.length; r2++) {
+   724→      var rp = this.ripples[r2];
+   725→      if (!rp.on) continue;
+   726→      var pr = rp.t / rp.life;
+   727→      ctx.globalAlpha = (1 - pr) * 0.5 * P;
+   728→      ctx.beginPath();
+   729→      ctx.ellipse(rp.x, rp.y, 2 + pr * 11, (2 + pr * 11) * 0.34, 0, 0, 6.2832);
+   730→      ctx.stroke();
+   731→    }
+   732→    // solo encharcado (sheen sutil na faixa do chão)
+   733→    ctx.fillStyle = 'rgba(165,195,235,' + (0.045 * P).toFixed(3) + ')';
+   734→    ctx.fillRect(0, this.GROUND_Y, this.W, this.H - this.GROUND_Y);
+   735→    ctx.globalAlpha = 1;
+   736→  },
+   737→  /* ================= [ART-12] NEBLINA DENSA — PÂNTANO (só render) ================= */
+   738→  _fogBlob: function(rgb){
+   739→    var c = document.createElement('canvas'); c.width = 256; c.height = 128;
+   740→    var cx = c.getContext('2d');
+   741→    cx.translate(128, 64); cx.scale(1, 0.5);
+   742→    var g = cx.createRadialGradient(0, 0, 8, 0, 0, 122);
+   743→    g.addColorStop(0, 'rgba(' + rgb + ',0.85)');
+   744→    g.addColorStop(0.55, 'rgba(' + rgb + ',0.38)');
+   745→    g.addColorStop(1, 'rgba(' + rgb + ',0)');
+   746→    cx.fillStyle = g;
+   747→    cx.fillRect(-128, -128, 256, 256);
+   748→    return c;
+   749→  },
+   750→  _seedFog: function(rid){
+   751→    this.fogBanks.length = 0;
+   752→    this.fogDens = 1;
+   753→    if (rid !== 'pantano') return; // só o Pântano tem a neblina própria densa
+   754→    for (var i = 0; i < 12; i++) {
+   755→      var front = i >= 8;
+   756→      var w = 230 + Math.random() * 240;
+   757→      this.fogBanks.push({
+   758→        x: Math.random() * (this.W + 300) - 150,
+   759→        y: this.GROUND_Y - 175 + Math.random() * 215,
+   760→        w: w, h: w * (0.26 + Math.random() * 0.10),
+   761→        sp: (5 + Math.random() * 12) * (front ? 1.5 : 1),
+   762→        ph: Math.random() * 6.28,
+   763→        a: (front ? 0.13 : 0.10) + Math.random() * 0.09,
+   764→        front: front
+   765→      });
+   766→    }
+   767→  },
+   768→  _fogTick: function(delta){
+   769→    if (!this.fogBanks.length) return;
+   770→    // o clima engrossa a névoa (chuva +35%, tempestade +60%, nublado +18%)
+   771→    var tgt = 1;
+   772→    if (this.weather === 'chuva') tgt = 1.35;
+   773→    else if (this.weather === 'tempestade') tgt = 1.6;
+   774→    else if (this.weather === 'nublado') tgt = 1.18;
+   775→    this.fogDens += (tgt - this.fogDens) * Math.min(1, delta * 0.6);
+   776→    for (var i = 0; i < this.fogBanks.length; i++) {
+   777→      var f = this.fogBanks[i];
+   778→      f.x += f.sp * (0.5 + this.wind) * delta * 5; // deriva com o vento
+   779→      if (f.x - f.w / 2 > this.W + 40) f.x = -f.w / 2 - 30 - Math.random() * 60;
+   780→    }
+   781→  },
+   782→  _drawFog: function(front){
+   783→    if (!this.fogBanks.length) return;
+   784→    var ctx = this.ctx, t = this.time;
+   785→    var dens = this.fogDens * (0.85 + 0.15 * Math.sin(t * 0.23)); // respira
+   786→    for (var i = 0; i < this.fogBanks.length; i++) {
+   787→      var f = this.fogBanks[i];
+   788→      if (f.front !== front) continue;
+   789→      var blob = f.y < this.GROUND_Y - 45 ? this._fogBlobA : this._fogBlobB;
+   790→      ctx.globalAlpha = Math.min(0.5, f.a * dens * (0.8 + 0.2 * Math.sin(t * 0.5 + f.ph)) * (front ? 0.85 : 1));
+   791→      ctx.drawImage(blob, f.x - f.w / 2, f.y - f.h / 2, f.w, f.h);
+   792→    }
+   793→    ctx.globalAlpha = 1;
+   794→  },
+   795→  _drawGroundMist: function(){
+   796→    if (!this.fogBanks.length) return;
+   797→    var ctx = this.ctx;
+   798→    var g = ctx.createLinearGradient(0, this.GROUND_Y - 110, 0, this.GROUND_Y + 80);
+   799→    g.addColorStop(0, 'rgba(150,180,150,0)');
+   800→    g.addColorStop(0.55, 'rgba(150,180,150,' + (0.15 * this.fogDens).toFixed(3) + ')');
+
+[showing lines 1-800 of 1585; use offset=801 with limit to continue reading]

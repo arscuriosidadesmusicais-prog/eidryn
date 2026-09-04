@@ -126,7 +126,7 @@ E.BUS = (function(){
 
 /* ---------- DATA MANAGER (fonte única de fórmulas — paridade total) ---------- */
 E.DM = {
-  GAME_VERSION: '1.4.0',
+  GAME_VERSION: '1.5.0',
   SAVE_VERSION: 1,
   language: 'ptbr',
   load: function(data){ for(var k in data) this['cfg_'+k] = data[k]; },

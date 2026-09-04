@@ -321,18 +321,22 @@ E.Save = {
       return JSON.parse(data_json);
     }catch(e){ return null; }
   },
+  /* [AUDIT-A1] flush blindado: erro de storage/btoa JAMAIS pode congelar o loop rAF
+     (flush roda dentro de E.Game.loop a cada 3s quando dirty). Falha = console.warn. */
   flush: function(){
     if(!this._boot_done) return;
-    var data=this.collect();
-    var data_json=JSON.stringify(data);
-    var payload={version:this.SAVE_VERSION, checksum:E.U.sha256(data_json), data_json:data_json};
-    var text=JSON.stringify(payload);
-    var prev=this._store.get(this.KEY);
-    if(prev) this._store.set(this.BAK_KEY, prev);
-    this._store.set(this.KEY, btoa_compat(this._xor(text)));
-    this._dirty=false;
-    E.TimeM.mark_seen();
-    E.BUS.emit('save_flushed');
+    try{
+      var data=this.collect();
+      var data_json=JSON.stringify(data);
+      var payload={version:this.SAVE_VERSION, checksum:E.U.sha256(data_json), data_json:data_json};
+      var text=JSON.stringify(payload);
+      var prev=this._store.get(this.KEY);
+      if(prev) this._store.set(this.BAK_KEY, prev);
+      this._store.set(this.KEY, btoa_compat(this._xor(text)));
+      this._dirty=false;
+      E.TimeM.mark_seen();
+      E.BUS.emit('save_flushed');
+    }catch(e){ console.warn('[Save] flush adiado:', e && e.message || e); }
   },
   collect: function(){
     return {

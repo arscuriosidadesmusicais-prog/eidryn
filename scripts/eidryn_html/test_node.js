@@ -460,6 +460,33 @@ group('14. Localização PT-BR / EN');
   ok(E.DM.tr('app_title').includes('Eidryn'), 'título');
 }
 
+/* ================= 15. ROBUSTEZ (auditoria 360°) ================= */
+group('15. Robustez [AUDIT]');
+{
+  // [AUDIT-A1] flush com storage quebrado NUNCA pode lançar (congelaria o loop rAF)
+  const realSet = globalThis.localStorage.setItem;
+  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  E.Save._boot_done = true;
+  E.Save.mark_dirty();
+  let threw = false;
+  try { E.Save.flush(); } catch (e) { threw = true; }
+  ok(!threw, 'flush com storage cheio não lança exceção (loop rAF seguro)');
+  globalThis.localStorage.setItem = realSet;
+  // flush saudável volta a gravar e limpa dirty
+  let flushed = false;
+  const h = () => { flushed = true; };
+  E.BUS.on('save_flushed', h);
+  E.Save.flush();
+  E.BUS.off('save_flushed', h);
+  ok(flushed && !E.Save._dirty, 'flush saudável grava e limpa dirty');
+  // [AUDIT-A2] update leve do chip: função existe (UI só existe no browser; no Node apenas não quebra)
+  ok(!globalThis.E.UI || typeof E.UI._updateCurChip === 'function', 'chip de moeda tem update leve');
+  // i18n: novas chaves aditivas presentes nos dois idiomas
+  const pt = E.DM.cfg_loc_ptbr, en = E.DM.cfg_loc_en;
+  ok(pt.tip1 && en.tip1 && pt.reduced_fx && en.reduced_fx && pt.quality && en.quality,
+    'chaves [AUDIT] presentes em ptbr+en');
+}
+
 /* ================= RESULTADO ================= */
 console.log('\n==========================================');
 console.log(`RESULTADO: ${pass} passou | ${fail} falhou`);

@@ -52,6 +52,11 @@ E.Rfx = {
   puddles: [], puddleT: 0, ripples: [], rippleIdx: 0, RIPPLE_POOL: 14,
   fogBanks: [], fogDens: 1, _fogBlobA: null, _fogBlobB: null,
   boltT: 0, boltNext: 5, boltPts: null, flashA: 0,
+  /* ---------- [AUDIT-C1/C2] ACESSIBILIDADE + DESEMPENHO (só apresentação) ----------
+     reducedFx: usuário pede MENOS flashes/tremores (fotossensibilidade).
+     perfMode auto: média de frame real decide lowFx (menos partículas/overdraw). */
+  reducedFx: false, perfMode: 'auto', lowFx: false,
+  _perfAvg: 0.0167, _perfT: 0, _rawDelta: 0,
   WEATHERS: {
     limpo:      { chip: '\ud83c\udf24\ufe0f', dim: 0,    wind: 0.12, wash: null },
     nublado:    { chip: '\u2601\ufe0f',      dim: 0.10, wind: 0.30, wash: 'rgba(64,68,84,0.10)' },
@@ -312,13 +317,27 @@ E.Rfx = {
         if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season;
         if (p && p.weather && (p.weather === 'auto' || this.WEATHERS[p.weather])) this.weatherPref = p.weather;
         if (p && p.amb_vol != null && E.Audio) E.Audio.amb_vol = E.U.clamp(Number(p.amb_vol) || 0, 0, 1); // [ART-10]
+        if (p && p.reduced_fx != null) this.reducedFx = !!p.reduced_fx;   // [AUDIT-C1]
+        if (p && p.perf && ['auto','high','low'].indexOf(p.perf) >= 0) this.perfMode = p.perf; // [AUDIT-C2]
+        this._tipsDone = !!(p && p.tips_done); // [AUDIT-D2]
       }
     } catch (e) {}
   },
   savePrefs: function(){
-    var p = { season: this.seasonPref, weather: this.weatherPref };
+    var p = { season: this.seasonPref, weather: this.weatherPref,
+      reduced_fx: this.reducedFx, perf: this.perfMode, tips_done: !!this._tipsDone }; // [AUDIT-C1/C2/D2]
     if (E.Audio && E.Audio.amb_vol != null) p.amb_vol = E.Audio.amb_vol; // [ART-10] volume do ambiente
     try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify(p)); } catch (e) {}
+  },
+  /* multiplicadores de quantidade de partículas por acessibilidade/desempenho */
+  _fxMul: function(){ return (this.reducedFx ? 0.55 : 1) * (this.lowFx ? 0.5 : 1); },
+  _flashMul: function(){ return this.reducedFx ? 0.3 : 1; },
+  setReducedFx: function(v){ this.reducedFx = !!v; this.savePrefs(); },
+  setPerfMode: function(v){
+    this.perfMode = (v === 'high' || v === 'low') ? v : 'auto';
+    if (this.perfMode === 'low') this.lowFx = true;
+    else if (this.perfMode === 'high') this.lowFx = false;
+    this.savePrefs();
   },
   seasonNow: function(){
     // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
@@ -528,7 +547,7 @@ E.Rfx = {
   _rainTick: function(delta){
     var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
     var def = W.rain || W.snow;
-    var target = def ? Math.round(def.n * (0.35 + 0.65 * this.weatherBlend)) : 0;
+    var target = def ? Math.round(def.n * (0.35 + 0.65 * this.weatherBlend) * (this.lowFx ? 0.55 : 1)) : 0; // [AUDIT-C2]
     // repovoamento/esvaziamento gradual (sem pop)
     if (this.rainOn < target) this.rainOn = Math.min(target, this.rainOn + 5);
     else if (this.rainOn > target) this.rainOn = Math.max(target, this.rainOn - 8);
@@ -891,26 +910,32 @@ E.Rfx = {
         ctx.globalAlpha = 1;
       }
     }
-    // relâmpago (ramificado, com brilho duplo) + flash de tela
+    // relâmpago (ramificado; lowFx: traço único — [AUDIT-C2]) + flash de tela
     if (this.boltT > 0 && this.boltPts) {
       var bt = this.boltT / 0.26;
       var boltCol = this.regionId === 'deserto_cinzas' ? '255,190,110' :
         this.regionId === 'coracao' ? '255,120,150' : '215,228,255';
       ctx.save();
       ctx.globalAlpha = bt;
-      ctx.strokeStyle = 'rgba(' + boltCol + ',0.32)';
-      ctx.lineWidth = 6;
-      this._strokeBolt(ctx);
-      ctx.strokeStyle = 'rgba(' + boltCol + ',0.95)';
-      ctx.lineWidth = 2;
-      this._strokeBolt(ctx);
-      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-      ctx.lineWidth = 0.8;
-      this._strokeBolt(ctx);
+      if (this.lowFx) {
+        ctx.strokeStyle = 'rgba(' + boltCol + ',0.95)';
+        ctx.lineWidth = 2.4;
+        this._strokeBolt(ctx);
+      } else {
+        ctx.strokeStyle = 'rgba(' + boltCol + ',0.32)';
+        ctx.lineWidth = 6;
+        this._strokeBolt(ctx);
+        ctx.strokeStyle = 'rgba(' + boltCol + ',0.95)';
+        ctx.lineWidth = 2;
+        this._strokeBolt(ctx);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 0.8;
+        this._strokeBolt(ctx);
+      }
       ctx.restore();
     }
     if (this.flashA > 0.004) {
-      ctx.fillStyle = 'rgba(210,222,255,' + Math.min(0.5, this.flashA).toFixed(3) + ')';
+      ctx.fillStyle = 'rgba(210,222,255,' + Math.min(0.5, this.flashA * this._flashMul()).toFixed(3) + ')'; // [AUDIT-C1]
       ctx.fillRect(0, 0, this.W, this.H);
     }
   },
@@ -1076,6 +1101,7 @@ E.Rfx = {
     p.t = 0; p.life = life; p.size = size; p.color = color; p.grav = grav || 0;
   },
   _sparks: function(x, y, n){
+    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
     for (var i = 0; i < n; i++) {
       var a = Math.random() * 6.28, sp = 60 + Math.random() * 160;
       this._part(0, x, y, Math.cos(a) * sp, Math.sin(a) * sp - 40, 0.3 + Math.random() * 0.25,
@@ -1083,6 +1109,7 @@ E.Rfx = {
     }
   },
   _blood: function(x, y, n, color){
+    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
     for (var i = 0; i < n; i++) {
       var a = -1.2 + Math.random() * 2.4, sp = 50 + Math.random() * 130;
       this._part(1, x, y - 10, Math.sin(a) * sp * 0.6, -Math.abs(Math.cos(a)) * sp - 30,
@@ -1090,6 +1117,7 @@ E.Rfx = {
     }
   },
   _dust: function(x, y, n){
+    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
     for (var i = 0; i < n; i++) {
       var a = Math.random() * 6.28, sp = 20 + Math.random() * 70;
       this._part(2, x + (Math.random() * 90 - 45), y - Math.random() * 40,
@@ -1098,6 +1126,7 @@ E.Rfx = {
     }
   },
   _motes: function(x, y, n, color){
+    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
     for (var i = 0; i < n; i++)
       this._part(3, x + (Math.random() * 120 - 60), y + (Math.random() * 60 - 30),
         Math.random() * 30 - 15, -40 - Math.random() * 60, 0.8 + Math.random() * 0.6,
@@ -1116,7 +1145,10 @@ E.Rfx = {
     r.on = true; r.x = x; r.y = y; r.r0 = r0; r.r1 = r1; r.color = color;
     r.width = width || 3; r.life = life || 0.7; r.t = 0;
   },
-  addShake: function(i){ this.shake = Math.min(1.2, Math.max(this.shake, i)); },
+  addShake: function(i){
+    // [AUDIT-C1] fotossensibilidade: tremor amenizado (não remove o feedback, reduz a amplitude)
+    this.shake = Math.min(1.2, Math.max(this.shake, i * (this.reducedFx ? 0.3 : 1)));
+  },
   banner: function(txt, color){
     var el = document.getElementById('banner');
     if (!el) return;
@@ -1134,6 +1166,20 @@ E.Rfx = {
   render: function(delta){
     var ctx = this.ctx, W = this.W, H = this.H;
     this.time += delta;
+    /* [AUDIT-C2] medição de frame real (delta cru do rAF, pré-clamp) —
+       média móvel decide o modo leve a cada 2s quando perfMode=auto */
+    var raw = this._rawDelta > 0 && this._rawDelta < 1 ? this._rawDelta : delta;
+    this._perfAvg += (raw - this._perfAvg) * 0.04;
+    this._perfT += delta;
+    if (this._perfT > 2) {
+      this._perfT = 0;
+      if (this.perfMode === 'low') this.lowFx = true;
+      else if (this.perfMode === 'high') this.lowFx = false;
+      else {
+        if (this._perfAvg > 0.027) this.lowFx = true;
+        else if (this._perfAvg < 0.019) this.lowFx = false;
+      }
+    }
     this._weatherTick(delta);          // clima: vento/relâmpagos/precipitação
     this._puddleTick(delta);           // [ART-11] poças encharcando/secando
     this._fogTick(delta);              // [ART-12] deriva e densidade da névoa
@@ -1198,6 +1244,8 @@ E.Rfx = {
     // ---- 6) entidades ----
     this._heroTick(delta);
     this._drawEntities(delta);
+    // ---- 6.1) [AUDIT-B1] VFX de estado (escudo/DOT/buff/stun — leitura do Combat) ----
+    this._drawStatusFx(delta);
     // ---- 6.4) [ART-11] poças refletivas (reflexo das entidades na chuva) ----
     this._drawPuddles();
     // ---- 7) partículas de combate + estação em primeiro plano ----
@@ -1223,6 +1271,19 @@ E.Rfx = {
         ctx.fillRect(-30, -30, W + 60, H + 60);
       }
       ctx.globalAlpha = 1;
+    }
+    // ---- 7.7) [AUDIT-B3] vinheta de perigo — herói < 30% de vida pulsa vermelho nas bordas ----
+    if (this.heroHpShown < 0.3 && this.heroHpShown > 0.001) {
+      var hp = this.heroHpShown / 0.3;
+      var pulse = 0.5 + 0.5 * Math.sin(this.time * 5.2);
+      var vA = (0.34 - 0.2 * hp) * (0.55 + 0.45 * pulse) * this._flashMul() * 1.2;
+      if (vA > 0.004) {
+        var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.62);
+        vg.addColorStop(0, 'rgba(120,10,24,0)');
+        vg.addColorStop(1, 'rgba(150,14,28,' + vA.toFixed(3) + ')');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, W, H);
+      }
     }
     // ---- 8) barras de vida ----
     this._bar(ctx, 20, 470, 230, 30, this.heroHpShown, this.heroGhost, '#3a9e5f', '#7a3030', this.heroHpLabel, '#58e07a');
@@ -1453,6 +1514,98 @@ E.Rfx = {
     }
     this.heroLunge = Math.max(0, this.heroLunge - delta * 3.6);
     this.enemyLunge = Math.max(0, this.enemyLunge - delta * 3.6);
+  },
+  /* ================= [AUDIT-B1] VFX DE ESTADO (só leitura de E.Combat) =================
+     As 4 habilidades tinham efeitos "invisíveis" — a cena agora REAGUE:
+     · guarda_sombras → bolha arcânica girando ao redor do herói (hero_shield>0)
+     · cataclismo     → brasas douradas em órbita no herói (_buff_time>0)
+     · sedenta        → miasma roxa subindo do inimigo (_dot_time>0)
+     · lâmina evoluída→ estrelas de atordoamento sobre o inimigo (_stun_t>0) */
+  _drawStatusFx: function(delta){
+    var C = E.Combat;
+    if (!C || !C.active) return;
+    var ctx = this.ctx, t = this.time;
+    var hl = this.heroLunge;
+    var heroX = 45 - hl * 14, heroY = 525 + Math.sin(t / 240) * 2.5;
+    var hcx = heroX + 120, hcy = heroY + 120;
+    var bossScale = this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1);
+    var enCX = this.enemyBoss ? 372 : 390;
+    var enY = 525 + Math.sin(t / 200 + 2) * 2.5;
+    var ecy = enY + 108;
+    // 1) escudo arcano (guarda_sombras)
+    if (C.hero_shield > 0.5) {
+      var sp = 0.5 + 0.5 * Math.sin(t * 3.1);
+      ctx.save();
+      // brilho interno suave (leitura imediata: "estou protegido")
+      var sg = ctx.createRadialGradient(hcx, hcy, 40, hcx, hcy, 120);
+      sg.addColorStop(0, 'rgba(111,179,255,0)');
+      sg.addColorStop(0.8, 'rgba(111,179,255,' + (0.10 + 0.06 * sp).toFixed(3) + ')');
+      sg.addColorStop(1, 'rgba(140,200,255,0.02)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(hcx, hcy, 120, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 0.42 + 0.2 * sp;
+      ctx.strokeStyle = '#8ec4ff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(hcx, hcy, 108 + sp * 4, 0, 6.2832); ctx.stroke();
+      ctx.globalAlpha = 0.5 + 0.2 * sp;
+      ctx.strokeStyle = '#b7dcff';
+      ctx.lineWidth = 1.4;
+      for (var i = 0; i < 3; i++) { // arcos de runa girando
+        var a0 = t * 1.4 + i * 2.094;
+        ctx.beginPath(); ctx.arc(hcx, hcy, 116, a0, a0 + 1.05); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // 2) buff ofensivo (cataclismo): brasas douradas em órbita
+    if (C._buff_time > 0) {
+      var n = this.lowFx ? 4 : 7;
+      ctx.save();
+      for (var oi = 0; oi < n; oi++) {
+        var ang = t * 2.1 + oi * 6.2832 / n;
+        var ox = hcx + Math.cos(ang) * 86;
+        var oy = hcy + Math.sin(ang * 1.7) * 60;
+        ctx.globalAlpha = 0.45 + 0.3 * Math.sin(t * 4 + oi);
+        ctx.fillStyle = '#ffd27a';
+        ctx.fillRect(ox, oy, 3, 3);
+      }
+      ctx.restore();
+    }
+    if (!this.hasEnemy || this.enemyFade > 0) return;
+    var evis = this.enemySpawn < 1 ? 0.4 + 0.6 * this.enemySpawn : 1;
+    // 3) DOT (sedenta): miasma roxa subindo do inimigo
+    if (C._dot_time > 0) {
+      var dn = this.lowFx ? 2 : 4;
+      ctx.save();
+      for (var di = 0; di < dn; di++) {
+        var ph = (t * 0.65 + di * 0.41) % 1;      // 0→1 ciclo contínuo
+        var dx2 = Math.sin(t * 4.1 + di * 1.7) * 26;
+        ctx.globalAlpha = (1 - ph) * 0.5 * evis;
+        ctx.fillStyle = '#9b59d0';
+        ctx.beginPath();
+        ctx.arc(enCX + dx2, ecy - ph * 130, 5 + ph * 9, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    // 4) stun (lâmina do eclipse evoluída): estrelas girando sobre a cabeça
+    if (C._stun_t > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, C._stun_t * 2) * evis;
+      ctx.fillStyle = '#ffe9a8';
+      ctx.strokeStyle = 'rgba(255,233,168,0.7)';
+      ctx.lineWidth = 1;
+      for (var si = 0; si < 3; si++) {
+        var sa = t * 3.4 + si * 2.094;
+        var sx3 = enCX + Math.cos(sa) * 40 * bossScale;
+        var sy3 = enY - 24 * bossScale + Math.sin(sa) * 10;
+        ctx.beginPath(); ctx.arc(sx3, sy3, 2.4, 0, 6.2832); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(sx3 - 5, sy3); ctx.lineTo(sx3 + 5, sy3);
+        ctx.moveTo(sx3, sy3 - 5); ctx.lineTo(sx3, sy3 + 5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
   },
   _drawParts: function(delta){
     var ctx = this.ctx;

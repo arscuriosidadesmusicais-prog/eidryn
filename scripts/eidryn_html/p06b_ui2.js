@@ -406,6 +406,11 @@ E.UI2 = {
     var html='<div class="stat-line"><span>'+E.DM.tr('music')+'</span><input type="range" id="st-mus" min="0" max="100" value="'+Math.round(E.Audio.music_vol*100)+'"></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('sfx')+'</span><input type="range" id="st-sfx" min="0" max="100" value="'+Math.round(E.Audio.sfx_vol*100)+'"></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('amb')+'</span><input type="range" id="st-amb" min="0" max="100" value="'+Math.round((E.Audio.amb_vol||0)*100)+'"></div>'+
+      '<div class="stat-line"><span>'+E.DM.tr('reduced_fx')+'</span><input type="checkbox" id="st-rfx" '+(E.Rfx.reducedFx?'checked':'')+' style="accent-color:var(--gold);width:16px;height:16px"></div>'+ // [AUDIT-C1]
+      '<div class="stat-line"><span>'+E.DM.tr('quality')+'</span><select id="st-perf">'+ // [AUDIT-C2]
+        '<option value="auto">'+E.DM.tr('q_auto')+'</option>'+
+        '<option value="high">'+E.DM.tr('q_high')+'</option>'+
+        '<option value="low">'+E.DM.tr('q_low')+'</option></select></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('language')+'</span><select id="st-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('season')+'</span><select id="st-season">'+
         '<option value="auto">'+E.DM.tr('season_auto')+'</option>'+
@@ -429,6 +434,7 @@ E.UI2 = {
       '<div class="tiny">'+E.DM.tr('details')+': export/import do Selo</div>'+
       '<textarea id="st-export" readonly placeholder="Exportar…"></textarea>'+
       '<div class="row"><button class="btn sm" id="st-exp">'+E.DM.tr('confirm')+' export</button>'+
+      '<button class="btn sm" id="st-copy">'+E.DM.tr('copy')+'</button>'+ // [AUDIT-D2]
       '<button class="btn sm" id="st-imp">'+E.DM.tr('confirm')+' import</button></div>'+
       '<textarea id="st-import" placeholder="Cole o save aqui…"></textarea>'+
       '<hr style="border-color:var(--line);margin:8px 0">'+
@@ -455,6 +461,14 @@ E.UI2 = {
     document.getElementById('st-mus').oninput=function(){ E.Audio.set_music_vol(this.value/100); };
     document.getElementById('st-sfx').onchange=function(){ E.Audio.set_sfx_vol(this.value/100); E.Audio.play_sfx('click'); };
     document.getElementById('st-amb').oninput=function(){ E.Audio.set_amb_vol(this.value/100); }; // [ART-10]
+    // [AUDIT-C1] acessibilidade: reduzir flashes/tremores
+    var rfx=document.getElementById('st-rfx');
+    rfx.checked=E.Rfx.reducedFx;
+    rfx.onchange=function(){ E.Rfx.setReducedFx(this.checked); E.Audio.play_sfx('click'); };
+    // [AUDIT-C2] desempenho visual
+    var perf=document.getElementById('st-perf');
+    perf.value=E.Rfx.perfMode;
+    perf.onchange=function(){ E.Rfx.setPerfMode(this.value); E.Audio.play_sfx('click'); };
     lang.onchange=function(){
       E.DM.language=this.value;
       E.Save.mark_dirty();
@@ -464,6 +478,17 @@ E.UI2 = {
     };
     document.getElementById('st-exp').onclick=function(){
       document.getElementById('st-export').value=E.Save.export_save();
+    };
+    // [AUDIT-D2] copiar o Selo (clipboard API + fallback select/execCommand p/ browsers antigos)
+    document.getElementById('st-copy').onclick=function(){
+      var ta=document.getElementById('st-export'), txt=ta.value;
+      var done=function(){ E.UI.toast(E.DM.tr('copied'), '#58c46a'); E.Audio.play_sfx('click'); };
+      if(!txt){ ta.focus(); return; }
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done).catch(function(){
+          ta.select(); try{ document.execCommand('copy'); done(); }catch(e){}
+        });
+      } else { ta.select(); try{ document.execCommand('copy'); done(); }catch(e){} }
     };
     document.getElementById('st-imp').onclick=function(){
       var ok=E.Save.import_save(document.getElementById('st-import').value);

@@ -4,9 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b0710">
+<meta name="description" content="Eidryn — O Ciclo do Eclipse: RPG idle dark fantasy com 500 fases, 7 regiões, clima vivo e loot lendário. Jogue offline no navegador.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='24' fill='%230b0710'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23e8a33a' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23e8a33a'/%3E%3C/svg%3E">
 <title>Eidryn — O Ciclo do Eclipse</title>
 <!--
-  Eidryn — O Ciclo do Eclipse — v1.4.0 "Eco da Tempestade" (HTML/Web)
+  Eidryn — O Ciclo do Eclipse — v1.5.0 "Edição Profissional" (HTML/Web)
+  v1.5.0: AUDITORIA 360° (escopo estritamente visual/sonoro/QoL — zero alteração de lógica):
+   [AUDIT-A1] Save.flush blindado c/ try/catch — erro de storage/btoa NUNCA congela o loop rAF.
+   [AUDIT-A2] Chips de moeda: update leve por referência (antes reconstruíam 7 chips+imgs a cada kill).
+   [AUDIT-B1] VFX DE ESTADO das habilidades (leitura de E.Combat): escudo arcânico (guarda_sombras),
+           brasas em órbita (cataclismo), miasma roxa (sedenta), estrelas de stun (lâmina evoluída).
+   [AUDIT-B2] skill_ready agora pisca o slot (o evento existia e ninguém escutava).
+   [AUDIT-B3] Troca de fase pulsa no HUD; VINHETA DE PERIGO quando o herói < 30% de vida.
+   [AUDIT-C1] Acessibilidade: toggle "Reduzir flashes e tremores" (fotossensibilidade).
+   [AUDIT-C2] Desempenho adaptativo: média de frame real → modo leve (menos partículas/overdraw).
+   [AUDIT-D] Favicon+meta embutidos, botão Copiar no export do save, dicas da 1ª sessão,
+           pulso verde no ⚙ quando o Selo é gravado.
+  v1.4.0: [ART-10] áudio procedural do clima (chuva/vento/trovão) · [ART-11] poças refletivas
+          c/ reflexo real das entidades · [ART-12] neblina densa dinâmica no Pântano.
   v1.0.0: porta fiel da build Godot 4.4 (mesmos JSONs, fórmulas, save SHA-256+backup).
   v1.1.0: REVOLUÇÃO VISUAL (escopo estritamente estético — zero alteração de lógica):
    [ART-1] 97 sprites refeitos em pixel art autoral (contorno+luz direcional+rim light);
@@ -148,7 +163,7 @@ img{image-rendering:pixelated}
 #hud::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:2px;
   background:linear-gradient(90deg,transparent,var(--gold) 30%,var(--gold2) 50%,var(--gold) 70%,transparent);opacity:.5}
 #hud-row1{display:flex;align-items:center;gap:6px}
-#hud-stage{font-family:var(--f-disp);font-weight:700;font-size:14px;white-space:nowrap;letter-spacing:.5px;
+#hud-stage{display:inline-block;font-family:var(--f-disp);font-weight:700;font-size:14px;white-space:nowrap;letter-spacing:.5px;
   text-shadow:0 1px 2px #000}
 #hud-region{font-size:11px;color:var(--teal);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.4px}
 #hud-pc{font-size:11px;color:var(--gold);white-space:nowrap;font-weight:700}
@@ -162,6 +177,15 @@ img{image-rendering:pixelated}
 .icon-btn .badge{position:absolute;top:-5px;right:-5px;background:linear-gradient(180deg,#e05a74,#a02840);color:#fff;border-radius:50%;
   font-size:9px;min-width:15px;height:15px;line-height:15px;text-align:center;padding:0 2px;
   box-shadow:0 0 6px rgba(208,69,95,.7);font-weight:700}
+/* [AUDIT-B2/B3/D3] micro-feedbacks: skill pronta, troca de fase, autosave */
+.sk-slot.flash{animation:skFlash .65s ease-out}
+@keyframes skFlash{0%{box-shadow:0 0 0 3px rgba(245,230,200,.95),0 0 24px rgba(232,163,58,.95);border-color:#fff3d0}
+  100%{box-shadow:0 0 8px rgba(232,163,58,.4)}}
+#hud-stage.bump{animation:stageBump .55s cubic-bezier(.34,1.5,.64,1)}
+@keyframes stageBump{0%{transform:scale(1.3);color:var(--gold2);text-shadow:0 0 12px rgba(232,163,58,.8)}100%{transform:scale(1)}}
+#btn-config.save-pulse{animation:savePulse .85s ease-out}
+@keyframes savePulse{0%{box-shadow:0 0 0 2px rgba(88,196,106,.9),0 0 16px rgba(88,196,106,.7);border-color:var(--ok)}
+  100%{box-shadow:0 0 8px rgba(232,163,58,.3)}}
 #hud-cur{display:flex;gap:4px;margin-top:5px;overflow-x:auto;scrollbar-width:none}
 #hud-cur::-webkit-scrollbar{display:none}
 .chip{display:flex;align-items:center;gap:3px;background:linear-gradient(180deg,rgba(36,26,51,.85),rgba(24,16,36,.9));
@@ -406,7 +430,7 @@ textarea{width:100%;height:70px;font-size:10px;resize:none}
   <div class="divider"><i></i></div>
   <select id="splash-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select>
   <button class="tap" id="btn-start">Toque para despertar o Selo</button>
-  <div class="ver" id="splash-ver">v1.3.0 — Tempestade Viva</div>
+  <div class="ver" id="splash-ver">v1.5.0 — Edição Profissional</div>
 </div>
 <div id="app" class="hidden">
   <header id="hud">

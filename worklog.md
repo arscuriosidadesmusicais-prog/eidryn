@@ -208,3 +208,48 @@ Stage Summary:
   tem RESPIRAÇÃO própria (neblina densa que engole o bioma e engrossa com o clima).
   Regra de ouro mantida: nenhum arquivo de gameplay/save tocado; 137/137 testes;
   zero erros de console; 60.5 FPS.
+
+---
+Task ID: 7
+Agent: main (Super Z) — Engenharia & Direção de Arte
+Task: v1.5.0 "Edição Profissional" — AUDITORIA 360° (código + visual + UX + perf + a11y; escopo estritamente visual/sonoro/QoL — lógica/fórmulas/save intactos)
+
+Work Log:
+- AUDITORIA: código-fonte integral relido (p00_head/p01–p07, build.py, test_node.js, CSS) + QA de base
+  (137/137 ✓, 60 FPS). Achados classificados em A(robustez) B(juice) C(a11y/perf) D(pro/UX).
+- [AUDIT-A1] ROBUSTEZ: E.Save.flush blindado com try/catch — quota/btoa falhando não congela mais o
+  loop rAF (flush roda dentro do Game.loop a cada 3s). Formato do save INTACTO (compat total).
+- [AUDIT-A2] PERF: chips de moeda deixaram de reconstruir DOM+7 imgs base64 a cada kill
+  (currency_changed) → update leve por referência (_curRefs/_updateCurChip, textContent apenas).
+- [AUDIT-B1] JUICE: VFX DE ESTADO lidos de E.Combat (só leitura) — bolha arcânica c/ glow+runas
+  (guarda_sombras/hero_shield), brasas douradas em órbita (cataclismo/_buff_time), miasma roxa
+  subindo (sedenta/_dot_time), estrelas de stun (lâmina evoluída/_stun_t). As 4 habilidades
+  tinham efeitos "invisíveis"; a cena agora reage a todas.
+- [AUDIT-B2] skill_ready já existia no BUS e ninguém escutava → slot pisca (keyframe skFlash).
+- [AUDIT-B3] feedback de progresso: #hud-stage.bump ao trocar de fase (span agora inline-block —
+  defecto autocriticado: transform não afeta inline) + VINHETA DE PERIGO pulsante <30% HP.
+- [AUDIT-C1] ACESSIBILIDADE: pref reduzida_fx (eidryn_fx_prefs_v1) — shake×0.3, flash de tela×0.3,
+  vinheta atenuada; checkbox em Ajustes. Fotossensibilidade respeitada.
+- [AUDIT-C2] PERF ADAPTATIVA: _rawDelta cru medido no Game.loop → média móvel no Rfx; perfMode
+  auto decide lowFx a cada 2s (>27ms entra, <19ms sai): chuva −45%, partículas ×0.5 (_fxMul),
+  relâmpago em traço único. Select Auto/Alta/Leve em Ajustes.
+- [AUDIT-D] PRO: favicon eclipse embutido (SVG data URI) + meta description; botão COPIAR no
+  export do Selo (clipboard API + fallback execCommand); 3 dicas da 1ª sessão (tips_done nas
+  prefs de FX — não repetem); pulso verde no ⚙ a cada save_flushed (autosave visível).
+- i18n: +10 chaves aditivas ptbr/en (tip1..3, copy, copied, reduced_fx, quality, q_auto/high/low).
+- GAME_VERSION 1.5.0; changelog no header do HTML; splash .ver estático corrigido (v1.5.0).
+- Ciclo de autocrítica: 3 defeitos achados e corrigidos — (1) teste Node referenciava E.UI
+  (inexistente headless) → guard; (2) #hud-stage inline não sofria transform → inline-block;
+  (3) bolha de escudo ilegível no fundo escuro → glow radial interno + runas mais claras.
+- QA: test_node 141/141 ✓ (novo grupo 15 Robustez: flush c/ storage estourado não lança,
+  flush saudável limpa dirty, chaves i18n nos 2 idiomas). Navegador real (portrait 390×844 +
+  landscape 1280×720): flash/bump/pulse classes ✓, 4 VFX de estado capturados ✓, vinheta ✓,
+  Ajustes c/ 2 novos controles ✓, copiar/export ✓, prefs persistindo ✓, dica 1 exibida ✓,
+  boss F10 c/ bossbar ✓, 60 FPS estado limpo (58 sob VFX forçados, headless software) ✓,
+  0 erros/0 warnings de console ✓, reload → save F10 íntegro + tips_done ✓.
+- Build: 3,16 MB | 242 sprites | 24 áudios — /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html
+
+Stage Summary:
+- v1.5.0 "Edição Profissional" entregue: auditoria 360° executada (robustez, juice de combate,
+  acessibilidade, desempenho adaptativo, Web polish). Regra de ouro mantida — fórmulas, balance,
+  save e gameplay 100% intocados; 141/141 testes; zero erros de console; 60 FPS.
