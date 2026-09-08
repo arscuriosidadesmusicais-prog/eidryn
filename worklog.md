@@ -310,3 +310,18 @@ Stage Summary:
   acontecem de fato (com toast e multiplicadores reais), 7 sets permitem builds mistas e o
   catálogo tem 13 companions animados. Publish kit completo (GitHub Pages 1-comando + itch.io
   5-minutos). 170/170 testes; 18/18 navegador; 0 erros console; save compatível.
+
+---
+Task ID: 9
+Agent: main (Super Z) — Conteúdo & Publish
+Task: Verificação final pós-restore + fechamento publish v1.6.0 (conteúdo ✓ / publish ✓ bloqueado só por credenciais)
+
+Work Log:
+- Sessão restaurada após context reset; worklog e árvore lidos — estado real = v1.6.0 completa (Task 8 já executou as duas rotas do fork do usuário).
+- Integridade validada: GAME_VERSION 1.6.0 no HTML (3,36MB); download/publish/github_pages/index.html BYTE-IDÊNTICO ao build (sha256 8c28cd00…); zip do itch_kit contém o MESMO HTML (hash match) — 3 artefatos de distribuição = 1 binário aprovado.
+- Suíte Node re-executada: 170/170 ✓ (stacks QuotaExceededError no output são o teste de robustez grupo 15 por design).
+- Credenciais GitHub: /home/z/.github_token AUSENTE, env vazio, credential.helper unset — publish autônomo impossível; kit pronto-para-executar mantido (publish_github.sh exige GH_TOKEN/GH_USER; itch.io = upload manual do zip).
+- Housekeeping git: mudanças pendentes eram só filemode (644→755 do restore) → core.fileMode=false; worktree limpo; HEAD 3c0927c / tag v1.6.0.
+
+Stage Summary:
+- Release v1.6.0 CONFIRMADA íntegra e reprodutível. Único passo restante é do usuário: fornecer GH_TOKEN (eu publico em 1 comando) ou subir o zip do itch_kit manualmente. Nenhuma alteração de código/jogo nesta rodada.
