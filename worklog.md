@@ -341,3 +341,41 @@ Work Log:
 
 Stage Summary:
 - JOGO AO VIVO: https://arscuriosidadesmusicais-prog.github.io/eidryn/ (v1.6.0 aprovada, hash conferido). Repo público com main (fonte+README) + gh-pages (jogo) + tag v1.6.0. Lembrete ao usuário: revogar/rotacionar tokens colados no chat após o uso.
+
+---
+Task ID: 11
+Agent: main (Super Z) — Direção de Arte & UI/UX
+Task: v1.7.0 "Herdeiro do Eclipse" — rodada de polimento visual cinematográfico (escopo estritamente render; lógica/fórmulas/save intactos) + resposta ao "o que mais pode ser implementado / como melhorar visualmente?"
+
+Work Log:
+- 7 features novas no Rfx (todas assinam eventos BUS ou leem estado — zero escrita no jogo):
+  [V1] intro de chefe (escurecimento + placa CHEFE/nome auto-ajustável/região, 2.3s);
+  [V2] eclipse progressivo (coroa+raios pré-renderizados girando no céu; intensidade e
+       escuridão crescem Bosque→Abismo, fase=índice/6);
+  [V3] hit-stop (85ms só na camada visual — delta×0.06) + arco de corte triplo no crítico;
+  [V4] aura de raridade sob o herói (Épica→Divina; leitura E.Inv.equipped, cache invalidado
+       por item_equipped/unequipped);
+  [V5] placa de região (numeral Região I–VII + filetes + glifo de eclipse);
+  [V6] orbe de loot Rara+ voando em curva de Bézier ao HUD com rastro (cor por raridade);
+  [V7] brasas de vitória.
+- DEFEITO REAL corrigido (autocrítica visual): em landscape o object-fit:cover corta o topo
+  do canvas → coroa (y158) e placa de região (y128) INVISÍVEIS; criado _viewBand() (mapeia
+  o crop do CSS 50% 42% para coordenadas lógicas, cache 2s) e reposicionados coroa/placas.
+  Bônus: placa de região volta a ser visível em landscape (quebrava desde v1.1, ninguém notou).
+- Aura reforçada após crítica (alpha 0.30→0.40, raio 118→130).
+- i18n +2 chaves (boss_tag, region_word) ptbr/en; GAME_VERSION 1.7.0; changelog no header.
+- QA: test_node 183/183 (novo grupo 17, p05 agora avaliado headless) ✓; qa17.js 18/18 com
+  0 erros de console ✓ (save byte-idêntico após mutações — só o relógio 'time' avança, por
+  design); qa17b/qa17c shots: placa ABISMO DE VELUN · REGIÃO VII visível, coroa com raios
+  sobre chuva de sangue no Coração, aura Divina teal em portrait. 2 defeitos do PRÓPRIO QA
+  corrigidos (race do hit-stop 85ms; 'time' do relógio).
+- PUBLISH: zip itch v1.7.0 regenerado (+ screenshot 06_eclipse_coroa_sangue.png); 3 artefatos
+  (build/gh-pages/zip) byte-idênticos (sha eb23c800…); token recriado (sandbox havia limpo
+  /home/z); gh-pages push + Pages built (commit 8a2be45) → GAME_VERSION 1.7.0 ONLINE; commit
+  1879bab + tag v1.7.0 na main.
+
+Stage Summary:
+- v1.7.0 entregue e AO VIVO em https://arscuriosidadesmusicais-prog.github.io/eidryn/:
+  combate mais pesado (hit-stop/arco), chefes cinematográficos, mundo narrando o eclipse
+  (coroa cresce pelo ciclo), herói exibindo o loot (aura por raridade), drops celebrados
+  (orbe ao HUD). Regra de ouro mantida; 183/183 + 18/18; zero erros de console.
