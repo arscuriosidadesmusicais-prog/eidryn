@@ -28,7 +28,7 @@ git init -q -b gh-pages
 cp "${GAME}" index.html
 git add index.html
 git -c user.name="${GH_USER}" -c user.email="${GH_USER}@users.noreply.github.com" \
-  commit -q -m "Eidryn v1.6.0 'Sangue e Eclipse' — pets Míticos/Divinos, eventos vivos, 7 sets"
+  commit -q -m "Eidryn v1.7.0 'Herdeiro do Eclipse' — intro de chefe, eclipse progressivo, hit-stop, aura de raridade"
 echo "▶ 2/4 — enviando gh-pages..."
 git push -q -u "https://x-access-token:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" gh-pages --force
 

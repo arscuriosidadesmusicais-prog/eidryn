@@ -1,4 +1,4 @@
-# Eidryn — O Ciclo do Eclipse (v1.6.0 "Sangue e Eclipse")
+# Eidryn — O Ciclo do Eclipse (v1.7.0 "Herdeiro do Eclipse")
 
 RPG idle dark fantasy em **um único arquivo HTML** — sem servidor, sem build, sem dependências.
 Abra o `index.html` em qualquer navegador (desktop ou celular). Funciona offline.
@@ -35,7 +35,7 @@ O script cria/atualiza o repositório, envia o jogo como `index.html` na branch
 ```bash
 git checkout --orphan gh-pages
 cp /caminho/para/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html index.html
-git add index.html && git commit -m "Eidryn v1.6.0" && git push origin gh-pages
+git add index.html && git commit -m "Eidryn v1.7.0" && git push origin gh-pages
 ```
 
 ## itch.io

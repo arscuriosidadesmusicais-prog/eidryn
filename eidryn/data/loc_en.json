@@ -151,5 +151,7 @@
   "q_auto": "Automatic",
   "q_high": "High (full effects)",
   "q_low": "Light (more FPS)",
-  "evt_active": "Active event"
+  "evt_active": "Active event",
+  "boss_tag": "BOSS",
+  "region_word": "Region"
 }

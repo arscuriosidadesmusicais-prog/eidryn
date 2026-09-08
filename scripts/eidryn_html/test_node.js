@@ -27,8 +27,8 @@ for (const [k, f] of Object.entries(MAP))
 globalThis.E = { DATA };
 
 const P = '/home/z/my-project/scripts/eidryn_html/';
-for (const f of ['p01_core.js','p02_managers_a.js','p03_managers_b.js','p04_combat.js'])
-  eval(fs.readFileSync(P + f, 'utf8'));
+for (const f of ['p01_core.js','p02_managers_a.js','p03_managers_b.js','p04_combat.js','p05_render.js'])
+  eval(fs.readFileSync(P + f, 'utf8')); // p05 = definição do objeto Rfx (sem side-effects de DOM)
 
 /* ---------- inicialização (ordem do boot) ---------- */
 E.DM.load(E.DATA);
@@ -561,6 +561,33 @@ group('16. Conteúdo v1.6 [C1..C7]');
   ok((E.Pet.fragments['corvo_eclipse']||0) === frag0+60, '[C7] pet_frag do passe vai para o pet ATIVO');
   // i18n da nova chave
   ok(E.DM.cfg_loc_ptbr.evt_active && E.DM.cfg_loc_en.evt_active, 'chave evt_active em ptbr+en');
+}
+
+/* ================= 17. v1.7.0 "Herdeiro do Eclipse" (render/fx, headless-safe) ================= */
+group('17. v1.7.0 Herdeiro do Eclipse');
+{
+  ok(E.DM.GAME_VERSION === '1.7.0', 'GAME_VERSION 1.7.0');
+  // i18n aditivo das novas chaves nos dois idiomas
+  ok(E.DM.cfg_loc_ptbr.boss_tag === 'CHEFE' && E.DM.cfg_loc_en.boss_tag === 'BOSS', 'boss_tag ptbr=CHEFE / en=BOSS');
+  ok(E.DM.cfg_loc_ptbr.region_word === 'Região' && E.DM.cfg_loc_en.region_word === 'Region', 'region_word ptbr/en');
+  // pools e constantes do render existem (objeto avaliado mesmo sem DOM)
+  ok(E.Rfx.SLASH_POOL === 4 && E.Rfx.slashes.length === 0, 'pool do arco de corte declarado');
+  ok(E.Rfx.ORBS_POOL === 6 && E.Rfx.orbs.length === 0, 'pool de orbes de loot declarado');
+  ok(E.Rfx.RARITY_AURA[3] === '#a86ae8' && E.Rfx.RARITY_AURA[6] === '#7af0dc', 'cores de aura Épica→Divina');
+  ok(E.Rfx.RARITY_ORB.divina === '#7af0dc' && E.Rfx.RARITY_ORB.rara === '#4aa3ff', 'cores de orbe por raridade');
+  ok(typeof E.Rfx._eclipsePhase === 'function' && typeof E.Rfx._drawBossIntro === 'function' &&
+     typeof E.Rfx._bakeCorona === 'function' && typeof E.Rfx._drawLootOrbs === 'function' &&
+     typeof E.Rfx._drawHeroAura === 'function', 'métodos v1.7 presentes no Rfx');
+  ok(E.Rfx.hitStopT === 0 && E.Rfx.bossIntroT === 0, 'timers de hit-stop/intro inicializados zerados');
+  // fase do eclipse segue a ORDEM do regions.json (sem depender de canvas)
+  const order = E.DM.cfg_regions.regions.map(r => r.id);
+  ok(order.length === 7 && order[0] === 'bosque_vidro' && order[6] === 'abismo', 'ciclo de 7 regiões termina no Abismo');
+  // hexA converte para rgba (usado por aura/orbe/corona)
+  ok(E.Rfx._hexA('#7af0dc', 0.5) === 'rgba(122,240,220,0.5)', '_hexA converte hex→rgba');
+  // regra de ouro: fórmulas intactas (sanidade dupla)
+  const s1 = E.DM.enemy_stats_for_stage(1);
+  ok(approx(s1.hp, 42*1.12, 0.01), 'fórmula de HP intocada na v1.7.0');
+  ok(E.Save.SAVE_VERSION === 1, 'SAVE_VERSION continua 1 (formato intacto)');
 }
 
 /* ================= RESULTADO ================= */

@@ -52,6 +52,18 @@ E.Rfx = {
   puddles: [], puddleT: 0, ripples: [], rippleIdx: 0, RIPPLE_POOL: 14,
   fogBanks: [], fogDens: 1, _fogBlobA: null, _fogBlobB: null,
   boltT: 0, boltNext: 5, boltPts: null, flashA: 0,
+  /* ---------- [V1-V6] v1.7.0 "Herdeiro do Eclipse" (só apresentação) ----------
+     V1 intro de chefe · V2 eclipse progressivo · V3 hit-stop + arco de corte
+     V4 aura de raridade · V5 placa de região · V6 orbe de loot — todos leem
+     estado/eventos existentes; NADA escreve no jogo. */
+  bossIntroT: 0, bossIntroName: '', bossIntroSub: '',
+  hitStopT: 0,
+  _band: null,
+  slashes: [], slashIdx: 0, SLASH_POOL: 4,
+  orbs: [], orbIdx: 0, ORBS_POOL: 6,
+  _auraOrder: -1, _coronaDisc: null, _coronaRays: null,
+  RARITY_AURA: { 3: '#a86ae8', 4: '#e8a33a', 5: '#ff5a7a', 6: '#7af0dc' },
+  RARITY_ORB: { rara: '#4aa3ff', epica: '#a86ae8', lendaria: '#e8a33a', mitica: '#ff5a7a', divina: '#7af0dc' },
   /* ---------- [AUDIT-C1/C2] ACESSIBILIDADE + DESEMPENHO (só apresentação) ----------
      reducedFx: usuário pede MENOS flashes/tremores (fotossensibilidade).
      perfMode auto: média de frame real decide lowFx (menos partículas/overdraw). */
@@ -175,6 +187,11 @@ E.Rfx = {
       this.splashes.push({ on:false, x:0, y:0, t:0, life:1 });
     for (var r3 = 0; r3 < this.RIPPLE_POOL; r3++)
       this.ripples.push({ on:false, x:0, y:0, t:0, life:1 });
+    // [V3/V6] pools do arco de corte e dos orbes de loot
+    for (var s3 = 0; s3 < this.SLASH_POOL; s3++)
+      this.slashes.push({ on:false, x:0, y:0, t:0, life:0.24, flip:false });
+    for (var o3 = 0; o3 < this.ORBS_POOL; o3++)
+      this.orbs.push({ on:false, x0:0, y0:0, t:0, life:0.95, color:'#e8a33a' });
     // [ART-12] blobs de névoa pré-renderizados (2 tons — ar/solo)
     this._fogBlobA = this._fogBlob('170,200,165');
     this._fogBlobB = this._fogBlob('196,212,192');
@@ -198,7 +215,13 @@ E.Rfx = {
         for (var i = 0; i < mods.length; i++) tags += '[' + mods[i] + '] ';
         em.textContent = tags;
       }
-      if (self.enemyBoss) { self._ring(385, 640, 30, 190, 'rgba(232,163,58,0.8)', 4, 0.9); self.addShake(0.35); }
+      if (self.enemyBoss) {
+        self._ring(385, 640, 30, 190, 'rgba(232,163,58,0.8)', 4, 0.9); self.addShake(0.35);
+        // [V1] intro cinematográfica do chefe (placa + escurecimento)
+        self.bossIntroT = 2.3; self.bossIntroName = e.name || '';
+        self.bossIntroSub = (self._regionName() || '').toUpperCase();
+        self._ring(385, 640, 12, 262, 'rgba(232,163,58,0.5)', 2.5, 1.15);
+      }
     });
     E.BUS.on('enemy_hp_changed', function(hp, max_hp){
       self.enemyHpShown = E.U.clamp(hp / Math.max(max_hp, 1), 0, 1);
@@ -217,7 +240,12 @@ E.Rfx = {
       self._heroPose(crit ? 'crit' : 'atk');
       self._sparks(385, 620, crit ? 14 : 7);
       self._blood(385, 640, crit ? 9 : 4);
-      if (crit) { self._ring(385, 640, 6, 84, 'rgba(255,190,90,0.9)', 4, 0.5); self.addShake(0.22); }
+      if (crit) {
+        self._ring(385, 640, 6, 84, 'rgba(255,190,90,0.9)', 4, 0.5); self.addShake(0.22);
+        // [V3] hit-stop visual + arco de corte (a simulação não pausa)
+        self.hitStopT = self.reducedFx ? 0.04 : 0.085;
+        self._spawnSlash();
+      }
     });
     E.BUS.on('hero_damaged', function(){
       self.enemyLunge = 1; self.heroFlash = 0.6;
@@ -228,7 +256,12 @@ E.Rfx = {
     E.BUS.on('combat_ended', function(result){
       self._heroPose(result === 'win' ? 'victory' : 'down');
       self._petPose(result === 'win' ? 'cheer' : 'sad');
-      if (result === 'win') self.cheerUntil = self.time + 3.4;
+      if (result === 'win') {
+        self.cheerUntil = self.time + 3.4;
+        // [V7] celebração: brasas douradas pelo campo
+        self._motes(200, 640, 10); self._motes(330, 620, 10);
+        self._ring(240, 700, 20, 190, 'rgba(232,163,58,0.5)', 2.5, 0.9);
+      }
     });
     E.BUS.on('enemy_killed', function(enemy){
       self.enemyFade = 0.0001;
@@ -246,10 +279,21 @@ E.Rfx = {
     });
     E.BUS.on('pet_changed', function(){ self.setPetVisuals(); });
     E.BUS.on('region_changed', function(rid){ self.setRegion(rid); });
+    // [V4] aura de raridade: recalcula quando o equipamento muda
+    E.BUS.on('item_equipped', function(){ self._auraOrder = -1; });
+    E.BUS.on('item_unequipped', function(){ self._auraOrder = -1; });
+    // [V6] orbe de loot voando ao HUD em drops Rara+ durante o combate
+    E.BUS.on('loot_rare', function(it){
+      if (!(E.Combat && E.Combat.active) || !self.hasEnemy || self.lowFx) return;
+      self._spawnLootOrb(it && it.rarity ? it.rarity : 'rara');
+      self._motes(385, 600, 5, self.RARITY_ORB[it && it.rarity ? it.rarity : 'rara']);
+    });
     this.setRegion('bosque_vidro');
     this._applySeason();
     this._applyWeather(true);
     this.setPetVisuals();
+    this._auraOrder = -1;
+    this._bakeCorona(); // [V2] sprite do eclipse pré-renderizado
   },
   _img: function(dataUri){
     if (!dataUri) return null;
@@ -1180,6 +1224,9 @@ E.Rfx = {
         else if (this._perfAvg < 0.019) this.lowFx = false;
       }
     }
+    // [V3] HIT-STOP: no crítico, a camada VISUAL quase congela por ~85ms
+    // (relógio de animação/partículas); a simulação do combate segue intacta.
+    if (this.hitStopT > 0) { this.hitStopT -= delta; delta = delta * 0.06; }
     this._weatherTick(delta);          // clima: vento/relâmpagos/precipitação
     this._puddleTick(delta);           // [ART-11] poças encharcando/secando
     this._fogTick(delta);              // [ART-12] deriva e densidade da névoa
@@ -1200,6 +1247,8 @@ E.Rfx = {
     ctx.clearRect(-30, -30, W + 60, H + 60);
     // ---- 1) céu ----
     this._drawLayers(delta);
+    // ---- 1.2) [V2] eclipse progressivo — o céu consome-se conforme o ciclo avança
+    this._drawEclipseCorona();
     // ---- 1.5) clima atrás: escurecimento + precipitação de fundo ----
     this._drawWeatherBack(delta);
     // ---- 2) névoa oscilante (paleta da estação) ----
@@ -1244,6 +1293,8 @@ E.Rfx = {
     // ---- 6) entidades ----
     this._heroTick(delta);
     this._drawEntities(delta);
+    // ---- 6.2) [V3] arco de corte do crítico
+    this._drawSlashes(delta);
     // ---- 6.1) [AUDIT-B1] VFX de estado (escudo/DOT/buff/stun — leitura do Combat) ----
     this._drawStatusFx(delta);
     // ---- 6.4) [ART-11] poças refletivas (reflexo das entidades na chuva) ----
@@ -1292,22 +1343,51 @@ E.Rfx = {
     this.enemyGhost = this._ghost(this.enemyGhost, this.enemyHpShown, delta);
     // ---- 9) dano flutuante ----
     this._drawFloats(delta);
-    // ---- 10) título da região ----
+    // ---- 9.5) [V6] orbes de loot voando ao HUD
+    this._drawLootOrbs(delta);
+    // ---- 10) título da região ([V5] placa do ciclo: numeral + filetes + glifo de eclipse) ----
     if (this.regionTitleT > 0) {
       this.regionTitleT -= delta;
-      var a = Math.min(1, Math.min(this.regionTitleT, 2.4 - this.regionTitleT) * 2);
-      ctx.globalAlpha = E.U.clamp(a, 0, 1) * 0.9;
-      ctx.font = '700 26px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+      var tIn = 2.4 - this.regionTitleT;
+      var a = Math.min(1, Math.min(this.regionTitleT, tIn) * 2);
+      var ea2 = E.U.clamp(a, 0, 1);
+      var slide2 = (1 - Math.min(1, tIn * 2.4)) * 14;
+      var name2 = (this._regionName() || '').toUpperCase();
+      var rom2 = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][this._regionIndex()] || '';
+      var band2 = this._viewBand();
+      var yC = band2.top + (band2.bot - band2.top) * 0.10 + slide2;
+      var acc2 = this.pal ? this.pal.accent : '#e8a33a';
       ctx.textAlign = 'center';
+      ctx.font = '700 26px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+      ctx.globalAlpha = ea2 * 0.92;
       ctx.fillStyle = '#000';
-      ctx.fillText((this._regionName() || '').toUpperCase(), W / 2 + 2, 128 + 2);
-      ctx.fillStyle = this.pal ? this.pal.accent : '#e8a33a';
-      ctx.fillText((this._regionName() || '').toUpperCase(), W / 2, 128);
+      ctx.fillText(name2, W / 2 + 2, yC + 2);
+      ctx.fillStyle = acc2;
+      ctx.fillText(name2, W / 2, yC);
+      var tw2 = ctx.measureText(name2).width;
+      // filetes com losango + numeral da região no ciclo
+      ctx.strokeStyle = acc2; ctx.lineWidth = 1;
+      ctx.globalAlpha = ea2 * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - tw2 / 2 - 76, yC - 9); ctx.lineTo(W / 2 - tw2 / 2 - 18, yC - 9);
+      ctx.moveTo(W / 2 + tw2 / 2 + 18, yC - 9); ctx.lineTo(W / 2 + tw2 / 2 + 76, yC - 9);
+      ctx.stroke();
+      ctx.globalAlpha = ea2 * 0.8;
+      ctx.fillStyle = acc2;
+      ctx.font = '700 11px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+      ctx.fillText(E.DM.tr('region_word') + ' ' + rom2, W / 2, yC + 22);
+      // glifo de eclipse (mini lua/sol) à esquerda do filete
+      var gx = W / 2 - tw2 / 2 - 86;
+      ctx.beginPath(); ctx.arc(gx, yC - 12, 5, 0, 6.2832);
+      ctx.fillStyle = '#0a0614'; ctx.fill();
+      ctx.strokeStyle = acc2; ctx.lineWidth = 1.2; ctx.stroke();
       ctx.globalAlpha = 1;
     }
+    // ---- 10.5) [V1] intro cinematográfica do chefe (escurecimento + placa) ----
+    this._drawBossIntro(delta);
     // ---- chip da estação/clima (refresh barato p/ troca de idioma) ----
     this._chipT += delta;
-    if (this._chipT > 2) { this._chipT = 0; this._updateChip(); this._updateWeatherChip(); }
+    if (this._chipT > 2) { this._chipT = 0; this._band = null; this._updateChip(); this._updateWeatherChip(); }
     ctx.restore();
   },
   _drawLayers: function(delta){
@@ -1422,6 +1502,8 @@ E.Rfx = {
       ctx.globalAlpha = 1;
       ctx.drawImage(cf, 6, 589 + hopY, 176, 176);
     }
+    // ---- [V4] aura de raridade do equipamento sob o herói (leitura de E.Inv) ----
+    this._drawHeroAura(t, heroX, heroY);
     // ---- herói (FSM: frame da postura corrente + flash por frame) ----
     var fr = this.heroFrames[this.heroAnim.pose] || [];
     var hImg = fr[this.heroAnim.f] || this.heroImg;
@@ -1728,6 +1810,232 @@ E.Rfx = {
   _ghost: function(g, target, delta){
     if (target < g) return Math.max(target, g - delta * 0.35);
     return target;
+  },
+  /* ================= [V1-V7] v1.7.0 "Herdeiro do Eclipse" (só render) ================= */
+  _hexA: function(hex, a){
+    var n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  },
+  _regionIndex: function(){
+    var rs = E.DM.cfg_regions.regions;
+    for (var i = 0; i < rs.length; i++) if (rs[i].id === this.regionId) return i;
+    return 0;
+  },
+  /* banda VISÍVEL do canvas em coordenadas lógicas — o CSS usa object-fit:cover
+     (object-position 50% 42%), então em landscape o corte vertical esconde o topo.
+     Elementos do céu (coroa/placas) se posicionam pela banda p/ aparecer sempre. */
+  _viewBand: function(){
+    if (this._band) return this._band;
+    var b = { top: 0, bot: this.H };
+    try {
+      var r = this.cv.getBoundingClientRect();
+      if (r.width > 2 && r.height > 2) {
+        var sc = Math.max(r.width / this.W, r.height / this.H); // cover
+        var cropY = (this.H * sc - r.height) / sc;
+        if (cropY > 0) { b.top = cropY * 0.42; b.bot = this.H - cropY * 0.58; }
+      }
+    } catch (e) {}
+    this._band = b;
+    return b;
+  },
+  _eclipsePhase: function(){ // 0 (Bosque) → 1 (Abismo: eclipse total)
+    var rs = E.DM.cfg_regions.regions;
+    return rs.length > 1 ? this._regionIndex() / (rs.length - 1) : 0;
+  },
+  _bakeCorona: function(){ // sprites do eclipse pré-renderizados (1× por sessão)
+    try {
+      var S = 240;
+      var c1 = document.createElement('canvas'); c1.width = c1.height = S;
+      var x1 = c1.getContext('2d');
+      var g = x1.createRadialGradient(S/2, S/2, S*0.16, S/2, S/2, S*0.30);
+      g.addColorStop(0, 'rgba(8,5,16,1)'); g.addColorStop(0.78, 'rgba(8,5,16,0.97)');
+      g.addColorStop(1, 'rgba(8,5,16,0)');
+      x1.fillStyle = g; x1.beginPath(); x1.arc(S/2, S/2, S*0.30, 0, 6.2832); x1.fill();
+      x1.strokeStyle = 'rgba(255,214,140,0.95)'; x1.lineWidth = 2.2;
+      x1.beginPath(); x1.arc(S/2, S/2, S*0.265, 0, 6.2832); x1.stroke();
+      x1.strokeStyle = 'rgba(255,180,80,0.35)'; x1.lineWidth = 6;
+      x1.beginPath(); x1.arc(S/2, S/2, S*0.285, 0, 6.2832); x1.stroke();
+      this._coronaDisc = c1;
+      var c2 = document.createElement('canvas'); c2.width = c2.height = S;
+      var x2 = c2.getContext('2d'); x2.translate(S/2, S/2);
+      x2.strokeStyle = 'rgba(255,200,120,0.8)'; x2.lineCap = 'round';
+      for (var i = 0; i < 12; i++) {
+        var a2 = i * 6.2832 / 12;
+        var r0 = S*0.30 + (i % 2 ? 5 : 13), r1 = r0 + (i % 2 ? 13 : 28);
+        x2.globalAlpha = i % 2 ? 0.32 : 0.65; x2.lineWidth = i % 2 ? 1.4 : 2.2;
+        x2.beginPath();
+        x2.moveTo(Math.cos(a2) * r0, Math.sin(a2) * r0);
+        x2.lineTo(Math.cos(a2 + 0.05) * r1, Math.sin(a2 + 0.05) * r1);
+        x2.stroke();
+      }
+      this._coronaRays = c2;
+    } catch (e) { this._coronaDisc = this._coronaRays = null; }
+  },
+  _drawEclipseCorona: function(){
+    if (!this._coronaDisc) this._bakeCorona();
+    if (!this._coronaDisc) return;
+    var ph = this._eclipsePhase();
+    if (ph <= 0.001) return;
+    var band = this._viewBand();
+    var ctx = this.ctx, cx = this.W * 0.72, cy = band.top + (band.bot - band.top) * 0.16, R = 92;
+    ctx.save();
+    // [V2] céu afundando na escuridão conforme o ciclo avança (Abismo = total)
+    if (ph > 0.55) {
+      ctx.globalAlpha = (ph - 0.55) * 0.24;
+      ctx.fillStyle = '#06040c';
+      ctx.fillRect(-30, -30, this.W + 60, this.H + 60);
+    }
+    // raios da coroa girando devagar
+    ctx.globalAlpha = Math.min(0.8, 0.10 + 0.5 * ph) * this._flashMul();
+    ctx.translate(cx, cy); ctx.rotate(this.time * 0.11);
+    ctx.drawImage(this._coronaRays, -R * 1.35, -R * 1.35, R * 2.7, R * 2.7);
+    ctx.restore();
+    // disco do eclipse
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.9, 0.16 + 0.55 * ph);
+    ctx.drawImage(this._coronaDisc, cx - R, cy - R, R * 2, R * 2);
+    ctx.restore();
+  },
+  _spawnSlash: function(){
+    var s = this.slashes[this.slashIdx];
+    this.slashIdx = (this.slashIdx + 1) % this.SLASH_POOL;
+    s.on = true; s.x = this.enemyBoss ? 372 : 390; s.y = 645;
+    s.t = 0; s.life = 0.24; s.flip = Math.random() < 0.5;
+  },
+  _drawSlashes: function(delta){
+    var ctx = this.ctx;
+    for (var i = 0; i < this.slashes.length; i++) {
+      var s = this.slashes[i]; if (!s.on) continue;
+      s.t += delta; var pr = s.t / s.life;
+      if (pr >= 1) { s.on = false; continue; }
+      var ease = 1 - Math.pow(1 - pr, 2.2);
+      var r = 64 + ease * 58, a0 = (s.flip ? 2.6 : -2.3) + ease * 0.5;
+      ctx.save();
+      ctx.translate(s.x, s.y); if (s.flip) ctx.scale(-1, 1);
+      ctx.globalAlpha = (1 - pr) * 0.95;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 7 * (1 - pr * 0.55);
+      ctx.beginPath(); ctx.arc(0, 0, r, a0 - 2.1, a0 + 0.35); ctx.stroke();
+      ctx.strokeStyle = '#fff8e0'; ctx.lineWidth = 3 * (1 - pr * 0.6);
+      ctx.beginPath(); ctx.arc(0, 0, r - 7, a0 - 1.9, a0 + 0.3); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,160,60,0.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, r + 10, a0 - 1.7, a0 + 0.25); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  },
+  _heroAuraOrder: function(){ // maior raridade equipada (cacheado; inválido = -1)
+    if (this._auraOrder >= 0) return this._auraOrder;
+    var best = 0, eq = E.Inv ? E.Inv.equipped : null;
+    if (eq) for (var s in eq) {
+      var it = eq[s]; if (!it) continue;
+      var ro = E.Inv.rarity_order(it.rarity || 'comum');
+      if (ro > best) best = ro;
+    }
+    this._auraOrder = best;
+    return best;
+  },
+  _drawHeroAura: function(t, heroX, heroY){
+    var ord = this._heroAuraOrder();
+    var col = this.RARITY_AURA[ord];
+    if (!col) return;
+    var ctx = this.ctx, cx = heroX + 120, cy = 762;
+    var pulse = 0.5 + 0.5 * Math.sin(t * 2.3);
+    ctx.save();
+    ctx.globalAlpha = (0.40 + 0.14 * pulse) * (this.lowFx ? 0.6 : 1);
+    ctx.translate(cx, cy); ctx.scale(1, 0.29);
+    var g = ctx.createRadialGradient(0, 0, 8, 0, 0, 130);
+    g.addColorStop(0, this._hexA(col, 0.85)); g.addColorStop(1, this._hexA(col, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, 118, 0, 6.2832); ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.46 + 0.2 * pulse;
+    ctx.strokeStyle = col; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.ellipse(cx, cy, 98, 27, 0, 0, 6.2832); ctx.stroke();
+    ctx.restore();
+  },
+  _spawnLootOrb: function(rar){
+    var o = this.orbs[this.orbIdx];
+    this.orbIdx = (this.orbIdx + 1) % this.ORBS_POOL;
+    o.on = true; o.x0 = 385; o.y0 = 600; o.t = 0; o.life = 0.95;
+    o.color = this.RARITY_ORB[rar] || '#e8a33a';
+  },
+  _drawLootOrbs: function(delta){
+    var ctx = this.ctx, W = this.W;
+    for (var i = 0; i < this.orbs.length; i++) {
+      var o = this.orbs[i]; if (!o.on) continue;
+      o.t += delta; var pr = o.t / o.life;
+      if (pr >= 1) {
+        o.on = false;
+        this._ring(W - 58, 34, 4, 26, this._hexA(o.color, 0.8), 2, 0.35);
+        continue;
+      }
+      var e = pr * pr * (3 - 2 * pr); // smoothstep
+      var x1 = W - 58, y1 = 30, cxp = 470, cyp = 260;
+      var mx = (1-e)*(1-e)*o.x0 + 2*(1-e)*e*cxp + e*e*x1;
+      var my = (1-e)*(1-e)*o.y0 + 2*(1-e)*e*cyp + e*e*y1;
+      ctx.save();
+      ctx.globalAlpha = pr > 0.75 ? 1 - (pr - 0.75) / 0.25 * 0.7 : 1;
+      var g = ctx.createRadialGradient(mx, my, 0, mx, my, 14);
+      g.addColorStop(0, this._hexA(o.color, 0.95)); g.addColorStop(1, this._hexA(o.color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(mx, my, 14, 0, 6.2832); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.globalAlpha *= 0.9;
+      ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
+      var e2 = Math.max(0, e - 0.08); // rastro
+      var tx = (1-e2)*(1-e2)*o.x0 + 2*(1-e2)*e2*cxp + e2*e2*x1;
+      var ty = (1-e2)*(1-e2)*o.y0 + 2*(1-e2)*e2*cyp + e2*e2*y1;
+      ctx.strokeStyle = this._hexA(o.color, 0.5); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(mx, my); ctx.stroke();
+      ctx.restore();
+    }
+  },
+  _drawBossIntro: function(delta){
+    if (this.bossIntroT <= 0) return;
+    this.bossIntroT -= delta;
+    var T = 2.3, t = T - this.bossIntroT;          // 0→2.3
+    var inA = Math.min(1, t / 0.35);               // entrada rápida
+    var outA = Math.min(1, Math.max(0, this.bossIntroT) / 0.45); // saída suave
+    var ea = E.U.clamp(Math.min(inA, outA), 0, 1);
+    if (ea <= 0) return;
+    var ctx = this.ctx, W = this.W;
+    // escurecimento do mundo (fotossensibilidade reduz)
+    var dim = (this.reducedFx ? 0.16 : 0.40) * ea;
+    ctx.fillStyle = 'rgba(4,2,8,' + dim.toFixed(3) + ')';
+    ctx.fillRect(-30, -30, W + 60, this.H + 60);
+    // placa desce e assenta (posição ciente da banda visível p/ landscape)
+    var band = this._viewBand();
+    var py = band.top + (band.bot - band.top) * 0.32 - 26 * (1 - Math.pow(1 - inA, 3));
+    var name = (this.bossIntroName || '').toUpperCase();
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = ea;
+    ctx.fillStyle = 'rgba(10,6,16,0.82)';
+    ctx.fillRect(W / 2 - 210, py - 44, 420, 88);
+    ctx.strokeStyle = 'rgba(232,163,58,0.85)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(W / 2 - 210, py - 44, 420, 88);
+    // cantos dourados internos
+    ctx.fillStyle = 'rgba(232,163,58,0.9)';
+    ctx.fillRect(W / 2 - 210, py - 44, 14, 2); ctx.fillRect(W / 2 - 210, py - 44, 2, 14);
+    ctx.fillRect(W / 2 + 196, py - 44, 14, 2); ctx.fillRect(W / 2 + 208, py - 44, 2, 14);
+    ctx.fillRect(W / 2 - 210, py + 42, 14, 2); ctx.fillRect(W / 2 - 210, py + 30, 2, 14);
+    ctx.fillRect(W / 2 + 196, py + 42, 14, 2); ctx.fillRect(W / 2 + 208, py + 30, 2, 14);
+    // tag + nome (auto-ajusta p/ nomes longos) + subtítulo da região
+    var fnt = this.fontReady ? 'Cinzel,' : '';
+    ctx.fillStyle = '#e8a33a';
+    ctx.font = '700 11px ' + fnt + ' "Courier New",monospace';
+    ctx.fillText(E.DM.tr('boss_tag'), W / 2, py - 20);
+    var fs = 24;
+    ctx.font = '900 ' + fs + 'px ' + fnt + ' "Courier New",monospace';
+    while (fs > 15 && ctx.measureText(name).width > 380) {
+      fs -= 2; ctx.font = '900 ' + fs + 'px ' + fnt + ' "Courier New",monospace';
+    }
+    ctx.fillStyle = '#000'; ctx.fillText(name, W / 2 + 1, py + 9);
+    ctx.fillStyle = '#fff2d8'; ctx.fillText(name, W / 2, py + 8);
+    ctx.font = '700 10px ' + fnt + ' "Courier New",monospace';
+    ctx.fillStyle = 'rgba(232,163,58,0.8)';
+    ctx.fillText(this.bossIntroSub || '', W / 2, py + 30);
+    ctx.globalAlpha = 1;
   },
   _regionName: function(){
     var rs = E.DM.cfg_regions.regions;

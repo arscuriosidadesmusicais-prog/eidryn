@@ -19,7 +19,7 @@ RPG idle dark fantasy em **um único arquivo HTML** — sem servidor, sem build,
 
 ## Arquivos
 
-- `download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html` — build v1.6.0 "Sangue e Eclipse" (arquivo único, 3,3 MB)
+- `download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html` — build v1.7.0 "Herdeiro do Eclipse" (arquivo único, 3,3 MB)
 - `download/publish/itch_kit/` — kit pronto para itch.io (zip jogável, capa, banner, screenshots, textos da página)
 - `download/publish/github_pages/` — copiar `index.html` para qualquer host estático
 - `eidryn/` — projeto Godot 4.4 original (fonte da verdade de dados e regras)

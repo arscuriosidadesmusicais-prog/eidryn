@@ -151,5 +151,7 @@
   "q_auto": "Automático",
   "q_high": "Alta (efeitos completos)",
   "q_low": "Leve (mais FPS)",
-  "evt_active": "Evento ativo"
+  "evt_active": "Evento ativo",
+  "boss_tag": "CHEFE",
+  "region_word": "Região"
 }
