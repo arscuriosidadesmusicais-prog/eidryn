@@ -253,3 +253,60 @@ Stage Summary:
 - v1.5.0 "Edição Profissional" entregue: auditoria 360° executada (robustez, juice de combate,
   acessibilidade, desempenho adaptativo, Web polish). Regra de ouro mantida — fórmulas, balance,
   save e gameplay 100% intocados; 141/141 testes; zero erros de console; 60 FPS.
+
+---
+Task ID: 8
+Agent: main (Super Z) — Conteúdo & Publish
+Task: v1.6.0 "Sangue e Eclipse" — auditoria de CONTEÚDO + novos sets/pets/eventos (dados autorizados pelo usuário) + preparação de publish (GitHub Pages/itch.io)
+
+Work Log:
+- AUDITORIA DE CONTEÚDO (7 achados): [C1] sem pets Mítico/Divino → rolagem Divina (0,5%) caía no
+  fallback e podia dar pet Incomum; [C2] eventos mortos: drop_mult/abismo_extra_mult sem consumidor,
+  janelas de data/dias ignoradas, todos enabled:false; [C3] só 4 sets; [C4] typo "Invogue";
+  [C5] loja de Glória c/ 3 itens; [C6] conquistas sem metas endgame de coleção; [C7] pet_frag do
+  Passe fixo no 1º pet.
+- [C1] DATA pets.json: +Raposa de Vidro Lunar (Mítica), +Filhote do Devorador (Divina),
+  +Oráculo do Eclipse (Mítica, companheiro) — bônus só com chaves válidas do Char.recalc.
+  Pool do gacha filtrado por raridade corrigido de facto (código já filtrava; faltava estoque).
+- [C2] CODE glue aditivo: E.Eco._event_live/_iso/active_events (janelas date_start/date_end ISO
+  fim-do-dia-inclusivo + days=getUTCDay); try_drop lê drop_mult (cap 1.0); _win aplica
+  abismo_extra_mult em ouro/xp p/ campanha >500; days do fim de semana corrigido p/ [6,0]
+  (sáb/dom de fato); toast de eventos ativos no boot (8s, i18n evt_active ptbr/en).
+  Eventos agora vivos: Fim de Semana Dourado (sáb/dom), Eclipse de Sangue (set–out/2026,
+  +25% XP +15% drops), Caçada Abissal (out/2026, Abismo +50%).
+- [C3] items.json: +3 sets mistos — Herdeiro do Eclipse (arma+capa, +18% dano crít.),
+  Marcado pelo Abismo (amuleto+anel1+botas), Eco da Cidadela (elmo+luvas+capa) — stacks
+  pela contagem por-set já existente.
+- [C4..C7] typo Invoque; loja de Glória +Manto do Duelista/+Coroa do Invicto; conquistas
+  a36–a39 (portal 200, 8 pets, 5 companheiros, pet 5★); pet_frag do Passe vai ao pet ATIVO.
+- ARTE gen_new_pets.py: 3 sprites base 96×96 + 24 frames (idle 4/cheer 2/sad 2) na mesma
+  linguagem pxkit; autocrítica: orelhas da raposa apontavam p/ baixo (antena) → flip=True;
+  sheet aprovada. Build: 269 sprites (+27).
+- TESTES test_node.js grupo 16 (29 asserções): pool Divina sem fallback, chaves de bônus
+  válidas, janelas de evento (sáb/quarta/fora-da-janela c/ TimeM mockado), 7 sets + bônus
+  aplicados, loja 5 itens, 39 conquistas c/ tracks conhecidas, pet_frag no ativo, i18n.
+  Total 170/170 ✓.
+- QA NAVEGADOR qa16.js (18/18 ✓): 0 erros console landscape+portrait, imgs/frames dos novos
+  pets, GAME_VERSION 1.6.0, Eclipse de Sangue ao vivo, set misto no recálculo, toast de
+  evento, save c/ novos pets + reload preservado. Defeitos achados/corrigidos no ciclo:
+  (1) modal Login Diário bloqueava screenshots → dismiss no QA; (2) assert de save contra
+  payload XOR+b64 → validar via E.Save.collect().
+- PROBE DE PIXELS qa16_probe.js: devorador (corona/olho dourado, 80px) e oráculo (118px)
+  confirmados desenhados na cena cênica ✓.
+- PUBLISH: credenciais GitHub não existem mais no ambiente → kit pronto-para-executar:
+  publish/github_pages/ (index.html + README_DEPLOY com opção A script/opção B manual) +
+  scripts/eidryn_html/publish_github.sh (cria repo, push gh-pages, ativa Pages via API —
+  requer GH_TOKEN/GH_USER); itch_kit/ (zip jogável no browser, capa 630×500 + banner 460×215
+  autorais, 5 screenshots de vitrine c/ chuva/tempestade/novos pets, PAGINA_itch.md PT+EN,
+  COMO_PUBLICAR.md passo-a-passo). Capa autocrítica: herói duplicado removido, pets na linha
+  do chão c/ sombras. Screenshots: scroll do painel exige pin via interval (re-render automático
+  reseta; em paisagem o scroller real é #main) e batalha landscape recortada p/ área do canvas.
+- Git: commit ff3065b + tag v1.6.0. GAME_VERSION/SAVE_VERSION: 1.6.0/1 (formato intacto —
+  mudanças 100% aditivas; saves antigos carregam sem migração).
+
+Stage Summary:
+- v1.6.0 entregue em /home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html (3,21MB,
+  269 sprites, 24 áudios): o gacha agora premia Mítico/Divino de verdade, eventos vivos
+  acontecem de fato (com toast e multiplicadores reais), 7 sets permitem builds mistas e o
+  catálogo tem 13 companions animados. Publish kit completo (GitHub Pages 1-comando + itch.io
+  5-minutos). 170/170 testes; 18/18 navegador; 0 erros console; save compatível.
