@@ -20,10 +20,31 @@ E.Eco = {
     for(var i=0;i<evts.length;i++){
       var e=evts[i];
       if(!e.enabled) continue;
+      if(!this._event_live(e)) continue; // [C2] janelas de data/dia-da-semana agora respeitadas
       var b=e.bonus||{};
       if(b[kind]!=null) mult *= Number(b[kind]);
     }
     return mult;
+  },
+  /* [C2] evento "ao vivo": respeita date_start/date_end (ISO, fim do dia inclusivo)
+     e days (dias da semana UTC 0=dom..6=sáb). Sem janelas = vale sempre. */
+  _event_live: function(e){
+    var now=E.TimeM.now();
+    if(e.date_start!=null && now < this._iso(e.date_start)) return false;
+    if(e.date_end!=null && now >= this._iso(e.date_end)+86400) return false;
+    if(e.days && e.days.length){
+      var dow=new Date(now*1000).getUTCDay(), hit=false;
+      for(var i=0;i<e.days.length;i++) if(Number(e.days[i])===dow) hit=true;
+      if(!hit) return false;
+    }
+    return true;
+  },
+  _iso: function(s){ return Math.floor(Date.parse(s+'T00:00:00Z')/1000); },
+  /* [C2] eventos ativos agora (p/ toast de boot e HUD) */
+  active_events: function(){
+    var out=[], evts=(E.DM.cfg_events&&E.DM.cfg_events.events)||[];
+    for(var i=0;i<evts.length;i++) if(evts[i].enabled && this._event_live(evts[i]) && evts[i].type==='multiplier') out.push(evts[i]);
+    return out;
   },
   gold_mult: function(){ var m=this.event_mult('gold_mult'); if(this.is_premium()) m*=1.10; return m; },
   xp_mult: function(){ return this.event_mult('xp_mult'); },
@@ -274,7 +295,8 @@ E.Inv = {
   },
   try_drop: function(stage, is_boss, stats){
     var base_chance = is_boss? E.DM.cfg_items.drop_chance_boss : E.DM.cfg_items.drop_chance_normal;
-    var chance=base_chance*(1+(stats.drop_bonus||0)/100);
+    var chance=base_chance*(1+(stats.drop_bonus||0)/100)*E.Eco.event_mult('drop_mult'); // [C2] drop_mult agora é lido
+    if(chance>1) chance=1;
     if(Math.random()>chance) return;
     var luck=(stats.luck||0)+(is_boss?2:0);
     var rarity=this.rarity_roll(is_boss?'drop_rates_boss':'drop_rates_normal', luck);

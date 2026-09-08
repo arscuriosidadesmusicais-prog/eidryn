@@ -10,7 +10,7 @@
     {"id": "w1", "name": "Derrote 1500 inimigos", "goal": 1500, "track": "kills", "reward": {"essencia": 120}, "progress_label": "inimigos"},
     {"id": "w2", "name": "Vença 15 chefes", "goal": 15, "track": "boss_kills", "reward": {"gemas": 40}, "progress_label": "chefes"},
     {"id": "w3", "name": "Suba 25 fases", "goal": 25, "track": "stages", "reward": {"chaves": 3}, "progress_label": "fases"},
-    {"id": "w4", "name": "Invogue 10× no Portal", "goal": 10, "track": "gacha", "reward": {"fragmentos_alma": 20}, "progress_label": "invocações"}
+    {"id": "w4", "name": "Invoque 10× no Portal", "goal": 10, "track": "gacha", "reward": {"fragmentos_alma": 20}, "progress_label": "invocações"}
   ],
   "daily_login": [
     {"day": 1, "reward": {"ouro": 300}},

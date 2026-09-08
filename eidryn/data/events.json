@@ -1,8 +1,10 @@
 {
   "events": [
-    {"id": "evt_fim_de_semana", "name": "Fim de Semana Dourado", "type": "multiplier", "days": [5, 6], "bonus": {"gold_mult": 1.5}, "desc": "+50% ouro sáb/dom", "enabled": false},
+    {"id": "evt_fim_de_semana", "name": "Fim de Semana Dourado", "type": "multiplier", "days": [6, 0], "bonus": {"gold_mult": 1.5}, "desc": "+50% ouro sáb/dom", "enabled": true},
+    {"id": "evt_eclipse_sanguineo", "name": "Eclipse de Sangue", "type": "multiplier", "date_start": "2026-09-01", "date_end": "2026-10-31", "bonus": {"xp_mult": 1.25, "drop_mult": 1.15}, "desc": "+25% XP e +15% drops durante o Eclipse de Sangue", "enabled": true},
+    {"id": "evt_cacada_abissal", "name": "Caçada Abissal", "type": "multiplier", "date_start": "2026-10-01", "date_end": "2026-10-14", "bonus": {"abismo_extra_mult": 1.5}, "desc": "Recompensas do Abismo +50%", "enabled": true},
     {"id": "evt_eclipse_lunar", "name": "Eclipse Lunar", "type": "multiplier", "date_start": "2030-01-01", "date_end": "2030-01-07", "bonus": {"xp_mult": 1.5, "drop_mult": 1.25}, "desc": "+50% XP e +25% drops por uma semana", "enabled": false},
     {"id": "evt_caos_abissal", "name": "Caos Abissal", "type": "content", "date_start": "2030-06-01", "date_end": "2030-06-14", "bonus": {"abismo_extra_mult": 1.5}, "desc": "Recompensas do Abismo +50%", "enabled": false}
   ],
-  "template_note": "Adicionar eventos aqui: type=multiplier aplica Multiplicadores globais via EventMultiplier; enabled=true ativa."
+  "template_note": "Adicionar eventos aqui: type=multiplier aplica Multiplicadores globais via EventMultiplier. Janelas suportadas: date_start/date_end (datas ISO) e days (dias da semana 0=dom..6=sáb). Sem janela = ativa sempre que enabled=true."
 }

@@ -44,6 +44,12 @@ E.Game = {
     E.Combat.start_campaign(E.Prog.current_stage);
     E.Audio.play_music('combat');
     E.BUS.toast_msg('☾ '+E.DM.tr('app_title'), '#e8833a');
+    // [C2] eventos ativos anunciados (dados de events.json; nada persistido)
+    var _evts=E.Eco.active_events();
+    if(_evts.length){
+      var _names=_evts.map(function(e){ return e.name; }).join(' · ');
+      setTimeout(function(){ E.BUS.toast_msg(E.DM.tr('evt_active')+': '+_names, '#c94f7c'); }, 8000);
+    }
     // [AUDIT-D2] dicas da primeira sessão (uma única vez; flag nas prefs de FX — save intacto)
     if(!E.Rfx._tipsDone){
       E.Rfx._tipsDone=true; E.Rfx.savePrefs();

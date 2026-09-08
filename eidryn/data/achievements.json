@@ -34,6 +34,10 @@
     {"id": "a32", "name": "Torre de Marfim", "desc": "Alcance o andar 25 da Torre", "goal": 25, "track": "tower_floor", "reward": {"gemas": 80}},
     {"id": "a33", "name": "Missão Cumprida", "desc": "Complete 30 missões", "goal": 30, "track": "missions_done", "reward": {"gemas": 60}},
     {"id": "a34", "name": "Devoto", "desc": "7 logins diários", "goal": 7, "track": "login_days", "reward": {"essencia": 80}},
-    {"id": "a35", "name": "Guerreiro Online", "desc": "Colete recompensa offline 10 vezes", "goal": 10, "track": "offline_collects", "reward": {"gemas": 40}}
+    {"id": "a35", "name": "Guerreiro Online", "desc": "Colete recompensa offline 10 vezes", "goal": 10, "track": "offline_collects", "reward": {"gemas": 40}},
+    {"id": "a36", "name": "Zelador do Portal", "desc": "Faça 200 invocações", "goal": 200, "track": "gacha", "reward": {"essencia": 200}},
+    {"id": "a37", "name": "Alfa do Umbral", "desc": "Desbloqueie todos os 8 pets", "goal": 8, "track": "pets_owned", "reward": {"gemas": 300}},
+    {"id": "a38", "name": "Séquito do Eclipse", "desc": "Desbloqueie todos os 5 companheiros", "goal": 5, "track": "companions_owned", "reward": {"gemas": 250}},
+    {"id": "a39", "name": "Eclipsado", "desc": "Evolua um pet a 5 estrelas", "goal": 5, "track": "pet_max_stars", "reward": {"gemas": 200}}
   ]
 }

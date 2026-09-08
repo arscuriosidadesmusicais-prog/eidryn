@@ -247,6 +247,9 @@ E.Combat = {
     }
     var gold=(this.enemy.gold||0)*(1+(stats.gold_find||0)/100)*E.Eco.gold_mult();
     var xp=(this.enemy.xp||0)*(1+(stats.xp_gain||0)/100);
+    if(this.mode==='campaign' && this.stage>500){ // [C2] evt Caçada Abissal: recompensas do Abismo multiplicadas
+      var am=E.Eco.event_mult('abismo_extra_mult'); gold*=am; xp*=am;
+    }
     E.Eco.add('ouro', gold);
     E.Char.gain_xp(xp);
     E.Inv.try_drop(this.stage, !!this.enemy.boss, stats);

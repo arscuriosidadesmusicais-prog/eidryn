@@ -487,6 +487,82 @@ group('15. Robustez [AUDIT]');
     'chaves [AUDIT] presentes em ptbr+en');
 }
 
+/* ================= 16. CONTEÚDO v1.6 (auditoria de conteúdo) ================= */
+group('16. Conteúdo v1.6 [C1..C7]');
+{
+  // [C1] pets Mítico/Divino existem e o pool do gacha nunca cai no fallback para rolagens altas
+  const pets = E.DM.cfg_pets.pets, comps = E.DM.cfg_pets.companions;
+  ok(pets.some(p => p.rarity==='mitica'), '[C1] existe pet Mítico');
+  ok(pets.some(p => p.rarity==='divina'), '[C1] existe pet Divino');
+  ok(comps.some(c => c.rarity==='mitica'), '[C1] existe companheiro Mítico');
+  const rollDiv = E.Gacha._pull_pet('divina');
+  ok(rollDiv.rarity==='divina', '[C1] rolagem Divina → pet Divino (sem fallback)');
+  const rollMit = E.Gacha._pull_pet('mitica');
+  ok(E.Inv.rarity_order(rollMit.rarity) >= E.Inv.rarity_order('mitica'), '[C1] rolagem Mítica → pet Mítico+');
+  // [C1] chaves de bônus de pets são todas consumidas por Char.recalc
+  const valid = new Set(['atk_pct','hp_pct','def_pct','crit_rate','crit_damage','atk_speed',
+    'lifesteal','gold_find','xp_gain','reinforce_luck']);
+  const allDefs = pets.concat(comps);
+  ok(allDefs.every(d => Object.keys(d.bonus).concat(Object.keys(d.per_star)).every(k => valid.has(k))),
+    '[C1] bônus de todos os pets usam chaves válidas');
+  ok(allDefs.every(d => d.id && d.name && d.icon && d.desc && d.rarity), '[C1] defs de pets completas');
+  // [C2] janelas de evento respeitadas
+  const realNow = E.TimeM.now;
+  const evt = id => E.DM.cfg_events.events.find(e => e.id===id);
+  const sat = Math.floor(Date.parse('2026-09-12T12:00:00Z')/1000); // sábado
+  const wed = Math.floor(Date.parse('2026-09-09T12:00:00Z')/1000); // quarta
+  const outWin = Math.floor(Date.parse('2026-12-01T12:00:00Z')/1000); // fora do Eclipse de Sangue
+  E.TimeM.now = () => sat;
+  ok(E.Eco._event_live(evt('evt_fim_de_semana'))===true, '[C2] Fim de Semana Dourado ativo no sábado');
+  ok(evt('evt_fim_de_semana').days.includes(new Date(sat*1000).getUTCDay()), '[C2] convenção days = getUTCDay');
+  ok(E.Eco.gold_mult() >= 1.5, '[C2] gold_mult ≥ 1.5 no sábado');
+  E.TimeM.now = () => wed;
+  ok(E.Eco._event_live(evt('evt_fim_de_semana'))===false, '[C2] evento de fim de semana fechado na quarta');
+  ok(E.Eco.gold_mult() < 1.5, '[C2] gold_mult normal na quarta');
+  ok(E.Eco._event_live(evt('evt_eclipse_sanguineo'))===true, '[C2] Eclipse de Sangue na janela (set/2026)');
+  ok(E.Eco.xp_mult() >= 1.25, '[C2] xp_mult ≥ 1.25 com Eclipse de Sangue');
+  E.TimeM.now = () => outWin;
+  ok(E.Eco._event_live(evt('evt_eclipse_sanguineo'))===false, '[C2] Eclipse de Sangue fora da janela (dez)');
+  ok(evt('evt_eclipse_lunar').enabled===false, '[C2] evento legado 2030 continua desligado');
+  ok(E.Eco.active_events().every(e => e.enabled), '[C2] active_events só traz eventos habilitados');
+  E.TimeM.now = realNow;
+  // [C2] drop_mult multiplicado no teto de 100%
+  ok(E.Eco.event_mult('drop_mult') > 1, '[C2] drop_mult ativo durante o Eclipse de Sangue');
+  // [C3] novos sets com peças válidas e bônus aplicados
+  const slots = new Set(E.DM.cfg_items.slots.map(s => s.id));
+  const sets = E.DM.cfg_items.sets;
+  ok(sets.length===7, '[C3] 7 sets configurados');
+  ok(sets.every(s => s.pieces.every(p => slots.has(p))), '[C3] peças de sets são slots válidos');
+  ok(sets.every(s => s.desc && s.name && (s.bonus_2 || s.bonus_3)), '[C3] sets com nome/descrição/bônus');
+  const prev = E.Inv.equipped; E.Inv.equipped = {arma:'x', capa:'y'};
+  const sb = E.Inv.set_bonuses();
+  ok((sb.crit_damage||0) >= 18, '[C3] Herdeiro do Eclipse: +18% dano crít. com 2 peças');
+  E.Inv.equipped = {elmo:'a', luvas:'b', capa:'c'};
+  const sb2 = E.Inv.set_bonuses();
+  ok((sb2.def_pct||0) >= 15 && (sb2.hp_pct||0) >= 10, '[C3] Eco da Cidadela: 3 peças → DEF+HP');
+  E.Inv.equipped = prev;
+  // [C4] typo corrigido
+  ok(E.DM.cfg_missions.weekly.find(m => m.id==='w4').name.startsWith('Invoque'), '[C4] typo "Invogue" corrigido');
+  // [C5] loja de glória com 5 itens
+  ok(E.DM.cfg_dungeons.arena.shop.length===5, '[C5] loja de Glória com 5 itens');
+  // [C6] conquistas novas com tracks conhecidos
+  const knownTracks = new Set(['kills','boss_kills','max_stage','level','equips','reinforce_max',
+    'legendaries','divines','pets_owned','companions_owned','pet_max_stars','gacha','ascensions',
+    'gold_total','arena_wins','tower_floor','missions_done','login_days','offline_collects','world_boss']);
+  ok(E.DM.cfg_achievements.achievements.length===39, '[C6] 39 conquistas');
+  ok(E.DM.cfg_achievements.achievements.every(a => knownTracks.has(a.track)), '[C6] todas as tracks de conquistas são conhecidas');
+  // [C7] pet_frag do passe mira o pet ativo
+  E.Pet.owned = {}; E.Pet.fragments = {};
+  E.Pet.acquire('corvo_eclipse'); E.Pet.set_active('corvo_eclipse');
+  E.Ret.bp_claimed_premium = []; E.Ret.bp_add_xp(2000); // tier 20 (premium)
+  E.Ret.bp_premium_unlocked = true;
+  const frag0 = E.Pet.fragments['corvo_eclipse']||0;
+  E.Ret.bp_claim(20, true);
+  ok((E.Pet.fragments['corvo_eclipse']||0) === frag0+60, '[C7] pet_frag do passe vai para o pet ATIVO');
+  // i18n da nova chave
+  ok(E.DM.cfg_loc_ptbr.evt_active && E.DM.cfg_loc_en.evt_active, 'chave evt_active em ptbr+en');
+}
+
 /* ================= RESULTADO ================= */
 console.log('\n==========================================');
 console.log(`RESULTADO: ${pass} passou | ${fail} falhou`);

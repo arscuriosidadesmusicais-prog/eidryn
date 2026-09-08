@@ -67,7 +67,10 @@
     {"id": "set_crepusculo", "name": "Selo do Crepúsculo", "pieces": ["arma", "amuleto"], "bonus_2": {"atk_pct": 15}, "desc": "2 peças: +15% ATK"},
     {"id": "set_sentinela", "name": "Sentinela Rachada", "pieces": ["elmo", "peitoral", "calca"], "bonus_2": {"hp_pct": 12}, "bonus_3": {"def_pct": 20}, "desc": "2 peças: +12% HP | 3 peças: +20% DEF"},
     {"id": "set_velun", "name": "Marca de Velun", "pieces": ["anel1", "anel2", "capa"], "bonus_2": {"crit_rate": 5}, "bonus_3": {"lifesteal": 4}, "desc": "2 peças: +5% Crítico | 3 peças: +4% Roubo de Vida"},
-    {"id": "set_peregrino", "name": "Passos do Peregrino", "pieces": ["botas", "luvas"], "bonus_2": {"atk_speed": 10}, "desc": "2 peças: +10% Vel. de Ataque"}
+    {"id": "set_peregrino", "name": "Passos do Peregrino", "pieces": ["botas", "luvas"], "bonus_2": {"atk_speed": 10}, "desc": "2 peças: +10% Vel. de Ataque"},
+    {"id": "set_eclipse", "name": "Herdeiro do Eclipse", "pieces": ["arma", "capa"], "bonus_2": {"crit_damage": 18}, "desc": "2 peças: +18% Dano Crít. (combina com outros selos)"},
+    {"id": "set_abissal", "name": "Marcado pelo Abismo", "pieces": ["amuleto", "anel1", "botas"], "bonus_2": {"lifesteal": 3}, "bonus_3": {"atk_pct": 12}, "desc": "2 peças: +3% Roubo de Vida | 3 peças: +12% ATK"},
+    {"id": "set_cidadela", "name": "Eco da Cidadela", "pieces": ["elmo", "luvas", "capa"], "bonus_2": {"hp_pct": 10}, "bonus_3": {"def_pct": 15}, "desc": "2 peças: +10% HP | 3 peças: +15% DEF"}
   ],
   "drop_rates_normal": {"comum": 55, "incomum": 26, "rara": 12, "epica": 5, "lendaria": 1.6, "mitica": 0.35, "divina": 0.05},
   "drop_rates_boss": {"comum": 0, "incomum": 40, "rara": 32, "epica": 18, "lendaria": 7, "mitica": 2.4, "divina": 0.6},

@@ -5,13 +5,16 @@
     {"id": "grilo_cristal", "name": "Grito de Cristal", "type": "pet", "icon": "pet_grilo", "rarity": "incomum", "bonus": {"gold_find": 6}, "per_star": {"gold_find": 3}, "source": "gacha", "desc": "Seu canto enferruja moedas de bolso. +Ouro%"},
     {"id": "golem_filhote", "name": "Filhote de Golem", "type": "pet", "icon": "pet_golem", "rarity": "rara", "bonus": {"hp_pct": 5}, "per_star": {"hp_pct": 2.5}, "source": "gacha", "desc": "Um fragmento vivo da Cidadela. +HP%"},
     {"id": "serpente_brasas", "name": "Serpente de Brasas", "type": "pet", "icon": "pet_serpente", "rarity": "epica", "bonus": {"atk_speed": 3}, "per_star": {"atk_speed": 1.5}, "source": "gacha", "desc": "Rasteja entre cinzas ainda acesas. +Vel. Atq%"},
-    {"id": "fada_alvorecer", "name": "Fada do Falso Alvorecer", "type": "pet", "icon": "pet_fada", "rarity": "lendaria", "bonus": {"lifesteal": 2}, "per_star": {"lifesteal": 1}, "source": "gacha", "desc": "Ilumina só o bastante para o horror ser visível. +Roubo de Vida%"}
+    {"id": "fada_alvorecer", "name": "Fada do Falso Alvorecer", "type": "pet", "icon": "pet_fada", "rarity": "lendaria", "bonus": {"lifesteal": 2}, "per_star": {"lifesteal": 1}, "source": "gacha", "desc": "Ilumina só o bastante para o horror ser visível. +Roubo de Vida%"},
+    {"id": "raposa_lunar", "name": "Raposa de Vidro Lunar", "type": "pet", "icon": "pet_raposa", "rarity": "mitica", "bonus": {"crit_damage": 12}, "per_star": {"crit_damage": 6}, "source": "gacha", "desc": "Corre pelos espelhos do Bosque quando ninguém observa. +Dano Crít.%"},
+    {"id": "filhote_devorador", "name": "Filhote do Devorador", "type": "pet", "icon": "pet_devorador", "rarity": "divina", "bonus": {"atk_pct": 15}, "per_star": {"atk_pct": 7.5}, "source": "gacha", "desc": "Nasceu da fome que encerra ciclos. Ainda é filhote. +ATK%"}
   ],
   "companions": [
     {"id": "cavaleiro_caido", "name": "Cavaleiro Caído Bervok", "type": "companheiro", "icon": "cmp_cavaleiro", "rarity": "epica", "bonus": {"def_pct": 8}, "per_star": {"def_pct": 4}, "source": "gacha", "desc": "Jurou proteger um reino que já não existe. +DEF%"},
     {"id": "arquivista", "name": "Arquivista Errante", "type": "companheiro", "icon": "cmp_arquivista", "rarity": "rara", "bonus": {"xp_gain": 8}, "per_star": {"xp_gain": 4}, "source": "gacha", "desc": "Registra cada morte para não esquecê-las. +XP%"},
     {"id": "feiticeira_vazio", "name": "Feiticeira do Vazio Ilvana", "type": "companheiro", "icon": "cmp_feiticeira", "rarity": "lendaria", "bonus": {"crit_damage": 10}, "per_star": {"crit_damage": 5}, "source": "gacha", "desc": "Fala com o outro lado do céu. +Dano Crít.%"},
-    {"id": "ferreiro", "name": "Ferreiro Ancestral Durn", "type": "companheiro", "icon": "cmp_ferreiro", "rarity": "epica", "bonus": {"reinforce_luck": 3}, "per_star": {"reinforce_luck": 1.5}, "source": "gacha", "desc": "Forjou a primeira lâmina contra as Sombras. +Sucesso no reforço%"}
+    {"id": "ferreiro", "name": "Ferreiro Ancestral Durn", "type": "companheiro", "icon": "cmp_ferreiro", "rarity": "epica", "bonus": {"reinforce_luck": 3}, "per_star": {"reinforce_luck": 1.5}, "source": "gacha", "desc": "Forjou a primeira lâmina contra as Sombras. +Sucesso no reforço%"},
+    {"id": "oraculo_eclipse", "name": "Oráculo do Eclipse", "type": "companheiro", "icon": "cmp_oraculo", "rarity": "mitica", "bonus": {"xp_gain": 20}, "per_star": {"xp_gain": 10}, "source": "gacha", "desc": "Viu este ciclo terminar antes de começar. +XP%"}
   ],
   "star_costs": {"2": 15, "3": 45, "4": 120, "5": 300},
   "star_gold": {"2": 5000, "3": 20000, "4": 80000, "5": 300000},

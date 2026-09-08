@@ -30,6 +30,8 @@
     "desc": "Assíncrona: espelho da sua build vs bots. Vitória = +glória e pontos.",
     "bots_pc_range": [0.6, 1.5], "reward_win": {"gloria": 30, "pontos": 20}, "reward_lose": {"gloria": 8, "pontos": 5},
     "shop": [{"id": "gl_anel", "name": "Selo do Campeão", "cost": 600, "type": "item", "rarity": "epica", "slot": "anel1"},
+             {"id": "gl_capa", "name": "Manto do Duelista", "cost": 600, "type": "item", "rarity": "epica", "slot": "capa"},
+             {"id": "gl_elmo", "name": "Coroa do Invicto", "cost": 900, "type": "item", "rarity": "epica", "slot": "elmo"},
              {"id": "gl_pet", "name": "Fragmento de Pet", "cost": 300, "type": "pet_frag", "qty": 40},
              {"id": "gl_ess", "name": "Essência do Crepúsculo", "cost": 120, "type": "currency", "currency": "essencia", "qty": 100}]
   }

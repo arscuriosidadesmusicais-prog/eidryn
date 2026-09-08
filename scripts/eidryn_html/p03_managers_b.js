@@ -600,7 +600,10 @@ E.Ret = {
         E.Eco.add_dict(entry.reward);
         if(entry.reward.item_epico) E.Inv.add_item(E.Inv.generate_item(E.Prog.farm_stage()+10, 'epica'));
         if(entry.reward.item_lendario) E.Inv.add_item(E.Inv.generate_item(E.Prog.farm_stage()+10, 'lendaria'));
-        if(entry.reward.pet_frag) E.Pet.add_fragments(E.Pet.all_defs()[0].id, entry.reward.pet_frag);
+        if(entry.reward.pet_frag){ // [C7] fragmentos vão para o pet ATIVO (fallback: 1º do catálogo)
+          var ft=(E.Pet.active_pet && E.Pet.is_owned(E.Pet.active_pet))? E.Pet.active_pet : E.Pet.all_defs()[0].id;
+          E.Pet.add_fragments(ft, entry.reward.pet_frag);
+        }
         return true;
       }
     }

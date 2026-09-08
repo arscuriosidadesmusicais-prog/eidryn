@@ -8,7 +8,20 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='24' fill='%230b0710'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23e8a33a' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23e8a33a'/%3E%3C/svg%3E">
 <title>Eidryn — O Ciclo do Eclipse</title>
 <!--
-  Eidryn — O Ciclo do Eclipse — v1.5.0 "Edição Profissional" (HTML/Web)
+  Eidryn — O Ciclo do Eclipse — v1.6.0 "Sangue e Eclipse" (HTML/Web)
+  v1.6.0: AUDITORIA DE CONTEÚDO + NOVO CONTEÚDO (dados autorizados; save 100% compatível — só aditivo):
+   [C1] Pets Mítico/Divino EXISTEM agora: Raposa de Vidro Lunar (Mítica), Filhote do Devorador
+           (Divina), Oráculo do Eclipse (Mítica, companheiro) — rolagem Divina no Portal não dá
+           mais pet Incomum no fallback (pool filtrado por raridade passa a ter candidatos).
+   [C2] EVENTOS VIVOS: janelas de data (date_start/date_end) e dia-da-semana (days) respeitadas;
+           drop_mult lido no try_drop (cap 100%); abismo_extra_mult aplicado às recompensas
+           do Abismo (fases 501+, campanha); eventos ativos anunciados no boot (toast, i18n).
+           Ativos: Fim de Semana Dourado (sáb/dom), Eclipse de Sangue (set/out/2026),
+           Caçada Abissal (out/2026).
+   [C3] +3 SETS: Herdeiro do Eclipse, Marcado pelo Abismo, Eco da Cidadela (combos mistos
+           — builds "mix and match" empilham via regra já existente de contagem por set).
+   [C4..C7] typo "Invoque" · +2 itens na loja de Glória · +4 conquistas endgame (portal 200,
+           8 pets, 5 companheiros, pet 5★) · pet_frag do Passe vai para o pet ATIVO.
   v1.5.0: AUDITORIA 360° (escopo estritamente visual/sonoro/QoL — zero alteração de lógica):
    [AUDIT-A1] Save.flush blindado c/ try/catch — erro de storage/btoa NUNCA congela o loop rAF.
    [AUDIT-A2] Chips de moeda: update leve por referência (antes reconstruíam 7 chips+imgs a cada kill).
@@ -430,7 +443,7 @@ textarea{width:100%;height:70px;font-size:10px;resize:none}
   <div class="divider"><i></i></div>
   <select id="splash-lang"><option value="ptbr">Português (BR)</option><option value="en">English</option></select>
   <button class="tap" id="btn-start">Toque para despertar o Selo</button>
-  <div class="ver" id="splash-ver">v1.5.0 — Edição Profissional</div>
+  <div class="ver" id="splash-ver">v1.6.0 — Sangue e Eclipse</div>
 </div>
 <div id="app" class="hidden">
   <header id="hud">

@@ -150,5 +150,6 @@
   "quality": "Desempenho visual",
   "q_auto": "Automático",
   "q_high": "Alta (efeitos completos)",
-  "q_low": "Leve (mais FPS)"
+  "q_low": "Leve (mais FPS)",
+  "evt_active": "Evento ativo"
 }
