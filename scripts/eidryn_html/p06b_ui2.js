@@ -425,6 +425,12 @@ E.UI2 = {
         '<option value="chuva">🌧 '+E.DM.tr('w_rain')+'</option>'+
         '<option value="tempestade">⚡ '+E.DM.tr('w_storm')+'</option>'+
         '<option value="neve">🌨 '+E.DM.tr('w_snow')+'</option></select></div>'+
+      '<div class="stat-line"><span>'+E.DM.tr('daynight')+'</span><select id="st-dn">'+ // [V8]
+        '<option value="auto">'+E.DM.tr('dn_auto')+'</option>'+
+        '<option value="amanhecer">🌅 '+E.DM.tr('dn_dawn')+'</option>'+
+        '<option value="dia">☀ '+E.DM.tr('dn_day')+'</option>'+
+        '<option value="entardecer">🌇 '+E.DM.tr('dn_dusk')+'</option>'+
+        '<option value="noite">🌙 '+E.DM.tr('dn_night')+'</option></select></div>'+
       '<hr style="border-color:var(--line);margin:8px 0">'+
       '<div class="stat-line"><span>'+E.DM.tr('kills')+'</span><b>'+E.U.fmt(E.Ret.counters.kills||0)+'</b></div>'+
       '<div class="stat-line"><span>'+E.DM.tr('gold_total')+'</span><b>'+E.U.fmt(E.Eco.gold_earned_total)+'</b></div>'+
@@ -456,6 +462,14 @@ E.UI2 = {
       E.Rfx.setWeatherPref(this.value);
       var k2=E.Rfx._weatherLocKey(E.Rfx.weather);
       E.UI.toast(E.DM.tr('weather')+': '+E.DM.tr(k2), '#5a8fd0');
+      E.Audio.play_sfx('click');
+    };
+    var dn=document.getElementById('st-dn'); // [V8] override do período do dia
+    dn.value=E.Rfx.dnPref;
+    dn.onchange=function(){
+      E.Rfx.setDnPref(this.value);
+      var k3=E.Rfx._dnLocKey(E.Rfx._dnPhaseNow());
+      E.UI.toast(E.DM.tr('daynight')+': '+E.DM.tr(k3), '#8a7fd0');
       E.Audio.play_sfx('click');
     };
     document.getElementById('st-mus').oninput=function(){ E.Audio.set_music_vol(this.value/100); };

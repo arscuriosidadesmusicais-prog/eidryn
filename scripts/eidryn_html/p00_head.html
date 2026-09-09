@@ -8,7 +8,21 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='24' fill='%230b0710'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23e8a33a' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23e8a33a'/%3E%3C/svg%3E">
 <title>Eidryn — O Ciclo do Eclipse</title>
 <!--
-  Eidryn — O Ciclo do Eclipse — v1.7.0 "Herdeiro do Eclipse" (HTML/Web)
+  Eidryn — O Ciclo do Eclipse — v1.8.0 "Vigília Estelar" (HTML/Web)
+  v1.8.0: RODADA DE ATMOSFERA E CELEBRAÇÃO (escopo estritamente render/UI —
+  zero alteração de lógica/fórmulas/save; tudo lê estado/eventos existentes):
+   [V8] CICLO DIA/NOITE: relógio real local (amanhecer 5–7h · dia 7–17h ·
+           entardecer 17–19h · noite 19–5h); wash de céu interpolado (~3s),
+           brilho de horizonte no amanhecer/entardecer; override em Ajustes
+           (pref em chave própria — save intacto).
+   [V9] VAGALUMES & ALMAS: crítters ambientais — vagalumes surgem com a noite
+           (bosque/pântano/cidadela); almas espectrais flutuam no abismo/coração.
+   [V10] ESTRELAS CADENTES: riscos ocasionais com trilha no céu noturno.
+   [V11] PILAR DE LUZ no level-up: celebração ampliada (pilar dourado + anel
+           de impacto + motes radiantes).
+   [V12] REVELAÇÃO DO GACHA: entrada encadeada dos cards + brilho/varredura
+           por raridade (Lendária/Mítica/Divina) — só CSS.
+   i18n: +6 chaves aditivas (daynight, dn_auto/dawn/day/dusk/night) ptbr/en.
   v1.7.0: POLIMENTO VISUAL CINEMATOGRÁFICO (escopo estritamente render/audiovisual —
   zero alteração de lógica/fórmulas/save; tudo assina eventos do BUS ou lê estado):
    [V1] INTRO CINEMATOGRÁFICA DE CHEFE: escurecimento + placa ornamentada (tag CHEFE,
@@ -399,6 +413,22 @@ img{image-rendering:pixelated}
   padding:5px;text-align:center;font-size:10px;animation:grPop .3s ease-out backwards}
 @keyframes grPop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
 .gr img{width:48px;height:48px}
+/* [V12] revelação do gacha: entrada encadeada + brilho por raridade */
+.gacha-res .gr{animation:grReveal .55s cubic-bezier(.2,.9,.3,1.25) backwards}
+.gacha-res .gr:nth-child(1){animation-delay:.05s}.gacha-res .gr:nth-child(2){animation-delay:.16s}
+.gacha-res .gr:nth-child(3){animation-delay:.27s}.gacha-res .gr:nth-child(4){animation-delay:.38s}
+.gacha-res .gr:nth-child(5){animation-delay:.49s}.gacha-res .gr:nth-child(6){animation-delay:.60s}
+.gacha-res .gr:nth-child(7){animation-delay:.71s}.gacha-res .gr:nth-child(8){animation-delay:.82s}
+.gacha-res .gr:nth-child(9){animation-delay:.93s}.gacha-res .gr:nth-child(10){animation-delay:1.04s}
+@keyframes grReveal{0%{opacity:0;transform:scale(.25) rotate(-8deg)}70%{transform:scale(1.12) rotate(2deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+.gr.b-lendaria,.gr.b-mitica,.gr.b-divina{position:relative;overflow:hidden}
+.gr.b-lendaria{border-color:var(--gold);box-shadow:0 0 14px rgba(232,163,58,.45),inset 0 0 18px rgba(232,163,58,.12)}
+.gr.b-mitica{border-color:#ff5a7a;box-shadow:0 0 16px rgba(255,90,122,.5),inset 0 0 18px rgba(255,90,122,.14)}
+.gr.b-divina{border-color:#7af0dc;box-shadow:0 0 18px rgba(122,240,220,.55),inset 0 0 20px rgba(122,240,220,.16)}
+.gr.b-lendaria::after,.gr.b-mitica::after,.gr.b-divina::after{content:'';position:absolute;top:-60%;left:-80%;width:60%;height:220%;
+  transform:rotate(24deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
+  animation:grSweep 1.5s ease-out .45s backwards}
+@keyframes grSweep{from{left:-80%}to{left:130%}}
 /* modal / toasts */
 #modal-root{position:absolute;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
   background:rgba(4,2,8,.8);padding:14px;backdrop-filter:blur(2px)}

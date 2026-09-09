@@ -24,6 +24,13 @@
    - Partículas: faíscas, sangue, poeira, motas de ouro (pools fixos)
    - Dano flutuante em arco com pop-in (fonte Cinzel, cor por tipo)
    - Screenshake por trauma (com micro-rotação), barras ornamentadas
+   - [V8] CICLO DIA/NOITE: relógio real local (amanhecer/dia/entardecer/noite),
+     wash interpolado + brilho de horizonte; estrelas com cintilação e cruz de
+     brilho posicionadas pela banda visível (landscape); override em Ajustes
+   - [V9] VAGALUMES & ALMAS: crítters ambientais — vagalumes surgem com a
+     noite (bosque/pântano/cidadela); almas espectrais no abismo/coração
+   - [V10] ESTRELAS CADENTES: riscos ocasionais no céu noturno (com trilha)
+   - [V11] PILAR DE LUZ no level-up (celebração com anel e motes radiantes)
    Nenhuma lógica de gameplay aqui — apenas consumo de eventos do BUS.
    ===================================================================== */
 E.Rfx = {
@@ -64,6 +71,21 @@ E.Rfx = {
   _auraOrder: -1, _coronaDisc: null, _coronaRays: null,
   RARITY_AURA: { 3: '#a86ae8', 4: '#e8a33a', 5: '#ff5a7a', 6: '#7af0dc' },
   RARITY_ORB: { rara: '#4aa3ff', epica: '#a86ae8', lendaria: '#e8a33a', mitica: '#ff5a7a', divina: '#7af0dc' },
+  /* ---------- [V8-V10] v1.8.0 "Vigília Estelar" (só apresentação) ----------
+     V8 ciclo dia/noite (relógio real local) · V9 vagalumes/almas por bioma
+     V10 estrelas cadentes — todos leem estado/hora; NADA escreve no jogo. */
+  dnPref: 'auto',
+  _dn: { dark: 0, darkCol: '7,10,32', stars: 0, glow: 0, glowCol: '255,164,92' },
+  DN_PHASES: {
+    amanhecer:  { dark: 0.06, darkCol: '26,18,40', stars: 0.10, glow: 0.26, glowCol: '255,164,92' },
+    dia:        { dark: 0,    darkCol: '7,10,32',  stars: 0,    glow: 0,    glowCol: '255,164,92' },
+    entardecer: { dark: 0.11, darkCol: '22,14,38', stars: 0.32, glow: 0.30, glowCol: '255,120,80' },
+    noite:      { dark: 0.15, darkCol: '7,10,32',  stars: 1,    glow: 0,    glowCol: '255,120,80' }
+  },
+  stars: [], _starsSeeded: false,
+  shoot: null, _shootNext: 6,
+  flies: [],
+  pillarT: 0, _pillarRing: false,
   /* ---------- [AUDIT-C1/C2] ACESSIBILIDADE + DESEMPENHO (só apresentação) ----------
      reducedFx: usuário pede MENOS flashes/tremores (fotossensibilidade).
      perfMode auto: média de frame real decide lowFx (menos partículas/overdraw). */
@@ -276,6 +298,8 @@ E.Rfx = {
       self._ring(165, 640, 10, 150, 'rgba(120,240,180,0.9)', 5, 0.9);
       self._motes(165, 620, 12, '#8af0b0');
       self._petPose('cheer'); self.cheerUntil = self.time + 2.6;
+      // [V11] celebração ampliada: pilar de luz sobre o herói
+      self.pillarT = 1.5; self._pillarRing = false;
     });
     E.BUS.on('pet_changed', function(){ self.setPetVisuals(); });
     E.BUS.on('region_changed', function(rid){ self.setRegion(rid); });
@@ -363,12 +387,13 @@ E.Rfx = {
         if (p && p.amb_vol != null && E.Audio) E.Audio.amb_vol = E.U.clamp(Number(p.amb_vol) || 0, 0, 1); // [ART-10]
         if (p && p.reduced_fx != null) this.reducedFx = !!p.reduced_fx;   // [AUDIT-C1]
         if (p && p.perf && ['auto','high','low'].indexOf(p.perf) >= 0) this.perfMode = p.perf; // [AUDIT-C2]
+        if (p && p.dn && (p.dn === 'auto' || this.DN_PHASES[p.dn])) this.dnPref = p.dn; // [V8]
         this._tipsDone = !!(p && p.tips_done); // [AUDIT-D2]
       }
     } catch (e) {}
   },
   savePrefs: function(){
-    var p = { season: this.seasonPref, weather: this.weatherPref,
+    var p = { season: this.seasonPref, weather: this.weatherPref, dn: this.dnPref,
       reduced_fx: this.reducedFx, perf: this.perfMode, tips_done: !!this._tipsDone }; // [AUDIT-C1/C2/D2]
     if (E.Audio && E.Audio.amb_vol != null) p.amb_vol = E.Audio.amb_vol; // [ART-10] volume do ambiente
     try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify(p)); } catch (e) {}
@@ -382,6 +407,172 @@ E.Rfx = {
     if (this.perfMode === 'low') this.lowFx = true;
     else if (this.perfMode === 'high') this.lowFx = false;
     this.savePrefs();
+  },
+  /* ================= [V8] CICLO DIA/NOITE (só render; relógio real local) =================
+     Fases: amanhecer 5–7h · dia 7–17h · entardecer 17–19h · noite 19–5h.
+     Os alvos de cada fase são interpolados (~3s) — nada muda com salto seco.
+     Override em Ajustes (pref em chave própria — save do jogo intacto). */
+  _dnPhaseNow: function(h){
+    if (this.dnPref !== 'auto') return this.dnPref;
+    if (h == null) h = new Date().getHours();
+    if (h >= 5 && h < 7) return 'amanhecer';
+    if (h >= 7 && h < 17) return 'dia';
+    if (h >= 17 && h < 19) return 'entardecer';
+    return 'noite';
+  },
+  setDnPref: function(v){
+    this.dnPref = (v === 'auto' || this.DN_PHASES[v]) ? v : 'auto';
+    this.savePrefs();
+  },
+  _dnLocKey: function(p){
+    return { amanhecer: 'dn_dawn', dia: 'dn_day', entardecer: 'dn_dusk', noite: 'dn_night' }[p] || 'dn_auto';
+  },
+  _dnTick: function(delta){
+    var tgt = this.DN_PHASES[this._dnPhaseNow()] || this.DN_PHASES.dia;
+    var k = 1 - Math.exp(-delta * 1.1); // transição completa em ~3s
+    var d = this._dn;
+    d.dark += (tgt.dark - d.dark) * k;
+    d.stars += (tgt.stars - d.stars) * k;
+    d.glow += (tgt.glow - d.glow) * k;
+    d.glowCol = tgt.glowCol; d.darkCol = tgt.darkCol;
+  },
+  /* ================= [V10] ESTRELAS + ESTRELAS CADENTES (céu noturno) ================= */
+  _seedStars: function(){
+    if (this._starsSeeded) return;
+    for (var i = 0; i < 90; i++) {
+      this.stars.push({ fx: Math.random(), fy: Math.random(),
+        s: 0.6 + Math.random() * 1.3, ph: Math.random() * 6.2832,
+        sp: 0.8 + Math.random() * 2.2, bright: Math.random() < 0.09 });
+    }
+    this._starsSeeded = true;
+  },
+  _drawStars: function(delta){
+    var st = this._dn.stars;
+    if (st < 0.02) { this.shoot = null; return; }
+    this._seedStars();
+    var ctx = this.ctx, band = this._viewBand(), t = this.time;
+    var hBand = (band.bot - band.top);
+    for (var i = 0; i < this.stars.length; i++) {
+      var s = this.stars[i];
+      var x = s.fx * this.W, y = band.top + s.fy * hBand * 0.62;
+      var tw = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * s.sp + s.ph));
+      var a = st * tw * (s.bright ? 1 : 0.72) * this._flashMul();
+      if (a < 0.02) continue;
+      ctx.globalAlpha = a; ctx.fillStyle = '#e8f0ff';
+      ctx.fillRect(x, y, s.s, s.s);
+      if (s.bright && !this.lowFx) { // cruz de brilho nas estrelas maiores
+        ctx.globalAlpha = a * 0.45;
+        ctx.fillRect(x - 2.5, y + s.s / 2 - 0.5, s.s + 5, 1);
+        ctx.fillRect(x + s.s / 2 - 0.5, y - 2.5, 1, s.s + 5);
+      }
+    }
+    // [V10] estrela cadente ocasional (entra/sai com fade senoidal)
+    this._shootNext -= delta;
+    if (!this.shoot && this._shootNext <= 0 && !this.lowFx && !this.reducedFx) {
+      var dir = Math.random() < 0.5 ? -1 : 1;
+      this.shoot = { x: this.W * (0.2 + Math.random() * 0.6),
+        y: band.top + hBand * (0.05 + Math.random() * 0.22),
+        vx: dir * (200 + Math.random() * 140), vy: 90 + Math.random() * 60, t: 0, life: 0.85 };
+      this._shootNext = 8 + Math.random() * 9;
+    }
+    if (this.shoot) {
+      var sh = this.shoot; sh.t += delta;
+      if (sh.t >= sh.life) { this.shoot = null; }
+      else {
+        var pr = sh.t / sh.life;
+        var fade = Math.sin(Math.PI * pr);
+        sh.x += sh.vx * delta; sh.y += sh.vy * delta;
+        var tx = sh.x - sh.vx * 0.16, ty = sh.y - sh.vy * 0.16;
+        var g2 = ctx.createLinearGradient(sh.x, sh.y, tx, ty);
+        g2.addColorStop(0, 'rgba(240,248,255,' + (0.95 * fade * st).toFixed(3) + ')');
+        g2.addColorStop(1, 'rgba(240,248,255,0)');
+        ctx.globalAlpha = 1; ctx.strokeStyle = g2; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(tx, ty); ctx.stroke();
+        ctx.globalAlpha = fade * st; ctx.fillStyle = '#fff';
+        ctx.fillRect(sh.x - 1, sh.y - 1, 2.4, 2.4);
+      }
+    }
+    ctx.globalAlpha = 1;
+  },
+  /* ================= [V9] VAGALUMES & ALMAS (crítters ambientais) =================
+     Vagalumes: bosque/pântano/cidadela, surgem com a noite (fator _dn.stars).
+     Almas: abismo/coração — flutuam sempre (regiões mortas), tom espectral. */
+  _drawFlies: function(delta){
+    var rid = this.regionId;
+    var wantWisps = (rid === 'abismo' || rid === 'coracao');
+    var wantFF = (rid === 'bosque_vidro' || rid === 'pantano' || rid === 'cidadela');
+    if (!wantWisps && !wantFF) return;
+    if (!this.flies.length) {
+      for (var i = 0; i < 26; i++) this.flies.push({ fx: Math.random(), fy: Math.random(),
+        ph: Math.random() * 6.28, sp: 0.7 + Math.random() * 1.6, drift: 6 + Math.random() * 14,
+        wisp: Math.random() < 0.5, s: 1.4 + Math.random() * 1.2 });
+    }
+    var ctx = this.ctx, band = this._viewBand(), t = this.time;
+    var ffA = E.U.clamp((this._dn.stars - 0.25) / 0.75, 0, 1);
+    var total = this.lowFx ? 10 : 26;
+    for (var j = 0; j < total; j++) {
+      var f = this.flies[j];
+      var x = f.fx * this.W + Math.sin(t * f.sp * 0.6 + f.ph) * f.drift;
+      var y = (band.bot - 150) + f.fy * 120 + Math.cos(t * f.sp + f.ph) * 9;
+      if (wantWisps && f.wisp) {
+        var wa = (0.38 + 0.27 * Math.sin(t * 1.8 + f.ph)) * this._fxMul();
+        ctx.globalAlpha = wa; ctx.fillStyle = '#8df0e0';
+        ctx.fillRect(x, y, f.s, f.s);
+        if (!this.lowFx) {
+          ctx.globalAlpha = wa * 0.4; ctx.fillStyle = '#4ad8c4';
+          ctx.beginPath(); ctx.arc(x + f.s / 2, y + f.s / 2, 5, 0, 6.2832); ctx.fill();
+        }
+      } else if (wantFF && ffA > 0.03) {
+        var fa = ffA * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 2.6 + f.ph))) * this._fxMul();
+        ctx.globalAlpha = fa; ctx.fillStyle = '#e4ffa0';
+        ctx.fillRect(x, y, f.s * 0.8, f.s * 0.8);
+        if (!this.lowFx) {
+          ctx.globalAlpha = fa * 0.4; ctx.fillStyle = '#b8e86a';
+          ctx.beginPath(); ctx.arc(x, y, 3.6, 0, 6.2832); ctx.fill();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+  },
+  /* ================= [V11] PILAR DE LUZ DO LEVEL-UP (celebração visual) ================= */
+  _drawPillar: function(delta){
+    if (this.pillarT <= 0) return;
+    this.pillarT -= delta;
+    var T = 1.5, t = T - this.pillarT; // 0→1.5
+    var ein = Math.min(1, t / 0.28), eout = Math.min(1, Math.max(0, this.pillarT) / 0.4);
+    var ea = E.U.clamp(Math.min(ein, eout), 0, 1);
+    if (ea <= 0.01) return;
+    var ctx = this.ctx, cx = 165;
+    var band = this._viewBand();
+    var gy = Math.min(762, band.bot + 130); // base do pilar: visível mesmo com corte landscape
+    var top = band.top + (band.bot - band.top) * 0.06;
+    var w = 96;
+    var g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+    g.addColorStop(0, 'rgba(232,163,58,0)');
+    g.addColorStop(0.32, 'rgba(232,180,90,' + (0.34 * ea).toFixed(3) + ')');
+    g.addColorStop(0.5, 'rgba(255,244,214,' + (0.50 * ea).toFixed(3) + ')');
+    g.addColorStop(0.68, 'rgba(232,180,90,' + (0.34 * ea).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(232,163,58,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - w / 2, top, w, gy - top);
+    var g2 = ctx.createLinearGradient(cx - 14, 0, cx + 14, 0);
+    g2.addColorStop(0, 'rgba(255,250,230,0)');
+    g2.addColorStop(0.5, 'rgba(255,252,240,' + (0.55 * ea).toFixed(3) + ')');
+    g2.addColorStop(1, 'rgba(255,250,230,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(cx - 14, top + 20, 28, gy - top - 10);
+    // anel de impacto no chão quando o pilar acende (ancorado no horizonte visível)
+    if (!this._pillarRing && t > 0.26) {
+      this._pillarRing = true;
+      this._ring(cx, gy - 8, 8, 120, 'rgba(255,224,150,0.85)', 4, 0.7);
+      this.addShake(0.12);
+    }
+    // motes radiantes subindo pela coluna
+    if (!this.lowFx && Math.random() < 0.5) {
+      this._part(3, cx + (Math.random() * 2 - 1) * 34, gy - Math.random() * 30,
+        (Math.random() * 2 - 1) * 6, -(40 + Math.random() * 70),
+        1.1, 1.6 + Math.random() * 1.4, '#ffe9b0', -20);
+    }
   },
   seasonNow: function(){
     // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
@@ -1230,6 +1421,7 @@ E.Rfx = {
     this._weatherTick(delta);          // clima: vento/relâmpagos/precipitação
     this._puddleTick(delta);           // [ART-11] poças encharcando/secando
     this._fogTick(delta);              // [ART-12] deriva e densidade da névoa
+    this._dnTick(delta);               // [V8] ciclo dia/noite (interpolação suave)
     this._petTick(delta);              // FSM cênica dos pets
     this._petCardsTick(delta);         // cards animados no painel de Pets
     ctx.save();
@@ -1247,6 +1439,8 @@ E.Rfx = {
     ctx.clearRect(-30, -30, W + 60, H + 60);
     // ---- 1) céu ----
     this._drawLayers(delta);
+    // ---- 1.1) [V8/V10] estrelas da noite (atrás da coroa do eclipse) ----
+    this._drawStars(delta);
     // ---- 1.2) [V2] eclipse progressivo — o céu consome-se conforme o ciclo avança
     this._drawEclipseCorona();
     // ---- 1.5) clima atrás: escurecimento + precipitação de fundo ----
@@ -1299,11 +1493,15 @@ E.Rfx = {
     this._drawStatusFx(delta);
     // ---- 6.4) [ART-11] poças refletivas (reflexo das entidades na chuva) ----
     this._drawPuddles();
+    // ---- 6.5) [V11] pilar de luz do level-up (celebração) ----
+    this._drawPillar(delta);
     // ---- 7) partículas de combate + estação em primeiro plano ----
     this._drawParts(delta);
     this._drawSeasonAtmo(delta, true);
     // ---- 7.2) clima à frente: precipitação grossa + splash + relâmpago ----
     this._drawWeatherFront(delta);
+    // ---- 7.25) [V9] vagalumes da noite / almas do abismo ----
+    this._drawFlies(delta);
     // ---- 7.3) [ART-12] névoa de frente (vela a chuva junto à câmera) ----
     this._drawFog(true);
     // ---- 7.5) wash de humor (estação + clima) ----
@@ -1322,6 +1520,28 @@ E.Rfx = {
         ctx.fillRect(-30, -30, W + 60, H + 60);
       }
       ctx.globalAlpha = 1;
+    }
+    // ---- 7.6) [V8] wash do ciclo dia/noite + brilho de horizonte ----
+    var D8 = this._dn;
+    if (D8.dark > 0.004) {
+      ctx.fillStyle = 'rgba(' + D8.darkCol + ',' + (D8.dark * this._fxMul()).toFixed(3) + ')';
+      ctx.fillRect(-30, -30, W + 60, H + 60);
+    }
+    if (D8.glow > 0.004) { // amanhecer/entardecer: brilho quente junto ao horizonte
+      // horizonte VISÍVEL: em landscape o cover corta abaixo do GROUND_Y — ancora na banda
+      var hz = Math.min(this.GROUND_Y, this._viewBand().bot);
+      var gH = ctx.createLinearGradient(0, hz - 260, 0, hz + 12);
+      gH.addColorStop(0, 'rgba(' + D8.glowCol + ',0)');
+      gH.addColorStop(0.62, 'rgba(' + D8.glowCol + ',' + (D8.glow * 0.42 * this._fxMul()).toFixed(3) + ')');
+      gH.addColorStop(1, 'rgba(' + D8.glowCol + ',' + (D8.glow * this._fxMul()).toFixed(3) + ')');
+      ctx.fillStyle = gH;
+      ctx.fillRect(0, hz - 260, W, 272);
+      // faixa quente e fina rente à linha do solo (leitura garantida do período)
+      var gH2 = ctx.createLinearGradient(0, hz - 26, 0, hz + 2);
+      gH2.addColorStop(0, 'rgba(' + D8.glowCol + ',0)');
+      gH2.addColorStop(1, 'rgba(' + D8.glowCol + ',' + (D8.glow * 1.15 * this._fxMul()).toFixed(3) + ')');
+      ctx.fillStyle = gH2;
+      ctx.fillRect(0, hz - 26, W, 28);
     }
     // ---- 7.7) [AUDIT-B3] vinheta de perigo — herói < 30% de vida pulsa vermelho nas bordas ----
     if (this.heroHpShown < 0.3 && this.heroHpShown > 0.001) {

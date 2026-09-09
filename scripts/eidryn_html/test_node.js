@@ -566,7 +566,7 @@ group('16. Conteúdo v1.6 [C1..C7]');
 /* ================= 17. v1.7.0 "Herdeiro do Eclipse" (render/fx, headless-safe) ================= */
 group('17. v1.7.0 Herdeiro do Eclipse');
 {
-  ok(E.DM.GAME_VERSION === '1.7.0', 'GAME_VERSION 1.7.0');
+  ok(parseInt(String(E.DM.GAME_VERSION).split('.')[1], 10) >= 7, 'GAME_VERSION ≥ 1.7 (base "Herdeiro do Eclipse")');
   // i18n aditivo das novas chaves nos dois idiomas
   ok(E.DM.cfg_loc_ptbr.boss_tag === 'CHEFE' && E.DM.cfg_loc_en.boss_tag === 'BOSS', 'boss_tag ptbr=CHEFE / en=BOSS');
   ok(E.DM.cfg_loc_ptbr.region_word === 'Região' && E.DM.cfg_loc_en.region_word === 'Region', 'region_word ptbr/en');
@@ -587,6 +587,61 @@ group('17. v1.7.0 Herdeiro do Eclipse');
   // regra de ouro: fórmulas intactas (sanidade dupla)
   const s1 = E.DM.enemy_stats_for_stage(1);
   ok(approx(s1.hp, 42*1.12, 0.01), 'fórmula de HP intocada na v1.7.0');
+  ok(E.Save.SAVE_VERSION === 1, 'SAVE_VERSION continua 1 (formato intacto)');
+}
+
+/* ================= 18. v1.8.0 "Vigília Estelar" (render/fx, headless-safe) ================= */
+group('18. v1.8.0 Vigília Estelar');
+{
+  ok(E.DM.GAME_VERSION === '1.8.0', 'GAME_VERSION 1.8.0');
+  // i18n aditivo das 6 chaves novas nos dois idiomas
+  ok(E.DM.cfg_loc_ptbr.daynight === 'Período do dia' && E.DM.cfg_loc_en.daynight === 'Time of day', 'daynight ptbr/en');
+  ok(E.DM.cfg_loc_ptbr.dn_dawn === 'Amanhecer' && E.DM.cfg_loc_en.dn_dawn === 'Dawn', 'dn_dawn ptbr/en');
+  ok(E.DM.cfg_loc_ptbr.dn_night === 'Noite' && E.DM.cfg_loc_en.dn_night === 'Night', 'dn_night ptbr/en');
+  // [V8] fases do ciclo dia/noite pelas fronteiras de hora (relógio real/mockável)
+  const ph = h => E.Rfx._dnPhaseNow(h);
+  ok(ph(6) === 'amanhecer' && ph(5) === 'amanhecer', 'amanhecer 5–7h');
+  ok(ph(7) === 'dia' && ph(12) === 'dia' && ph(16) === 'dia', 'dia 7–17h');
+  ok(ph(17) === 'entardecer' && ph(18) === 'entardecer', 'entardecer 17–19h');
+  ok(ph(19) === 'noite' && ph(23) === 'noite' && ph(3) === 'noite' && ph(4) === 'noite', 'noite 19–5h');
+  // [V8] override validado (valor inválido cai para auto)
+  const prevDn = E.Rfx.dnPref;
+  E.Rfx.setDnPref('noite');
+  ok(E.Rfx.dnPref === 'noite' && E.Rfx._dnPhaseNow(12) === 'noite', 'override noite força a fase mesmo de dia');
+  E.Rfx.setDnPref('abacaxi');
+  ok(E.Rfx.dnPref === 'auto', 'override inválido volta para auto');
+  E.Rfx.setDnPref(prevDn);
+  // [V8] alvos de fase completos (dark/stars/glow por fase)
+  ok(['amanhecer','dia','entardecer','noite'].every(p => E.Rfx.DN_PHASES[p] &&
+     typeof E.Rfx.DN_PHASES[p].dark === 'number' && typeof E.Rfx.DN_PHASES[p].stars === 'number' &&
+     typeof E.Rfx.DN_PHASES[p].glow === 'number'), 'DN_PHASES com dark/stars/glow por fase');
+  ok(E.Rfx.DN_PHASES.dia.stars === 0 && E.Rfx.DN_PHASES.noite.stars === 1, 'estrelas: 0 de dia, 1 à noite');
+  // [V8] interpolação aproxima os alvos (sem DOM: _dnTick só usa delta)
+  E.Rfx.dnPref = 'noite';
+  E.Rfx._dn.stars = 0;
+  for (let i = 0; i < 240; i++) E.Rfx._dnTick(1/60); // ~4s simulados
+  ok(E.Rfx._dn.stars > 0.95, '_dnTick converge para alvo noturno (~3s)');
+  E.Rfx.dnPref = 'dia';
+  for (let i = 0; i < 240; i++) E.Rfx._dnTick(1/60);
+  ok(E.Rfx._dn.stars < 0.05 && E.Rfx._dn.dark < 0.05, '_dnTick converge para alvo diurno');
+  E.Rfx.dnPref = prevDn;
+  // [V10] sementes de estrelas (uma vez só) e cadente ocasionais
+  E.Rfx._seedStars();
+  ok(E.Rfx.stars.length === 90, 'pool de 90 estrelas semeado');
+  E.Rfx._seedStars();
+  ok(E.Rfx.stars.length === 90, '_seedStars é idempotente');
+  // [V9] pool de crítters preenchido sob demanda
+  ok(E.Rfx.flies.length === 0, 'pool de vagalumes começa vazio (lazy)');
+  // [V11] pilar de luz: timer e flag do anel
+  ok(E.Rfx.pillarT === 0 && E.Rfx._pillarRing === false, 'pilar de level-up inicializado zerado');
+  // prefs incluem o novo campo dn (chave própria — save intacto)
+  E.Rfx.dnPref = 'entardecer'; E.Rfx.savePrefs();
+  const rawPrefs = JSON.parse(globalThis.localStorage.getItem(E.Rfx.PREF_KEY));
+  ok(rawPrefs.dn === 'entardecer', 'pref dn persistida na chave própria do Rfx');
+  E.Rfx.dnPref = prevDn; E.Rfx.savePrefs();
+  // regra de ouro: fórmulas intactas (sanidade tripla)
+  const s18 = E.DM.enemy_stats_for_stage(1);
+  ok(approx(s18.hp, 42*1.12, 0.01), 'fórmula de HP intocada na v1.8.0');
   ok(E.Save.SAVE_VERSION === 1, 'SAVE_VERSION continua 1 (formato intacto)');
 }
 

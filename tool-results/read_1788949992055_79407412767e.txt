@@ -1,0 +1,2002 @@
+     1→'use strict';
+     2→/* =====================================================================
+     3→   p05_render.js — RENDER ENGINE v5 "Eco da Tempestade" (só apresentação)
+     4→   - Parallax de 4 camadas por região (céu/longe/médio/perto, PNGs autorais)
+     5→   - Crossfade entre regiões + partículas atmosféricas por bioma
+     6→   - HERÓI ANIMADO: FSM com 7 posturas (idle/ataque/crítico/cast/dano/
+     7→     vitória/derrota) × 23 frames — dirigida SÓ por eventos do BUS
+     8→   - BIOMAS SAZONAIS: grade de cor por camada (cache), partículas sazonais
+     9→     (pétalas/motas/folhas/neve), wash de humor, solo/acento deslocados;
+    10→     estação detectada pela data real (hemisfério sul) com override em Ajustes
+    11→   - CLIMA DINÂMICO: limpo/nublado/chuva/tempestade/neve — muda sozinho por
+    12→     região+tempo (determinístico), com vento, relâmpagos ramificados, splash
+    13→     no solo e variantes temáticas por bioma (cinzas/sangue/ácido/nevasca);
+    14→     override manual em Ajustes (pref em chave própria — save intacto)
+    15→   - PETS CENICOS: pet + companheiro ativos acompanhando o herói com FSM de
+    16→     posturas (idle/cheer/sad) reagindo aos mesmos eventos do BUS
+    17→   - [ART-10] ÁUDIO DO CLIMA (em E.Audio): chuva/vento sintetizados em loop
+    18→     + trovão sob demanda — hooks em _applyWeather e nos relâmpagos
+    19→   - [ART-11] POÇAS REFLETIVAS: na chuva, poças determinísticas por região
+    20→     refletem as entidades (clip elíptico + flip + squash + tremulação),
+    21→     ondulações de gota, cintilância, menisco e brilho de relâmpago na água
+    22→   - [ART-12] NEBLINA DO PÂNTANO: bancos de névoa em deriva (blob pré-
+    23→     renderizado), bruma de solo e densidade que reage ao clima
+    24→   - Partículas: faíscas, sangue, poeira, motas de ouro (pools fixos)
+    25→   - Dano flutuante em arco com pop-in (fonte Cinzel, cor por tipo)
+    26→   - Screenshake por trauma (com micro-rotação), barras ornamentadas
+    27→   Nenhuma lógica de gameplay aqui — apenas consumo de eventos do BUS.
+    28→   ===================================================================== */
+    29→E.Rfx = {
+    30→  W: 540, H: 960, GROUND_Y: 760, BG_W: 540,
+    31→  cv: null, ctx: null, time: 0, fontReady: false,
+    32→  regionId: '', regionCache: {}, layers: [], oldLayers: null, oldAlpha: 0,
+    33→  pal: null, palSeason: null, regionTitleT: 0,
+    34→  heroImg: null, heroAtkImg: null, heroFrames: {}, heroWhiteCache: {},
+    35→  heroAnim: { pose: 'idle', f: 0, t: 0 },
+    36→  enemyImg: null, enemyWhite: null, enemySpriteKey: '',
+    37→  hasEnemy: false, enemyBoss: false, enemyMini: false, enemyBerserk: false,
+    38→  heroHpShown: 1, enemyHpShown: 1, heroGhost: 1, enemyGhost: 1,
+    39→  heroHpLabel: '', enemyHpLabel: '',
+    40→  heroLunge: 0, enemyLunge: 0, enemyFade: 0, enemySpawn: 1,
+    41→  heroFlash: 0, enemyFlash: 0,
+    42→  floats: [], floatIdx: 0, FLOAT_POOL: 28,
+    43→  parts: [], partIdx: 0, PART_POOL: 150,
+    44→  rings: [], ringIdx: 0, RING_POOL: 8,
+    45→  atmo: [], seasonAtmo: [], shake: 0,
+    46→  /* ---------- CLIMA DINÂMICO (apenas render) ---------- */
+    47→  weather: 'limpo', weatherPrev: 'limpo', weatherPref: 'auto', weatherBlend: 1,
+    48→  weatherT: 0, weatherNext: 40, wind: 0,
+    49→  rain: [], rainIdx: 0, RAIN_POOL: 150, rainOn: 0,
+    50→  splashes: [], splashIdx: 0, SPLASH_POOL: 22,
+    51→  /* ---------- [ART-11] POÇAS + [ART-12] NEBLINA (só render) ---------- */
+    52→  puddles: [], puddleT: 0, ripples: [], rippleIdx: 0, RIPPLE_POOL: 14,
+    53→  fogBanks: [], fogDens: 1, _fogBlobA: null, _fogBlobB: null,
+    54→  boltT: 0, boltNext: 5, boltPts: null, flashA: 0,
+    55→  /* ---------- [V1-V6] v1.7.0 "Herdeiro do Eclipse" (só apresentação) ----------
+    56→     V1 intro de chefe · V2 eclipse progressivo · V3 hit-stop + arco de corte
+    57→     V4 aura de raridade · V5 placa de região · V6 orbe de loot — todos leem
+    58→     estado/eventos existentes; NADA escreve no jogo. */
+    59→  bossIntroT: 0, bossIntroName: '', bossIntroSub: '',
+    60→  hitStopT: 0,
+    61→  _band: null,
+    62→  slashes: [], slashIdx: 0, SLASH_POOL: 4,
+    63→  orbs: [], orbIdx: 0, ORBS_POOL: 6,
+    64→  _auraOrder: -1, _coronaDisc: null, _coronaRays: null,
+    65→  RARITY_AURA: { 3: '#a86ae8', 4: '#e8a33a', 5: '#ff5a7a', 6: '#7af0dc' },
+    66→  RARITY_ORB: { rara: '#4aa3ff', epica: '#a86ae8', lendaria: '#e8a33a', mitica: '#ff5a7a', divina: '#7af0dc' },
+    67→  /* ---------- [AUDIT-C1/C2] ACESSIBILIDADE + DESEMPENHO (só apresentação) ----------
+    68→     reducedFx: usuário pede MENOS flashes/tremores (fotossensibilidade).
+    69→     perfMode auto: média de frame real decide lowFx (menos partículas/overdraw). */
+    70→  reducedFx: false, perfMode: 'auto', lowFx: false,
+    71→  _perfAvg: 0.0167, _perfT: 0, _rawDelta: 0,
+    72→  WEATHERS: {
+    73→    limpo:      { chip: '\ud83c\udf24\ufe0f', dim: 0,    wind: 0.12, wash: null },
+    74→    nublado:    { chip: '\u2601\ufe0f',      dim: 0.10, wind: 0.30, wash: 'rgba(64,68,84,0.10)' },
+    75→    chuva:      { chip: '\ud83c\udf27\ufe0f', dim: 0.15, wind: 0.55, wash: 'rgba(38,56,92,0.11)',
+    76→      rain: { n: 92, sp: [430, 600], len: [7, 11], al: 0.50 } },
+    77→    tempestade: { chip: '\u26a1',           dim: 0.21, wind: 1.0,  wash: 'rgba(16,24,50,0.15)',
+    78→      rain: { n: 132, sp: [560, 790], len: [9, 14], al: 0.62 }, bolt: true },
+    79→    neve:       { chip: '\ud83c\udf28\ufe0f', dim: 0.07, wind: 0.40, wash: 'rgba(178,198,235,0.08)',
+    80→      snow: { n: 72 } }
+    81→  },
+    82→  // pesos automáticos por região (abismo não tem clima — vazio não chove)
+    83→  REGION_WEATHER: {
+    84→    bosque_vidro:   { limpo: .30, nublado: .25, chuva: .30, tempestade: .15 },
+    85→    pantano:        { limpo: .08, nublado: .30, chuva: .42, tempestade: .20 },
+    86→    cidadela:       { limpo: .45, nublado: .35, chuva: .15, tempestade: .05 },
+    87→    deserto_cinzas: { limpo: .52, nublado: .26, chuva: .18, tempestade: .04 },
+    88→    picos:          { limpo: .24, nublado: .24, chuva: .06, tempestade: .10, neve: .36 },
+    89→    coracao:        { limpo: .14, nublado: .24, chuva: .32, tempestade: .30 },
+    90→    abismo:         { limpo: .55, nublado: .45 }
+    91→  },
+    92→  // variante temática da precipitação por região (só paleta/forma)
+    93→  RAIN_STYLE: {
+    94→    default:        { mode: 'line', cols: ['170,195,235', '150,178,220'] },
+    95→    pantano:        { mode: 'line', cols: ['168,208,120', '140,190,100'] },
+    96→    coracao:        { mode: 'line', cols: ['230,90,110', '205,70,95'] },
+    97→    deserto_cinzas: { mode: 'ash',  cols: ['150,142,150', '120,112,122'] },
+    98→    abismo:         { mode: 'ash',  cols: ['90,80,120', '70,62,100'] },
+    99→    picos:          { mode: 'dot',  cols: ['226,238,252', '206,226,248'] }
+   100→  },
+   101→  /* ---------- PETS CENICOS (só render; bônus já aplicados em Char) ---------- */
+   102→  PET_POSES: {
+   103→    idle:  { fps: 6,   loop: true },
+   104→    cheer: { fps: 6,   loop: true },
+   105→    sad:   { fps: 3.2, loop: true }
+   106→  },
+   107→  petFrames: {}, petAnim: { pose: 'idle', f: 0, t: 0 },
+   108→  petKey: '', compKey: '', petCards: [], _cardT: 0, cheerUntil: 0,
+   109→  /* ---------- BIOMAS SAZONAIS (apenas render; detecta pela data real) ---------- */
+   110→  PREF_KEY: 'eidryn_fx_prefs_v1',
+   111→  seasonPref: 'auto', season: 'primavera', _chipT: 0,
+   112→  SEASONS: {
+   113→    primavera: { chip: '\ud83c\udf38', tint: [150, 235, 170], amt: 0.16, sat: 1.16, bright: 1.07,
+   114→      wash: 'rgba(150,235,170,0.06)', mode: 'fall', n: 22, sp: [16, 32], sz: [2.2, 3.2],
+   115→      cols: ['#f2b8cf', '#f8dce8', '#e0c2e8', '#d8f0c0'], flutter: true, sway: 1.5, swayA: 24, alpha: 0.78 },
+   116→    verao:     { chip: '\u2600\ufe0f', tint: [255, 190, 100], amt: 0.18, sat: 1.10, bright: 1.10,
+   117→      wash: 'rgba(255,190,100,0.065)', mode: 'rise', n: 18, sp: [10, 24], sz: [1.8, 3],
+   118→      cols: ['#ffd27a', '#ffb860', '#fff0c0'], flutter: false, sway: 1.1, swayA: 14, alpha: 0.62 },
+   119→    outono:    { chip: '\ud83c\udf42', tint: [230, 122, 52], amt: 0.23, sat: 0.96, bright: 0.99,
+   120→      wash: 'rgba(230,122,52,0.07)', mode: 'fall', n: 26, sp: [24, 46], sz: [2.4, 3.6],
+   121→      cols: ['#d08030', '#b05a28', '#e0a040', '#8a4a20'], flutter: true, sway: 1.2, swayA: 30, alpha: 0.82 },
+   122→    inverno:   { chip: '\u2744\ufe0f', tint: [168, 208, 255], amt: 0.25, sat: 0.78, bright: 1.05,
+   123→      wash: 'rgba(168,208,255,0.075)', mode: 'fall', n: 30, sp: [20, 40], sz: [2, 3.4],
+   124→      cols: ['#e8f2fc', '#d0e4f8', '#ffffff'], flutter: false, sway: 0.8, swayA: 14, alpha: 0.8 }
+   125→  },
+   126→  /* ---------- FSM DO HERÓI (prioridade: down > victory > crit > cast/hurt > atk > idle) ---------- */
+   127→  POSES: {
+   128→    idle:    { fps: 5.5, loop: true,  prio: 0 },
+   129→    atk:     { fps: 14,  loop: false, prio: 1, next: 'idle' },
+   130→    hurt:    { fps: 8,   loop: false, prio: 2, next: 'idle' },
+   131→    cast:    { fps: 9,   loop: false, prio: 2, next: 'idle' },
+   132→    crit:    { fps: 12,  loop: false, prio: 3, next: 'idle' },
+   133→    victory: { fps: 5,   loop: false, prio: 4, next: 'idle', hold: true },
+   134→    down:    { fps: 3.5, loop: false, prio: 5, next: 'down', hold: true }
+   135→  },
+   136→
+   137→  init: function(){
+   138→    this.cv = document.getElementById('cv');
+   139→    this.ctx = this.cv.getContext('2d');
+   140→    this.ctx.imageSmoothingEnabled = false;
+   141→    var self = this;
+   142→    // texturas de UI → variáveis CSS (painéis pedra/metal/pergaminho + moldura 9-slice)
+   143→    var rootStyle = document.documentElement.style;
+   144→    var texMap = { '--tex-stone': 'ui/tex_stone', '--tex-metal': 'ui/tex_metal',
+   145→      '--tex-parch': 'ui/tex_parch', '--tex-frame': 'ui/tex_frame' };
+   146→    for (var tv in texMap) {
+   147→      if (E.IMG[texMap[tv]]) rootStyle.setProperty(tv, 'url("' + E.IMG[texMap[tv]] + '")');
+   148→    }
+   149→    // fonte Cinzel para o canvas (dano flutuante / títulos)
+   150→    if (document.fonts && document.fonts.load) {
+   151→      document.fonts.load('900 24px Cinzel').then(function(){ self.fontReady = true; })
+   152→        .catch(function(){ self.fontReady = false; });
+   153→    }
+   154→    this.heroImg = this._img(E.IMG['hero/hero']);
+   155→    this.heroAtkImg = this._img(E.IMG['hero/hero_attack']) || this.heroImg;
+   156→    // ---- frames do herói (7 posturas × N frames; fallback p/ 2 posturas antigas) ----
+   157→    var frameSets = { idle: 'hero_idle', atk: 'hero_atk', crit: 'hero_crit',
+   158→      cast: 'hero_cast', hurt: 'hero_hurt', victory: 'hero_victory', down: 'hero_down' };
+   159→    for (var fs in frameSets) {
+   160→      var arr = [];
+   161→      for (var fi = 0; fi < 8; fi++) {
+   162→        var uri = E.IMG['hero/' + frameSets[fs] + '_' + fi];
+   163→        if (!uri) break;
+   164→        arr.push(this._img(uri));
+   165→      }
+   166→      if (arr.length) this.heroFrames[fs] = arr;
+   167→    }
+   168→    if (!this.heroFrames.idle) this.heroFrames.idle = [this.heroImg];
+   169→    if (!this.heroFrames.atk) this.heroFrames.atk = [this.heroAtkImg];
+   170→    // prefs visuais (chave PRÓPRIA — save do jogo permanece intacto)
+   171→    this.loadPrefs();
+   172→    this.season = this.seasonKey();
+   173→    this.weather = this.weatherKey();
+   174→    // frames dos pets cênicos (idle/cheer/sad por espécie; fallback: base estática)
+   175→    this.loadPetFrames();
+   176→    // flash de impacto: versões brancas geradas/cachedas por frame em _whiteFor()
+   177→    for (var i = 0; i < this.FLOAT_POOL; i++)
+   178→      this.floats.push({ on:false, x:0, y:0, vx:0, vy:0, text:'', color:'#fff', size:20, t:0, crit:false });
+   179→    for (var j = 0; j < this.PART_POOL; j++)
+   180→      this.parts.push({ on:false, type:0, x:0, y:0, vx:0, vy:0, t:0, life:1, size:2, color:'#fff', grav:0 });
+   181→    for (var k = 0; k < this.RING_POOL; k++)
+   182→      this.rings.push({ on:false, x:0, y:0, t:0, life:1, r0:10, r1:80, color:'#fff', width:3 });
+   183→    // pools de clima (precipitação + splash no solo)
+   184→    for (var r2 = 0; r2 < this.RAIN_POOL; r2++)
+   185→      this.rain.push({ on:false, x:0, y:0, sp:0, ph:0, front:false, gy:0, c:0 });
+   186→    for (var s2 = 0; s2 < this.SPLASH_POOL; s2++)
+   187→      this.splashes.push({ on:false, x:0, y:0, t:0, life:1 });
+   188→    for (var r3 = 0; r3 < this.RIPPLE_POOL; r3++)
+   189→      this.ripples.push({ on:false, x:0, y:0, t:0, life:1 });
+   190→    // [V3/V6] pools do arco de corte e dos orbes de loot
+   191→    for (var s3 = 0; s3 < this.SLASH_POOL; s3++)
+   192→      this.slashes.push({ on:false, x:0, y:0, t:0, life:0.24, flip:false });
+   193→    for (var o3 = 0; o3 < this.ORBS_POOL; o3++)
+   194→      this.orbs.push({ on:false, x0:0, y0:0, t:0, life:0.95, color:'#e8a33a' });
+   195→    // [ART-12] blobs de névoa pré-renderizados (2 tons — ar/solo)
+   196→    this._fogBlobA = this._fogBlob('170,200,165');
+   197→    this._fogBlobB = this._fogBlob('196,212,192');
+   198→    // ---------- EVENTOS ----------
+   199→    E.BUS.on('enemy_spawned', function(e){
+   200→      var key = e.sprite || 'enemy_bosque_vidro_0';
+   201→      self.enemySpriteKey = key;
+   202→      self.enemyImg = self._img(E.IMG['enemies/' + key]) || self._img(E.IMG['enemies/enemy_generic']);
+   203→      self.enemyWhite = null;
+   204→      self.hasEnemy = true; self.enemyFade = 0; self.enemySpawn = 0;
+   205→      self.enemyBoss = !!e.boss; self.enemyMini = !!e.miniboss;
+   206→      self.enemyBerserk = false;
+   207→      self.enemyHpShown = 0; self.heroHpShown = 0;
+   208→      self._heroPose('idle', true); // nova luta → herói volta à guarda
+   209→      self._petPose('idle'); self.cheerUntil = 0; // pets também
+   210→      var el = document.getElementById('enemy-name');
+   211→      var em = document.getElementById('enemy-mods');
+   212→      if (el) el.textContent = e.name || '';
+   213→      if (em) {
+   214→        var tags = '', mods = e.modifiers || [];
+   215→        for (var i = 0; i < mods.length; i++) tags += '[' + mods[i] + '] ';
+   216→        em.textContent = tags;
+   217→      }
+   218→      if (self.enemyBoss) {
+   219→        self._ring(385, 640, 30, 190, 'rgba(232,163,58,0.8)', 4, 0.9); self.addShake(0.35);
+   220→        // [V1] intro cinematográfica do chefe (placa + escurecimento)
+   221→        self.bossIntroT = 2.3; self.bossIntroName = e.name || '';
+   222→        self.bossIntroSub = (self._regionName() || '').toUpperCase();
+   223→        self._ring(385, 640, 12, 262, 'rgba(232,163,58,0.5)', 2.5, 1.15);
+   224→      }
+   225→    });
+   226→    E.BUS.on('enemy_hp_changed', function(hp, max_hp){
+   227→      self.enemyHpShown = E.U.clamp(hp / Math.max(max_hp, 1), 0, 1);
+   228→      self.enemyHpLabel = E.U.fmt(Math.max(hp, 0)) + ' / ' + E.U.fmt(max_hp);
+   229→    });
+   230→    E.BUS.on('hero_hp_changed', function(hp, max_hp){
+   231→      self.heroHpShown = E.U.clamp(hp / Math.max(max_hp, 1), 0, 1);
+   232→      self.heroHpLabel = E.U.fmt(Math.max(hp, 0)) + ' / ' + E.U.fmt(max_hp);
+   233→    });
+   234→    E.BUS.on('floating_damage', function(amount, crit, side, color){
+   235→      self._float(amount, crit, side, color);
+   236→    });
+   237→    E.BUS.on('screenshake', function(i){ self.addShake(i); });
+   238→    E.BUS.on('enemy_damaged', function(dmg, crit){
+   239→      self.heroLunge = 1; self.enemyFlash = crit ? 0.9 : 0.55;
+   240→      self._heroPose(crit ? 'crit' : 'atk');
+   241→      self._sparks(385, 620, crit ? 14 : 7);
+   242→      self._blood(385, 640, crit ? 9 : 4);
+   243→      if (crit) {
+   244→        self._ring(385, 640, 6, 84, 'rgba(255,190,90,0.9)', 4, 0.5); self.addShake(0.22);
+   245→        // [V3] hit-stop visual + arco de corte (a simulação não pausa)
+   246→        self.hitStopT = self.reducedFx ? 0.04 : 0.085;
+   247→        self._spawnSlash();
+   248→      }
+   249→    });
+   250→    E.BUS.on('hero_damaged', function(){
+   251→      self.enemyLunge = 1; self.heroFlash = 0.6;
+   252→      self._heroPose('hurt');
+   253→      self._blood(155, 640, 6, '#d0455f');
+   254→    });
+   255→    E.BUS.on('skill_casted', function(){ self._heroPose('cast'); });
+   256→    E.BUS.on('combat_ended', function(result){
+   257→      self._heroPose(result === 'win' ? 'victory' : 'down');
+   258→      self._petPose(result === 'win' ? 'cheer' : 'sad');
+   259→      if (result === 'win') {
+   260→        self.cheerUntil = self.time + 3.4;
+   261→        // [V7] celebração: brasas douradas pelo campo
+   262→        self._motes(200, 640, 10); self._motes(330, 620, 10);
+   263→        self._ring(240, 700, 20, 190, 'rgba(232,163,58,0.5)', 2.5, 0.9);
+   264→      }
+   265→    });
+   266→    E.BUS.on('enemy_killed', function(enemy){
+   267→      self.enemyFade = 0.0001;
+   268→      var boss = !!(enemy && enemy.boss);
+   269→      self._dust(385, 700, boss ? 22 : 12);
+   270→      self._motes(385, 600, boss ? 14 : 6);
+   271→      if (boss) { self._explosion(385, 620); self.addShake(1.0); }
+   272→      else self.addShake(0.18);
+   273→    });
+   274→    E.BUS.on('level_up', function(){
+   275→      self._heroPose('victory');
+   276→      self._ring(165, 640, 10, 150, 'rgba(120,240,180,0.9)', 5, 0.9);
+   277→      self._motes(165, 620, 12, '#8af0b0');
+   278→      self._petPose('cheer'); self.cheerUntil = self.time + 2.6;
+   279→    });
+   280→    E.BUS.on('pet_changed', function(){ self.setPetVisuals(); });
+   281→    E.BUS.on('region_changed', function(rid){ self.setRegion(rid); });
+   282→    // [V4] aura de raridade: recalcula quando o equipamento muda
+   283→    E.BUS.on('item_equipped', function(){ self._auraOrder = -1; });
+   284→    E.BUS.on('item_unequipped', function(){ self._auraOrder = -1; });
+   285→    // [V6] orbe de loot voando ao HUD em drops Rara+ durante o combate
+   286→    E.BUS.on('loot_rare', function(it){
+   287→      if (!(E.Combat && E.Combat.active) || !self.hasEnemy || self.lowFx) return;
+   288→      self._spawnLootOrb(it && it.rarity ? it.rarity : 'rara');
+   289→      self._motes(385, 600, 5, self.RARITY_ORB[it && it.rarity ? it.rarity : 'rara']);
+   290→    });
+   291→    this.setRegion('bosque_vidro');
+   292→    this._applySeason();
+   293→    this._applyWeather(true);
+   294→    this.setPetVisuals();
+   295→    this._auraOrder = -1;
+   296→    this._bakeCorona(); // [V2] sprite do eclipse pré-renderizado
+   297→  },
+   298→  _img: function(dataUri){
+   299→    if (!dataUri) return null;
+   300→    var im = new Image();
+   301→    im.src = dataUri;
+   302→    return im;
+   303→  },
+   304→  _makeWhite: function(img){
+   305→    if (!img || !img.complete || !img.naturalWidth) return null;
+   306→    var c = document.createElement('canvas');
+   307→    c.width = img.naturalWidth; c.height = img.naturalHeight;
+   308→    var cx = c.getContext('2d');
+   309→    cx.drawImage(img, 0, 0);
+   310→    cx.globalCompositeOperation = 'source-in';
+   311→    cx.fillStyle = '#fff';
+   312→    cx.fillRect(0, 0, c.width, c.height);
+   313→    return c;
+   314→  },
+   315→  _hashStr: function(s){
+   316→    var h = 5381;
+   317→    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+   318→    return h;
+   319→  },
+   320→  /* ================= FSM DO HERÓI ================= */
+   321→  _heroPose: function(p, force){
+   322→    var def = this.POSES[p], frames = this.heroFrames[p];
+   323→    if (!def || !frames || !frames.length) return;
+   324→    var curP = this.heroAnim.pose, cur = this.POSES[curP];
+   325→    if (!force && cur && def.prio < cur.prio) {
+   326→      var curFr = this.heroFrames[curP] || [];
+   327→      var curDone = cur.loop ? false : (this.heroAnim.t * cur.fps >= curFr.length);
+   328→      if (!curDone) return; // não interrompe postura mais prioritária
+   329→    }
+   330→    if (!force && p === curP && this.heroAnim.t < 0.05) return;
+   331→    this.heroAnim.pose = p; this.heroAnim.f = 0; this.heroAnim.t = 0;
+   332→  },
+   333→  _heroTick: function(delta){
+   334→    var a = this.heroAnim, def = this.POSES[a.pose], fr = this.heroFrames[a.pose];
+   335→    if (!def || !fr || !fr.length) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+   336→    a.t += delta;
+   337→    var idx = Math.floor(a.t * def.fps);
+   338→    if (def.loop) { a.f = idx % fr.length; }
+   339→    else if (idx >= fr.length) {
+   340→      if (def.hold) { a.f = fr.length - 1; } // segura até evento (spawn/respawn)
+   341→      else {
+   342→        var nx = def.next && this.heroFrames[def.next] ? def.next : 'idle';
+   343→        a.pose = nx; a.t = 0; a.f = 0;
+   344→      }
+   345→    } else a.f = idx;
+   346→  },
+   347→  _whiteFor: function(img, key){
+   348→    var w = this.heroWhiteCache[key];
+   349→    if (w) return w;
+   350→    if (!img || !img.complete || !img.naturalWidth) return null;
+   351→    w = this._makeWhite(img);
+   352→    if (w) this.heroWhiteCache[key] = w;
+   353→    return w;
+   354→  },
+   355→  /* ================= ESTAÇÕES (só render) ================= */
+   356→  loadPrefs: function(){
+   357→    try {
+   358→      var raw = globalThis.localStorage.getItem(this.PREF_KEY);
+   359→      if (raw) {
+   360→        var p = JSON.parse(raw);
+   361→        if (p && p.season && (p.season === 'auto' || this.SEASONS[p.season])) this.seasonPref = p.season;
+   362→        if (p && p.weather && (p.weather === 'auto' || this.WEATHERS[p.weather])) this.weatherPref = p.weather;
+   363→        if (p && p.amb_vol != null && E.Audio) E.Audio.amb_vol = E.U.clamp(Number(p.amb_vol) || 0, 0, 1); // [ART-10]
+   364→        if (p && p.reduced_fx != null) this.reducedFx = !!p.reduced_fx;   // [AUDIT-C1]
+   365→        if (p && p.perf && ['auto','high','low'].indexOf(p.perf) >= 0) this.perfMode = p.perf; // [AUDIT-C2]
+   366→        this._tipsDone = !!(p && p.tips_done); // [AUDIT-D2]
+   367→      }
+   368→    } catch (e) {}
+   369→  },
+   370→  savePrefs: function(){
+   371→    var p = { season: this.seasonPref, weather: this.weatherPref,
+   372→      reduced_fx: this.reducedFx, perf: this.perfMode, tips_done: !!this._tipsDone }; // [AUDIT-C1/C2/D2]
+   373→    if (E.Audio && E.Audio.amb_vol != null) p.amb_vol = E.Audio.amb_vol; // [ART-10] volume do ambiente
+   374→    try { globalThis.localStorage.setItem(this.PREF_KEY, JSON.stringify(p)); } catch (e) {}
+   375→  },
+   376→  /* multiplicadores de quantidade de partículas por acessibilidade/desempenho */
+   377→  _fxMul: function(){ return (this.reducedFx ? 0.55 : 1) * (this.lowFx ? 0.5 : 1); },
+   378→  _flashMul: function(){ return this.reducedFx ? 0.3 : 1; },
+   379→  setReducedFx: function(v){ this.reducedFx = !!v; this.savePrefs(); },
+   380→  setPerfMode: function(v){
+   381→    this.perfMode = (v === 'high' || v === 'low') ? v : 'auto';
+   382→    if (this.perfMode === 'low') this.lowFx = true;
+   383→    else if (this.perfMode === 'high') this.lowFx = false;
+   384→    this.savePrefs();
+   385→  },
+   386→  seasonNow: function(){
+   387→    // hemisfério sul (PT-BR): verão 21/12–20/3 · outono 21/3–20/6 · inverno 21/6–20/9 · primavera 21/9–20/12
+   388→    var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+   389→    if (md >= 1221 || md < 321) return 'verao';
+   390→    if (md >= 921) return 'primavera';
+   391→    if (md >= 621) return 'inverno';
+   392→    return 'outono';
+   393→  },
+   394→  seasonKey: function(){
+   395→    if (this.seasonPref !== 'auto') return this.SEASONS[this.seasonPref] ? this.seasonPref : this.seasonNow();
+   396→    return this.seasonNow();
+   397→  },
+   398→  setSeasonPref: function(v){
+   399→    this.seasonPref = (v === 'auto' || this.SEASONS[v]) ? v : 'auto';
+   400→    this.savePrefs();
+   401→    this._applySeason();
+   402→  },
+   403→  _applySeason: function(){
+   404→    var sk = this.seasonKey();
+   405→    var changed = sk !== this.season;
+   406→    this.season = sk;
+   407→    if (changed) {
+   408→      for (var rid in this.regionCache) {
+   409→        var ls = this.regionCache[rid];
+   410→        for (var i = 0; i < ls.length; i++) ls[i].tinted = {};
+   411→      }
+   412→      this.palSeason = this.pal ? this._seasonPal(this.pal, this.SEASONS[sk]) : null;
+   413→      this._seedSeasonAtmo();
+   414→    }
+   415→    this._updateChip();
+   416→  },
+   417→  _seasonLocKey: function(s){
+   418→    return s === 'primavera' ? 'season_spring' : s === 'verao' ? 'season_summer' :
+   419→      s === 'outono' ? 'season_autumn' : 'season_winter';
+   420→  },
+   421→  _updateChip: function(){
+   422→    var el = document.getElementById('season-chip');
+   423→    if (!el) return;
+   424→    var S = this.SEASONS[this.season];
+   425→    var name = (E.DM && E.DM.tr) ? E.DM.tr(this._seasonLocKey(this.season)) : this.season;
+   426→    var ico = el.querySelector('.ico'), nm = el.querySelector('.nm');
+   427→    if (ico) ico.textContent = S ? S.chip : '';
+   428→    if (nm) nm.textContent = name;
+   429→  },
+   430→  _seasonPal: function(pal, S){
+   431→    if (!S) return pal;
+   432→    return { sky_top: pal.sky_top, sky_bot: pal.sky_bot, far: pal.far, mid: pal.mid, near: pal.near,
+   433→      ground: this._shiftHex(pal.ground, S, 1.05, 1.03), accent: this._shiftHex(pal.accent, S, 0.5, 1.08) };
+   434→  },
+   435→  _shiftHex: function(hex, S, k, br){
+   436→    var r = parseInt(hex.substr(1, 2), 16), g = parseInt(hex.substr(3, 2), 16), b = parseInt(hex.substr(5, 2), 16);
+   437→    var lum = (r * 0.3 + g * 0.59 + b * 0.11) / 255;
+   438→    var t = S.tint, w = S.amt * k;
+   439→    r = (r * br) * (1 - w * 0.7) + t[0] * w * 0.7 * (0.35 + lum * 0.65);
+   440→    g = (g * br) * (1 - w * 0.7) + t[1] * w * 0.7 * (0.35 + lum * 0.65);
+   441→    b = (b * br) * (1 - w * 0.7) + t[2] * w * 0.7 * (0.35 + lum * 0.65);
+   442→    return 'rgb(' + (r > 255 ? 255 : r | 0) + ',' + (g > 255 ? 255 : g | 0) + ',' + (b > 255 ? 255 : b | 0) + ')';
+   443→  },
+   444→  _tintImg: function(img, S){
+   445→    if (!img || !img.complete || !img.naturalWidth || !S) return null;
+   446→    var c = document.createElement('canvas');
+   447→    c.width = img.naturalWidth; c.height = img.naturalHeight;
+   448→    var cx = c.getContext('2d');
+   449→    cx.drawImage(img, 0, 0);
+   450→    try {
+   451→      var id = cx.getImageData(0, 0, c.width, c.height), px = id.data;
+   452→      var t = S.tint, sat = S.sat, br = S.bright, amt = S.amt;
+   453→      for (var i = 0; i < px.length; i += 4) {
+   454→        if (!px[i + 3]) continue;
+   455→        var r = px[i], g = px[i + 1], b = px[i + 2];
+   456→        var lum = r * 0.3 + g * 0.59 + b * 0.11;
+   457→        r = lum + (r - lum) * sat; g = lum + (g - lum) * sat; b = lum + (b - lum) * sat;
+   458→        r *= br; g *= br; b *= br;
+   459→        var w = amt * (0.3 + lum / 255 * 0.7);
+   460→        r = r * (1 - w) + t[0] * w * 1.06;
+   461→        g = g * (1 - w) + t[1] * w * 1.06;
+   462→        b = b * (1 - w) + t[2] * w * 1.06;
+   463→        px[i] = r > 255 ? 255 : r | 0; px[i + 1] = g > 255 ? 255 : g | 0; px[i + 2] = b > 255 ? 255 : b | 0;
+   464→      }
+   465→      cx.putImageData(id, 0, 0);
+   466→    } catch (e) { return c; }
+   467→    return c;
+   468→  },
+   469→  _seedSeasonAtmo: function(){
+   470→    this.seasonAtmo.length = 0;
+   471→    var S = this.SEASONS[this.season];
+   472→    if (!S) return;
+   473→    for (var i = 0; i < S.n; i++) {
+   474→      this.seasonAtmo.push({
+   475→        x: Math.random() * this.W, y: Math.random() * this.GROUND_Y,
+   476→        ph: Math.random() * 6.28, sp: S.sp[0] + Math.random() * (S.sp[1] - S.sp[0]),
+   477→        sz: S.sz[0] + Math.random() * (S.sz[1] - S.sz[0]),
+   478→        col: S.cols[(Math.random() * S.cols.length) | 0],
+   479→        front: i >= S.n * 0.62
+   480→      });
+   481→    }
+   482→  },
+   483→  _drawSeasonAtmo: function(delta, front){
+   484→    var S = this.SEASONS[this.season];
+   485→    if (!S || !this.seasonAtmo.length) return;
+   486→    var ctx = this.ctx, t = this.time;
+   487→    for (var i = 0; i < this.seasonAtmo.length; i++) {
+   488→      var p = this.seasonAtmo[i];
+   489→      if (!!p.front !== front) continue;
+   490→      if (S.mode === 'rise') { // verão: motas douradas sobem
+   491→        p.y -= p.sp * delta * 0.7;
+   492→        p.x += (Math.sin(t * 1.1 + p.ph) * 12 + this.wind * 30) * delta;
+   493→        if (p.y < -6) { p.y = this.GROUND_Y + Math.random() * 40; p.x = Math.random() * this.W; }
+   494→        ctx.globalAlpha = (0.22 + 0.34 * (0.5 + 0.5 * Math.sin(t * 2.4 + p.ph))) * (front ? 1.3 : 1);
+   495→      } else {                 // queda: pétalas / folhas / neve
+   496→        p.y += p.sp * delta;
+   497→        p.x += (Math.sin(t * S.sway + p.ph) * S.swayA * (1 + this.wind * 1.1) + this.wind * 36) * delta;
+   498→        if (p.y > this.GROUND_Y + 8) { p.y = -8; p.x = Math.random() * this.W; }
+   499→        ctx.globalAlpha = S.alpha * (front ? 1.25 : 1);
+   500→      }
+   501→      ctx.fillStyle = p.col;
+   502→      if (S.flutter && (Math.floor(t * 3 + p.ph * 3) % 2 === 0))
+   503→        ctx.fillRect(p.x, p.y, p.sz, p.sz * 0.55);
+   504→      else
+   505→        ctx.fillRect(p.x, p.y, p.sz * 0.55, p.sz);
+   506→    }
+   507→    ctx.globalAlpha = 1;
+   508→  },
+   509→  /* ================= CLIMA DINÂMICO (só render) ================= */
+   510→  weatherNow: function(){
+   511→    // escolha determinística por região + janela de 2,5min → o mundo respira sozinho
+   512→    var slot = Math.floor(Date.now() / 150000);
+   513→    var h = this._hashStr(this.regionId + ':wx:' + slot);
+   514→    var W = this.REGION_WEATHER[this.regionId] || this.REGION_WEATHER.bosque_vidro;
+   515→    var total = 0, k;
+   516→    for (k in W) total += W[k];
+   517→    var r = (h % 10000) / 10000 * total, acc = 0;
+   518→    var wk = 'limpo';
+   519→    for (k in W) { acc += W[k]; if (r < acc) { wk = k; break; } }
+   520→    // coerência sazonal: no inverno, chuva vira neve (tempestade permanece — gelo)
+   521→    if (wk === 'chuva' && this.seasonKey() === 'inverno') wk = 'neve';
+   522→    return wk;
+   523→  },
+   524→  weatherKey: function(){
+   525→    if (this.weatherPref !== 'auto') return this.WEATHERS[this.weatherPref] ? this.weatherPref : this.weatherNow();
+   526→    return this.weatherNow();
+   527→  },
+   528→  setWeatherPref: function(v){
+   529→    this.weatherPref = (v === 'auto' || this.WEATHERS[v]) ? v : 'auto';
+   530→    this.savePrefs();
+   531→    this._applyWeather(true);
+   532→  },
+   533→  _weatherLocKey: function(w){
+   534→    return w === 'limpo' ? 'w_clear' : w === 'nublado' ? 'w_cloudy' :
+   535→      w === 'chuva' ? 'w_rain' : w === 'tempestade' ? 'w_storm' : 'w_snow';
+   536→  },
+   537→  _applyWeather: function(force){
+   538→    var wk = this.weatherKey();
+   539→    if (force || wk !== this.weather) {
+   540→      if (wk !== this.weather || force) {
+   541→        this.weatherPrev = force ? wk : this.weather;
+   542→        this.weather = wk;
+   543→        this.weatherBlend = force ? 1 : 0;
+   544→        this.rainOn = 0; // repovoamento gradual do pool
+   545→        this.boltNext = 2 + Math.random() * 4;
+   546→      }
+   547→    }
+   548→    this._updateWeatherChip();
+   549→    // [ART-10] o áudio ambiente acompanha o clima (crossfade suave no AudioContext)
+   550→    if (E.Audio && E.Audio.set_ambient) E.Audio.set_ambient(wk);
+   551→  },
+   552→  _weatherTick: function(delta){
+   553→    this.weatherT += delta;
+   554→    if (this.weatherPref === 'auto' && this.weatherT >= 40) {
+   555→      this.weatherT = 0;
+   556→      var wk = this.weatherNow();
+   557→      if (wk !== this.weather) this._applyWeather(false);
+   558→    }
+   559→    this.weatherBlend = Math.min(1, this.weatherBlend + delta * 0.8);
+   560→    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   561→    // vento com rajadas (afeta chuva, neve e partículas sazonais)
+   562→    var gust = this.weather === 'tempestade' ? Math.sin(this.time * 2.3) * 0.25 : Math.sin(this.time * 0.6) * 0.1;
+   563→    this.wind = W.wind * (0.75 + 0.25 * Math.sin(this.time * 0.6)) + Math.max(0, gust);
+   564→    // relâmpagos
+   565→    if (W.bolt) {
+   566→      this.boltNext -= delta;
+   567→      if (this.boltNext <= 0) {
+   568→        this.boltNext = 2.6 + Math.random() * 5.4;
+   569→        var near = Math.random() < 0.45;
+   570→        if (near) {
+   571→          this.boltPts = this._boltPath();
+   572→          this.boltT = 0.26;
+   573→          this.flashA = 0.55;
+   574→          this.addShake(0.34);
+   575→          if (E.Audio && E.Audio.thunder) E.Audio.thunder(true); // [ART-10] trovão próximo
+   576→        } else {
+   577→          this.boltPts = null;
+   578→          this.flashA = 0.20;
+   579→          this.addShake(0.08);
+   580→          if (E.Audio && E.Audio.thunder) E.Audio.thunder(false); // [ART-10] trovão distante
+   581→        }
+   582→      }
+   583→    }
+   584→    if (this.boltT > 0) this.boltT -= delta;
+   585→    if (this.flashA > 0) this.flashA = Math.max(0, this.flashA - delta * 2.6);
+   586→    this._rainTick(delta);
+   587→  },
+   588→  _rainStyle: function(){
+   589→    return this.RAIN_STYLE[this.regionId] || this.RAIN_STYLE.default;
+   590→  },
+   591→  _rainTick: function(delta){
+   592→    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   593→    var def = W.rain || W.snow;
+   594→    var target = def ? Math.round(def.n * (0.35 + 0.65 * this.weatherBlend) * (this.lowFx ? 0.55 : 1)) : 0; // [AUDIT-C2]
+   595→    // repovoamento/esvaziamento gradual (sem pop)
+   596→    if (this.rainOn < target) this.rainOn = Math.min(target, this.rainOn + 5);
+   597→    else if (this.rainOn > target) this.rainOn = Math.max(target, this.rainOn - 8);
+   598→    var isSnow = !!W.snow, isAsh = this._rainStyle().mode === 'ash';
+   599→    var alive = 0;
+   600→    for (var i = 0; i < this.rain.length; i++) {
+   601→      var p = this.rain[i];
+   602→      if (!p.on) {
+   603→        if (alive < this.rainOn) { this._resetDrop(p, true); alive++; }
+   604→        continue;
+   605→      }
+   606→      var wrapped = false;
+   607→      if (isSnow || isAsh) {
+   608→        // neve / cinzas: deriva suave com vento
+   609→        p.y += p.sp * delta * (isAsh ? 0.35 : 0.45);
+   610→        p.x += (Math.sin(this.time * 1.2 + p.ph) * 16 + this.wind * 46) * delta;
+   611→        if (p.y > this.GROUND_Y + 6) wrapped = true;
+   612→        if (p.x > this.W + 8) { p.x = -8; }
+   613→      } else {
+   614→        p.y += p.sp * delta;
+   615→        p.x += this.wind * 175 * delta;
+   616→        if (p.y > this.GROUND_Y - 4 + p.gy) {
+   617→          if (p.front && Math.random() < 0.34) {
+   618→            this._splash(p.x, this.GROUND_Y + 2 + p.gy);
+   619→            this._puddleRippleAt(p.x, this.GROUND_Y + 2 + p.gy); // [ART-11] ondulação na poça
+   620→          }
+   621→          wrapped = true;
+   622→        }
+   623→        if (p.x > this.W + 12) p.x = -10;
+   624→      }
+   625→      if (wrapped) {
+   626→        alive++;
+   627→        if (alive > this.rainOn) { p.on = false; continue; }
+   628→        this._resetDrop(p, true);
+   629→      } else alive++;
+   630→    }
+   631→    // splashes do solo
+   632→    for (var s = 0; s < this.splashes.length; s++) {
+   633→      var sp = this.splashes[s];
+   634→      if (!sp.on) continue;
+   635→      sp.t += delta;
+   636→      if (sp.t >= sp.life) { sp.on = false; continue; }
+   637→    }
+   638→  },
+   639→  _resetDrop: function(p, keepOn){
+   640→    var W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   641→    var def = W.rain || W.snow || {};
+   642→    var sp = def.sp || [430, 600];
+   643→    p.on = keepOn !== false;
+   644→    p.x = Math.random() * (this.W + 90) - 45;
+   645→    p.y = -12 - Math.random() * 60;
+   646→    p.sp = sp[0] + Math.random() * (sp[1] - sp[0]);
+   647→    p.ph = Math.random() * 6.28;
+   648→    p.front = Math.random() < 0.32;
+   649→    p.gy = Math.random() * 26;
+   650→    p.c = Math.random();
+   651→  },
+   652→  _splash: function(x, y){
+   653→    var sp = this.splashes[this.splashIdx];
+   654→    this.splashIdx = (this.splashIdx + 1) % this.SPLASH_POOL;
+   655→    sp.on = true; sp.x = x; sp.y = y; sp.t = 0; sp.life = 0.22 + Math.random() * 0.12;
+   656→  },
+   657→  /* ================= [ART-11] POÇAS REFLETIVAS (só render) ================= */
+   658→  _seedPuddles: function(){
+   659→    this.puddles.length = 0;
+   660→    // determinísticas por região (hash): o mesmo bioma sempre tem as mesmas poças
+   661→    for (var i = 0; i < 9; i++) {
+   662→      var h = this._hashStr(this.regionId + ':pd:' + i);
+   663→      var fx = (h % 1000) / 1000, fy = ((h >>> 10) % 1000) / 1000, fr = ((h >>> 20) % 1000) / 1000; // >>> sem sinal (h é uint32)
+   664→      var rx = 30 + fr * 64;
+   665→      if (rx < 8) rx = 8; // defesa extra: raio jamais negativo
+   666→      this.puddles.push({
+   667→        x: 26 + fx * (this.W - 52),
+   668→        y: this.GROUND_Y + 16 + fy * (this.H - this.GROUND_Y - 62),
+   669→        rx: rx, ry: rx * 0.34, ph: (h % 628) / 100, _gf: null, _sky: null
+   670→      });
+   671→    }
+   672→  },
+   673→  _puddleActive: function(){
+   674→    var W = this.WEATHERS[this.weather];
+   675→    return !!(W && W.rain) && this._rainStyle().mode !== 'ash'; // cinzas não empoçam
+   676→  },
+   677→  _puddleTick: function(delta){
+   678→    var tgt = this._puddleActive() ? 1 : 0;
+   679→    var rate = tgt ? (this.weather === 'tempestade' ? 0.20 : 0.11) : -0.045;
+   680→    this.puddleT = E.U.clamp(this.puddleT + rate * delta, 0, 1);
+   681→    for (var i = 0; i < this.ripples.length; i++) {
+   682→      var r = this.ripples[i];
+   683→      if (!r.on) continue;
+   684→      r.t += delta;
+   685→      if (r.t >= r.life) r.on = false;
+   686→    }
+   687→  },
+   688→  _puddleRippleAt: function(x, y){
+   689→    for (var i = 0; i < this.puddles.length; i++) {
+   690→      var p = this.puddles[i], dx = (x - p.x) / p.rx, dy = (y - p.y) / p.ry;
+   691→      if (dx * dx + dy * dy <= 1) { this._ripple(x, y); return; }
+   692→    }
+   693→  },
+   694→  _ripple: function(x, y){
+   695→    var r = this.ripples[this.rippleIdx];
+   696→    this.rippleIdx = (this.rippleIdx + 1) % this.RIPPLE_POOL;
+   697→    r.on = true; r.x = x; r.y = y; r.t = 0; r.life = 0.45 + Math.random() * 0.3;
+   698→  },
+   699→  _drawPuddles: function(){
+   700→    if (this.puddleT < 0.015) return;
+   701→    var ctx = this.ctx, t = this.time, P = this.puddleT;
+   702→    var col = this._rainStyle().cols[0]; // água toma a cor da chuva da região
+   703→    var heroX = 45 - this.heroLunge * 14;
+   704→    var enCX = this.enemyBoss ? 372 : 390;
+   705→    var evis = (1 - this.enemyFade) * (this.enemySpawn < 1 ? 0.4 + 0.6 * this.enemySpawn : 1);
+   706→    for (var i = 0; i < this.puddles.length; i++) {
+   707→      var p = this.puddles[i];
+   708→      var a = P * (0.86 + 0.14 * Math.sin(t * 0.7 + p.ph));
+   709→      // água (tinta do clima + fundo escuro + brilho de céu no espelho d'água)
+   710→      ctx.globalAlpha = 1;
+   711→      ctx.fillStyle = 'rgba(' + col + ',' + (0.16 * a).toFixed(3) + ')';
+   712→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.fill();
+   713→      ctx.fillStyle = 'rgba(6,9,18,' + (0.20 * a).toFixed(3) + ')';
+   714→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx * 0.92, p.ry * 0.9, 0, 0, 6.2832); ctx.fill();
+   715→      if (!p._sky) {
+   716→        p._sky = ctx.createLinearGradient(0, p.y - p.ry, 0, p.y + p.ry * 0.3);
+   717→        p._sky.addColorStop(0, 'rgba(190,215,245,0.5)');
+   718→        p._sky.addColorStop(1, 'rgba(190,215,245,0)');
+   719→      }
+   720→      ctx.save();
+   721→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+   722→      ctx.globalAlpha = 0.4 * a;
+   723→      ctx.fillStyle = p._sky;
+   724→      ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 1.35);
+   725→      ctx.restore();
+   726→      // reflexos: clip na elipse + flip vertical + squash 0.62 + tremulação da água
+   727→      var wy = p.y + p.ry * 0.12, wob = Math.sin(t * 2.1 + p.ph) * 1.8;
+   728→      ctx.save();
+   729→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+   730→      ctx.globalAlpha = 0.34 * a;
+   731→      ctx.translate(0, wy); ctx.scale(1, -0.62);
+   732→      var cf = this._petFrame(this.compKey, this.petAnim.pose);
+   733→      if (cf && cf.complete && cf.naturalWidth) ctx.drawImage(cf, 6 + wob, -176, 176, 176);
+   734→      var fr = this.heroFrames[this.heroAnim.pose] || [];
+   735→      var hImg = fr[this.heroAnim.f] || this.heroImg;
+   736→      if (hImg && hImg.complete && hImg.naturalWidth) ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+   737→      var pf = this._petFrame(this.petKey, this.petAnim.pose);
+   738→      if (pf && pf.complete && pf.naturalWidth) ctx.drawImage(pf, 196 + wob, -76, 76, 76);
+   739→      if (evis > 0.02 && this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth) {
+   740→        var sz = 240 * (this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1));
+   741→        ctx.globalAlpha = 0.34 * a * evis;
+   742→        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+   743→        // sheen aditivo: o reflexo das grandes figuras brilha na água
+   744→        ctx.globalCompositeOperation = 'lighter';
+   745→        ctx.globalAlpha = 0.12 * a * evis;
+   746→        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+   747→      }
+   748→      if (hImg && hImg.complete && hImg.naturalWidth) {
+   749→        ctx.globalCompositeOperation = 'lighter';
+   750→        ctx.globalAlpha = 0.12 * a;
+   751→        ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+   752→      }
+   753→      ctx.restore();
+   754→      // profundidade do reflexo + brilho de relâmpago + cintilância
+   755→      ctx.save();
+   756→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
+   757→      if (!p._gf) {
+   758→        p._gf = ctx.createLinearGradient(0, wy + p.ry * 0.55, 0, wy + p.ry * 2.4);
+   759→        p._gf.addColorStop(0, 'rgba(0,0,0,0)');
+   760→        p._gf.addColorStop(1, 'rgba(4,6,12,0.42)');
+   761→      }
+   762→      ctx.globalAlpha = a;
+   763→      ctx.fillStyle = p._gf;
+   764→      ctx.fillRect(p.x - p.rx, wy, p.rx * 2, p.ry * 2.4);
+   765→      if (this.flashA > 0.01) { // trovão espelhado na água
+   766→        ctx.globalAlpha = Math.min(0.55, this.flashA * 0.85) * a;
+   767→        ctx.fillStyle = 'rgba(215,228,255,1)';
+   768→        ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 2);
+   769→      }
+   770→      ctx.globalAlpha = 0.09 * a;
+   771→      ctx.fillStyle = 'rgba(220,235,255,1)';
+   772→      for (var sh = 0; sh < 3; sh++) {
+   773→        var sy2 = p.y - p.ry * 0.6 + ((t * 14 + p.ph * 9 + sh * 7) % (p.ry * 1.9));
+   774→        ctx.fillRect(p.x - p.rx * 0.55 + sh * p.rx * 0.3, sy2, p.rx * 0.5, 1);
+   775→      }
+   776→      ctx.restore();
+   777→      // menisco (borda superior iluminada)
+   778→      ctx.globalAlpha = 0.35 * a;
+   779→      ctx.strokeStyle = 'rgba(200,220,250,0.5)';
+   780→      ctx.lineWidth = 1;
+   781→      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+   782→    }
+   783→    // ondulações de impacto das gotas (sobre todas as poças)
+   784→    ctx.strokeStyle = 'rgba(200,220,250,0.55)';
+   785→    ctx.lineWidth = 1;
+   786→    for (var r2 = 0; r2 < this.ripples.length; r2++) {
+   787→      var rp = this.ripples[r2];
+   788→      if (!rp.on) continue;
+   789→      var pr = rp.t / rp.life;
+   790→      ctx.globalAlpha = (1 - pr) * 0.5 * P;
+   791→      ctx.beginPath();
+   792→      ctx.ellipse(rp.x, rp.y, 2 + pr * 11, (2 + pr * 11) * 0.34, 0, 0, 6.2832);
+   793→      ctx.stroke();
+   794→    }
+   795→    // solo encharcado (sheen sutil na faixa do chão)
+   796→    ctx.fillStyle = 'rgba(165,195,235,' + (0.045 * P).toFixed(3) + ')';
+   797→    ctx.fillRect(0, this.GROUND_Y, this.W, this.H - this.GROUND_Y);
+   798→    ctx.globalAlpha = 1;
+   799→  },
+   800→  /* ================= [ART-12] NEBLINA DENSA — PÂNTANO (só render) ================= */
+   801→  _fogBlob: function(rgb){
+   802→    var c = document.createElement('canvas'); c.width = 256; c.height = 128;
+   803→    var cx = c.getContext('2d');
+   804→    cx.translate(128, 64); cx.scale(1, 0.5);
+   805→    var g = cx.createRadialGradient(0, 0, 8, 0, 0, 122);
+   806→    g.addColorStop(0, 'rgba(' + rgb + ',0.85)');
+   807→    g.addColorStop(0.55, 'rgba(' + rgb + ',0.38)');
+   808→    g.addColorStop(1, 'rgba(' + rgb + ',0)');
+   809→    cx.fillStyle = g;
+   810→    cx.fillRect(-128, -128, 256, 256);
+   811→    return c;
+   812→  },
+   813→  _seedFog: function(rid){
+   814→    this.fogBanks.length = 0;
+   815→    this.fogDens = 1;
+   816→    if (rid !== 'pantano') return; // só o Pântano tem a neblina própria densa
+   817→    for (var i = 0; i < 12; i++) {
+   818→      var front = i >= 8;
+   819→      var w = 230 + Math.random() * 240;
+   820→      this.fogBanks.push({
+   821→        x: Math.random() * (this.W + 300) - 150,
+   822→        y: this.GROUND_Y - 175 + Math.random() * 215,
+   823→        w: w, h: w * (0.26 + Math.random() * 0.10),
+   824→        sp: (5 + Math.random() * 12) * (front ? 1.5 : 1),
+   825→        ph: Math.random() * 6.28,
+   826→        a: (front ? 0.13 : 0.10) + Math.random() * 0.09,
+   827→        front: front
+   828→      });
+   829→    }
+   830→  },
+   831→  _fogTick: function(delta){
+   832→    if (!this.fogBanks.length) return;
+   833→    // o clima engrossa a névoa (chuva +35%, tempestade +60%, nublado +18%)
+   834→    var tgt = 1;
+   835→    if (this.weather === 'chuva') tgt = 1.35;
+   836→    else if (this.weather === 'tempestade') tgt = 1.6;
+   837→    else if (this.weather === 'nublado') tgt = 1.18;
+   838→    this.fogDens += (tgt - this.fogDens) * Math.min(1, delta * 0.6);
+   839→    for (var i = 0; i < this.fogBanks.length; i++) {
+   840→      var f = this.fogBanks[i];
+   841→      f.x += f.sp * (0.5 + this.wind) * delta * 5; // deriva com o vento
+   842→      if (f.x - f.w / 2 > this.W + 40) f.x = -f.w / 2 - 30 - Math.random() * 60;
+   843→    }
+   844→  },
+   845→  _drawFog: function(front){
+   846→    if (!this.fogBanks.length) return;
+   847→    var ctx = this.ctx, t = this.time;
+   848→    var dens = this.fogDens * (0.85 + 0.15 * Math.sin(t * 0.23)); // respira
+   849→    for (var i = 0; i < this.fogBanks.length; i++) {
+   850→      var f = this.fogBanks[i];
+   851→      if (f.front !== front) continue;
+   852→      var blob = f.y < this.GROUND_Y - 45 ? this._fogBlobA : this._fogBlobB;
+   853→      ctx.globalAlpha = Math.min(0.5, f.a * dens * (0.8 + 0.2 * Math.sin(t * 0.5 + f.ph)) * (front ? 0.85 : 1));
+   854→      ctx.drawImage(blob, f.x - f.w / 2, f.y - f.h / 2, f.w, f.h);
+   855→    }
+   856→    ctx.globalAlpha = 1;
+   857→  },
+   858→  _drawGroundMist: function(){
+   859→    if (!this.fogBanks.length) return;
+   860→    var ctx = this.ctx;
+   861→    var g = ctx.createLinearGradient(0, this.GROUND_Y - 110, 0, this.GROUND_Y + 80);
+   862→    g.addColorStop(0, 'rgba(150,180,150,0)');
+   863→    g.addColorStop(0.55, 'rgba(150,180,150,' + (0.15 * this.fogDens).toFixed(3) + ')');
+   864→    g.addColorStop(1, 'rgba(120,150,125,0)');
+   865→    ctx.fillStyle = g;
+   866→    ctx.fillRect(0, this.GROUND_Y - 110, this.W, 190);
+   867→  },
+   868→  _boltPath: function(){
+   869→    // relâmpago ramificado do céu até o horizonte
+   870→    var x = 60 + Math.random() * (this.W - 160), y = 0;
+   871→    var pts = [[x, y]];
+   872→    var endY = 250 + Math.random() * 160;
+   873→    while (y < endY) {
+   874→      y += 24 + Math.random() * 34;
+   875→      x += (Math.random() * 2 - 1) * 34;
+   876→      pts.push([x, y]);
+   877→    }
+   878→    return pts;
+   879→  },
+   880→  _drawWeatherBack: function(delta){
+   881→    // camada de trás: precipitação ao fundo + escurecimento do céu
+   882→    var ctx = this.ctx, W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   883→    var prevW = this.WEATHERS[this.weatherPrev] || this.WEATHERS.limpo;
+   884→    var b = this.weatherBlend;
+   885→    if (W.dim > 0 || (b < 1 && prevW.dim > 0)) {
+   886→      var dim = W.dim * b + prevW.dim * (1 - b);
+   887→      if (dim > 0.004) {
+   888→        ctx.fillStyle = 'rgba(10,14,30,' + Math.min(0.5, dim) + ')';
+   889→        ctx.fillRect(0, 0, this.W, this.H);
+   890→      }
+   891→    }
+   892→    var def = W.rain || W.snow;
+   893→    if (!def || this.rainOn < 1) return;
+   894→    var st = this._rainStyle();
+   895→    var isSnow = !!W.snow, isAsh = st.mode === 'ash';
+   896→    ctx.save();
+   897→    for (var i = 0; i < this.rain.length; i++) {
+   898→      var p = this.rain[i];
+   899→      if (!p.on || p.front) continue;
+   900→      var col = st.cols[(p.c * st.cols.length) | 0];
+   901→      var al = (W.rain ? W.rain.al * 0.62 : 0.5) * b;
+   902→      if (isSnow || isAsh) {
+   903→        ctx.fillStyle = 'rgba(' + col + ',' + (al * 0.8).toFixed(3) + ')';
+   904→        var sz = isAsh ? 2 : 1.6 + (p.ph % 1);
+   905→        ctx.fillRect(p.x, p.y, sz, sz);
+   906→      } else {
+   907→        ctx.strokeStyle = 'rgba(' + col + ',' + al.toFixed(3) + ')';
+   908→        ctx.lineWidth = 1;
+   909→        ctx.beginPath();
+   910→        ctx.moveTo(p.x, p.y);
+   911→        ctx.lineTo(p.x - this.wind * 4.4, p.y - 7 - p.c * 4);
+   912→        ctx.stroke();
+   913→      }
+   914→    }
+   915→    ctx.restore();
+   916→  },
+   917→  _drawWeatherFront: function(delta){
+   918→    // camada da frente: precipitação grossa + splashes + relâmpago + flash
+   919→    var ctx = this.ctx, W = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+   920→    var def = W.rain || W.snow;
+   921→    var b = this.weatherBlend;
+   922→    if (def && this.rainOn > 0) {
+   923→      var st = this._rainStyle();
+   924→      var isSnow = !!W.snow, isAsh = st.mode === 'ash';
+   925→      for (var i = 0; i < this.rain.length; i++) {
+   926→        var p = this.rain[i];
+   927→        if (!p.on || !p.front) continue;
+   928→        var col = st.cols[(p.c * st.cols.length) | 0];
+   929→        if (isSnow || isAsh) {
+   930→          ctx.fillStyle = 'rgba(' + col + ',' + (0.75 * b).toFixed(3) + ')';
+   931→          ctx.fillRect(p.x, p.y, isAsh ? 2.4 : 2.2, isAsh ? 2.4 : 2.2);
+   932→        } else {
+   933→          ctx.strokeStyle = 'rgba(' + col + ',' + ((W.rain ? W.rain.al : 0.5) * b).toFixed(3) + ')';
+   934→          ctx.lineWidth = 1.5;
+   935→          ctx.beginPath();
+   936→          ctx.moveTo(p.x, p.y);
+   937→          ctx.lineTo(p.x - this.wind * 5.4, p.y - (W.rain ? W.rain.len[1] : 10));
+   938→          ctx.stroke();
+   939→        }
+   940→      }
+   941→      // splashes no solo (só chuva)
+   942→      if (W.rain && !isAsh) {
+   943→        ctx.strokeStyle = 'rgba(190,210,240,' + (0.4 * b).toFixed(3) + ')';
+   944→        ctx.lineWidth = 1;
+   945→        for (var s = 0; s < this.splashes.length; s++) {
+   946→          var sp = this.splashes[s];
+   947→          if (!sp.on) continue;
+   948→          var pr = sp.t / sp.life;
+   949→          ctx.globalAlpha = (1 - pr) * 0.7;
+   950→          ctx.beginPath();
+   951→          ctx.ellipse(sp.x, sp.y, 1.5 + pr * 7, (1.5 + pr * 7) * 0.32, 0, 0, 6.2832);
+   952→          ctx.stroke();
+   953→        }
+   954→        ctx.globalAlpha = 1;
+   955→      }
+   956→    }
+   957→    // relâmpago (ramificado; lowFx: traço único — [AUDIT-C2]) + flash de tela
+   958→    if (this.boltT > 0 && this.boltPts) {
+   959→      var bt = this.boltT / 0.26;
+   960→      var boltCol = this.regionId === 'deserto_cinzas' ? '255,190,110' :
+   961→        this.regionId === 'coracao' ? '255,120,150' : '215,228,255';
+   962→      ctx.save();
+   963→      ctx.globalAlpha = bt;
+   964→      if (this.lowFx) {
+   965→        ctx.strokeStyle = 'rgba(' + boltCol + ',0.95)';
+   966→        ctx.lineWidth = 2.4;
+   967→        this._strokeBolt(ctx);
+   968→      } else {
+   969→        ctx.strokeStyle = 'rgba(' + boltCol + ',0.32)';
+   970→        ctx.lineWidth = 6;
+   971→        this._strokeBolt(ctx);
+   972→        ctx.strokeStyle = 'rgba(' + boltCol + ',0.95)';
+   973→        ctx.lineWidth = 2;
+   974→        this._strokeBolt(ctx);
+   975→        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+   976→        ctx.lineWidth = 0.8;
+   977→        this._strokeBolt(ctx);
+   978→      }
+   979→      ctx.restore();
+   980→    }
+   981→    if (this.flashA > 0.004) {
+   982→      ctx.fillStyle = 'rgba(210,222,255,' + Math.min(0.5, this.flashA * this._flashMul()).toFixed(3) + ')'; // [AUDIT-C1]
+   983→      ctx.fillRect(0, 0, this.W, this.H);
+   984→    }
+   985→  },
+   986→  _strokeBolt: function(ctx){
+   987→    ctx.beginPath();
+   988→    ctx.moveTo(this.boltPts[0][0], this.boltPts[0][1]);
+   989→    for (var i = 1; i < this.boltPts.length; i++) ctx.lineTo(this.boltPts[i][0], this.boltPts[i][1]);
+   990→    ctx.stroke();
+   991→  },
+   992→  _updateWeatherChip: function(){
+   993→    var el = document.getElementById('weather-chip');
+   994→    if (!el) return;
+   995→    var W = this.WEATHERS[this.weather];
+   996→    var name = (E.DM && E.DM.tr) ? E.DM.tr(this._weatherLocKey(this.weather)) : this.weather;
+   997→    var ico = el.querySelector('.ico'), nm = el.querySelector('.nm');
+   998→    if (ico) ico.textContent = W ? W.chip : '';
+   999→    if (nm) nm.textContent = name;
+  1000→  },
+  1001→  /* ================= PETS CENICOS (só render) ================= */
+  1002→  loadPetFrames: function(){
+  1003→    this.petFrames = {};
+  1004→    var re = /^pets\/((?:pet|cmp)_[a-z]+)_(idle|cheer|sad)_(\d+)$/;
+  1005→    for (var key in E.IMG) {
+  1006→      var m = re.exec(key);
+  1007→      if (!m) continue;
+  1008→      var base = m[1], pose = m[2], idx = m[3] | 0;
+  1009→      if (!this.petFrames[base]) this.petFrames[base] = {};
+  1010→      if (!this.petFrames[base][pose]) this.petFrames[base][pose] = [];
+  1011→      this.petFrames[base][pose][idx] = this._img(E.IMG[key]);
+  1012→    }
+  1013→    // compacta (remove buracos)
+  1014→    for (var b2 in this.petFrames) {
+  1015→      for (var p2 in this.petFrames[b2]) {
+  1016→        var arr = [];
+  1017→        for (var i2 = 0; i2 < this.petFrames[b2][p2].length; i2++)
+  1018→          if (this.petFrames[b2][p2][i2]) arr.push(this.petFrames[b2][p2][i2]);
+  1019→        if (arr.length) this.petFrames[b2][p2] = arr;
+  1020→        else delete this.petFrames[b2][p2];
+  1021→      }
+  1022→    }
+  1023→  },
+  1024→  setPetVisuals: function(){
+  1025→    var pk = '', ck = '';
+  1026→    if (E.Pet) {
+  1027→      if (E.Pet.active_pet && E.Pet.is_owned(E.Pet.active_pet)) {
+  1028→        var d1 = E.Pet.def(E.Pet.active_pet);
+  1029→        if (d1.icon && this.petFrames[d1.icon]) pk = d1.icon;
+  1030→      }
+  1031→      if (E.Pet.active_companion && E.Pet.is_owned(E.Pet.active_companion)) {
+  1032→        var d2 = E.Pet.def(E.Pet.active_companion);
+  1033→        if (d2.icon && this.petFrames[d2.icon]) ck = d2.icon;
+  1034→      }
+  1035→    }
+  1036→    this.petKey = pk; this.compKey = ck;
+  1037→    if (this.petAnim.pose !== 'idle') { this.petAnim.pose = 'idle'; this.petAnim.f = 0; this.petAnim.t = 0; }
+  1038→  },
+  1039→  _petPose: function(p){
+  1040→    if (!this.petFrames[this.petKey] && !this.petFrames[this.compKey]) return;
+  1041→    if (!this.PET_POSES[p]) return;
+  1042→    this.petAnim.pose = p; this.petAnim.f = 0; this.petAnim.t = 0;
+  1043→  },
+  1044→  _petTick: function(delta){
+  1045→    var a = this.petAnim, def = this.PET_POSES[a.pose];
+  1046→    var fr = (this.petFrames[this.petKey] || {})[a.pose] || (this.petFrames[this.compKey] || {})[a.pose];
+  1047→    if (!def || !fr || !fr.length) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+  1048→    if (a.pose === 'cheer' && this.time > this.cheerUntil) { a.pose = 'idle'; a.f = 0; a.t = 0; return; }
+  1049→    a.t += delta;
+  1050→    a.f = Math.floor(a.t * def.fps) % fr.length;
+  1051→  },
+  1052→  _petFrame: function(key, pose){
+  1053→    var fr = (this.petFrames[key] || {})[pose];
+  1054→    if (!fr || !fr.length) return null;
+  1055→    return fr[this.petAnim.f % fr.length];
+  1056→  },
+  1057→  registerPetCard: function(el, key){
+  1058→    if (!el || !key) return;
+  1059→    this.petCards.push({ el: el, key: key, i: 0 });
+  1060→  },
+  1061→  resetPetCards: function(){ this.petCards.length = 0; },
+  1062→  _petCardsTick: function(delta){
+  1063→    this._cardT += delta;
+  1064→    if (this._cardT < 0.22 || !this.petCards.length) return;
+  1065→    this._cardT = 0;
+  1066→    for (var i = 0; i < this.petCards.length; i++) {
+  1067→      var c = this.petCards[i];
+  1068→      var frames = (this.petFrames[c.key.replace('pets/', '')] || {}).idle;
+  1069→      if (!frames || frames.length < 2) continue;
+  1070→      c.i = (c.i + 1) % frames.length;
+  1071→      var uri = frames[c.i] && frames[c.i].src ? frames[c.i].src : E.IMG[c.key];
+  1072→      if (uri && c.el.getAttribute('src') !== uri) c.el.src = uri;
+  1073→    }
+  1074→  },
+  1075→  /* ================= REGIÃO / PARALLAX ================= */
+  1076→  setRegion: function(regionId){
+  1077→    if (this.regionId === regionId) return;
+  1078→    if (this.regionId && this.layers.length) { this.oldLayers = this.layers; this.oldAlpha = 1; }
+  1079→    this.regionId = regionId;
+  1080→    var region = null, rs = E.DM.cfg_regions.regions;
+  1081→    for (var i = 0; i < rs.length; i++) if (rs[i].id === regionId) region = rs[i];
+  1082→    if (!region) return;
+  1083→    this.pal = region.palette;
+  1084→    this.palSeason = this._seasonPal(this.pal, this.SEASONS[this.season] || null);
+  1085→    if (!this.regionCache[regionId]) this.regionCache[regionId] = this._buildRegion(regionId);
+  1086→    this.layers = this.regionCache[regionId];
+  1087→    this._seedAtmo(regionId);
+  1088→    this._seedSeasonAtmo();
+  1089→    this._seedFog(regionId);   // [ART-12] neblina do Pântano
+  1090→    this._seedPuddles();       // [ART-11] poças determinísticas da região
+  1091→    this._applyWeather(false); // clima muda suave ao entrar no bioma
+  1092→    this._updateChip();
+  1093→    this.regionTitleT = 2.4;
+  1094→  },
+  1095→  _buildRegion: function(rid){
+  1096→    var out = [];
+  1097→    var sky = this._img(E.IMG['ui/bg_' + rid + '_sky']);
+  1098→    out.push({ img: sky, speed: 0, x: 0, scale: 2, y: 0, isSky: true });
+  1099→    var defs = [['far', 6, 380], ['mid', 14, 300], ['near', 30, 220]];
+  1100→    for (var i = 0; i < defs.length; i++) {
+  1101→      var img = this._img(E.IMG['ui/bg_' + rid + '_' + defs[i][0]]);
+  1102→      out.push({ img: img, speed: defs[i][1], x: 0, scale: 2, w: 270 * 2, y: this.GROUND_Y - defs[i][2] });
+  1103→    }
+  1104→    return out;
+  1105→  },
+  1106→  _seedAtmo: function(rid){
+  1107→    this.atmo.length = 0;
+  1108→    var N = 42, kind = 0;
+  1109→    if (rid === 'bosque_vidro') kind = 0;       // vagalumes
+  1110→    else if (rid === 'pantano') kind = 1;       // esporos
+  1111→    else if (rid === 'cidadela') kind = 2;      // runas
+  1112→    else if (rid === 'deserto_cinzas') kind = 3;// brasas
+  1113→    else if (rid === 'picos') kind = 4;         // neve
+  1114→    else if (rid === 'coracao') kind = 5;       // cinza vermelha
+  1115→    else kind = 6;                              // motas do vazio
+  1116→    var acc = this.pal ? this.pal.accent : '#9b59d0';
+  1117→    for (var i = 0; i < N; i++) {
+  1118→      this.atmo.push({
+  1119→        x: Math.random() * this.W, y: Math.random() * this.H,
+  1120→        s: 0.6 + Math.random() * 1.8, ph: Math.random() * 6.28,
+  1121→        sp: 6 + Math.random() * 14, kind: kind, acc: acc
+  1122→      });
+  1123→    }
+  1124→  },
+  1125→  /* ================= POOLS ================= */
+  1126→  _float: function(amount, crit, side, color){
+  1127→    var f = this.floats[this.floatIdx];
+  1128→    this.floatIdx = (this.floatIdx + 1) % this.FLOAT_POOL;
+  1129→    var base_x = side === 'hero' ? 148 : 385;
+  1130→    f.on = true;
+  1131→    f.x = base_x + (Math.random() * 70 - 35);
+  1132→    f.y = 545 - (crit ? 18 : 0);
+  1133→    f.vx = Math.random() * 46 - 23;
+  1134→    f.vy = -(70 + Math.random() * 40 + (crit ? 30 : 0));
+  1135→    f.text = amount === 0 ? 'MISS' : (amount < 0 ? '-' + E.U.fmt(-amount) : E.U.fmt(amount));
+  1136→    f.color = color || '#fff';
+  1137→    f.size = crit ? 30 : 19;
+  1138→    f.crit = crit;
+  1139→    f.t = 0;
+  1140→  },
+  1141→  _part: function(type, x, y, vx, vy, life, size, color, grav){
+  1142→    var p = this.parts[this.partIdx];
+  1143→    this.partIdx = (this.partIdx + 1) % this.PART_POOL;
+  1144→    p.on = true; p.type = type; p.x = x; p.y = y; p.vx = vx; p.vy = vy;
+  1145→    p.t = 0; p.life = life; p.size = size; p.color = color; p.grav = grav || 0;
+  1146→  },
+  1147→  _sparks: function(x, y, n){
+  1148→    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
+  1149→    for (var i = 0; i < n; i++) {
+  1150→      var a = Math.random() * 6.28, sp = 60 + Math.random() * 160;
+  1151→      this._part(0, x, y, Math.cos(a) * sp, Math.sin(a) * sp - 40, 0.3 + Math.random() * 0.25,
+  1152→        1.5 + Math.random() * 2, Math.random() < 0.5 ? '#ffd27a' : '#fff3d0', 300);
+  1153→    }
+  1154→  },
+  1155→  _blood: function(x, y, n, color){
+  1156→    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
+  1157→    for (var i = 0; i < n; i++) {
+  1158→      var a = -1.2 + Math.random() * 2.4, sp = 50 + Math.random() * 130;
+  1159→      this._part(1, x, y - 10, Math.sin(a) * sp * 0.6, -Math.abs(Math.cos(a)) * sp - 30,
+  1160→        0.5 + Math.random() * 0.3, 1.5 + Math.random() * 2.2, color || '#c22e4a', 420);
+  1161→    }
+  1162→  },
+  1163→  _dust: function(x, y, n){
+  1164→    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
+  1165→    for (var i = 0; i < n; i++) {
+  1166→      var a = Math.random() * 6.28, sp = 20 + Math.random() * 70;
+  1167→      this._part(2, x + (Math.random() * 90 - 45), y - Math.random() * 40,
+  1168→        Math.cos(a) * sp, -10 - Math.random() * 30, 0.55 + Math.random() * 0.45,
+  1169→        4 + Math.random() * 7, 'rgba(150,140,160,0.5)', -30);
+  1170→    }
+  1171→  },
+  1172→  _motes: function(x, y, n, color){
+  1173→    n = Math.max(1, Math.round(n * this._fxMul())); // [AUDIT-C2]
+  1174→    for (var i = 0; i < n; i++)
+  1175→      this._part(3, x + (Math.random() * 120 - 60), y + (Math.random() * 60 - 30),
+  1176→        Math.random() * 30 - 15, -40 - Math.random() * 60, 0.8 + Math.random() * 0.6,
+  1177→        1.5 + Math.random() * 2, color || '#ffd700', -20);
+  1178→  },
+  1179→  _explosion: function(x, y){
+  1180→    this._ring(x, y, 8, 210, 'rgba(232,163,58,0.95)', 6, 0.8);
+  1181→    this._ring(x, y, 4, 150, 'rgba(255,240,200,0.9)', 3, 0.55);
+  1182→    this._sparks(x, y, 26);
+  1183→    this._dust(x, y + 40, 16);
+  1184→    this._motes(x, y, 12);
+  1185→  },
+  1186→  _ring: function(x, y, r0, r1, color, width, life){
+  1187→    var r = this.rings[this.ringIdx];
+  1188→    this.ringIdx = (this.ringIdx + 1) % this.RING_POOL;
+  1189→    r.on = true; r.x = x; r.y = y; r.r0 = r0; r.r1 = r1; r.color = color;
+  1190→    r.width = width || 3; r.life = life || 0.7; r.t = 0;
+  1191→  },
+  1192→  addShake: function(i){
+  1193→    // [AUDIT-C1] fotossensibilidade: tremor amenizado (não remove o feedback, reduz a amplitude)
+  1194→    this.shake = Math.min(1.2, Math.max(this.shake, i * (this.reducedFx ? 0.3 : 1)));
+  1195→  },
+  1196→  banner: function(txt, color){
+  1197→    var el = document.getElementById('banner');
+  1198→    if (!el) return;
+  1199→    el.textContent = txt;
+  1200→    el.style.color = color || '#e8a33a';
+  1201→    el.classList.add('show');
+  1202→    el.style.opacity = '1';
+  1203→    clearTimeout(this._bannerTo);
+  1204→    this._bannerTo = setTimeout(function(){
+  1205→      el.classList.remove('show');
+  1206→      el.style.opacity = '0';
+  1207→    }, 1150);
+  1208→  },
+  1209→  /* ================= FRAME ================= */
+  1210→  render: function(delta){
+  1211→    var ctx = this.ctx, W = this.W, H = this.H;
+  1212→    this.time += delta;
+  1213→    /* [AUDIT-C2] medição de frame real (delta cru do rAF, pré-clamp) —
+  1214→       média móvel decide o modo leve a cada 2s quando perfMode=auto */
+  1215→    var raw = this._rawDelta > 0 && this._rawDelta < 1 ? this._rawDelta : delta;
+  1216→    this._perfAvg += (raw - this._perfAvg) * 0.04;
+  1217→    this._perfT += delta;
+  1218→    if (this._perfT > 2) {
+  1219→      this._perfT = 0;
+  1220→      if (this.perfMode === 'low') this.lowFx = true;
+  1221→      else if (this.perfMode === 'high') this.lowFx = false;
+  1222→      else {
+  1223→        if (this._perfAvg > 0.027) this.lowFx = true;
+  1224→        else if (this._perfAvg < 0.019) this.lowFx = false;
+  1225→      }
+  1226→    }
+  1227→    // [V3] HIT-STOP: no crítico, a camada VISUAL quase congela por ~85ms
+  1228→    // (relógio de animação/partículas); a simulação do combate segue intacta.
+  1229→    if (this.hitStopT > 0) { this.hitStopT -= delta; delta = delta * 0.06; }
+  1230→    this._weatherTick(delta);          // clima: vento/relâmpagos/precipitação
+  1231→    this._puddleTick(delta);           // [ART-11] poças encharcando/secando
+  1232→    this._fogTick(delta);              // [ART-12] deriva e densidade da névoa
+  1233→    this._petTick(delta);              // FSM cênica dos pets
+  1234→    this._petCardsTick(delta);         // cards animados no painel de Pets
+  1235→    ctx.save();
+  1236→    // ---- screenshake por trauma (offset + micro-rotação) ----
+  1237→    if (this.shake > 0.001) {
+  1238→      var tr2 = this.shake * this.shake;
+  1239→      var sx = (Math.random() * 2 - 1) * tr2 * 11;
+  1240→      var sy = (Math.random() * 2 - 1) * tr2 * 9;
+  1241→      var rot = Math.sin(this.time * 57) * tr2 * 0.013;
+  1242→      ctx.translate(W / 2 + sx, H / 2 + sy);
+  1243→      ctx.rotate(rot);
+  1244→      ctx.translate(-W / 2, -H / 2);
+  1245→      this.shake = Math.max(0, this.shake - delta * 1.7);
+  1246→    }
+  1247→    ctx.clearRect(-30, -30, W + 60, H + 60);
+  1248→    // ---- 1) céu ----
+  1249→    this._drawLayers(delta);
+  1250→    // ---- 1.2) [V2] eclipse progressivo — o céu consome-se conforme o ciclo avança
+  1251→    this._drawEclipseCorona();
+  1252→    // ---- 1.5) clima atrás: escurecimento + precipitação de fundo ----
+  1253→    this._drawWeatherBack(delta);
+  1254→    // ---- 2) névoa oscilante (paleta da estação) ----
+  1255→    var palDraw = this.palSeason || this.pal;
+  1256→    if (palDraw) {
+  1257→      var fogY1 = this.GROUND_Y - 130 + Math.sin(this.time * 0.5) * 12;
+  1258→      var fogY2 = this.GROUND_Y - 60 + Math.cos(this.time * 0.4) * 10;
+  1259→      ctx.globalAlpha = 0.07;
+  1260→      ctx.fillStyle = palDraw.accent;
+  1261→      ctx.fillRect(0, fogY1, W, 70);
+  1262→      ctx.globalAlpha = 0.05;
+  1263→      ctx.fillRect(0, fogY2, W, 90);
+  1264→      ctx.globalAlpha = 1;
+  1265→    }
+  1266→    // ---- 3) partículas atmosféricas (bioma + estação, atrás das entidades) ----
+  1267→    this._drawAtmo(delta);
+  1268→    this._drawSeasonAtmo(delta, false);
+  1269→    // ---- 4) chão ----
+  1270→    if (palDraw) {
+  1271→      var g = ctx.createLinearGradient(0, this.GROUND_Y, 0, H);
+  1272→      g.addColorStop(0, palDraw.ground);
+  1273→      g.addColorStop(1, '#040208');
+  1274→      ctx.fillStyle = g;
+  1275→      ctx.fillRect(0, this.GROUND_Y, W, H - this.GROUND_Y);
+  1276→      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  1277→      ctx.fillRect(0, this.GROUND_Y, W, 2);
+  1278→      ctx.globalAlpha = 0.10; ctx.fillStyle = palDraw.accent;
+  1279→      ctx.fillRect(0, this.GROUND_Y, W, 4);
+  1280→      ctx.globalAlpha = 1;
+  1281→    }
+  1282→    // ---- 4.5) [ART-12] névoa densa (camada de trás + bruma do solo) ----
+  1283→    this._drawFog(false);
+  1284→    this._drawGroundMist();
+  1285→    // ---- 5) anéis de efeito (atrás das entidades) ----
+  1286→    this._drawRings(delta);
+  1287→    // ---- 5.5) spotlight (separação entidade/fundo) ----
+  1288→    var spot = ctx.createRadialGradient(300, 650, 40, 300, 650, 330);
+  1289→    spot.addColorStop(0, 'rgba(0,0,0,0.42)');
+  1290→    spot.addColorStop(1, 'rgba(0,0,0,0)');
+  1291→    ctx.fillStyle = spot;
+  1292→    ctx.fillRect(0, 330, W, 470);
+  1293→    // ---- 6) entidades ----
+  1294→    this._heroTick(delta);
+  1295→    this._drawEntities(delta);
+  1296→    // ---- 6.2) [V3] arco de corte do crítico
+  1297→    this._drawSlashes(delta);
+  1298→    // ---- 6.1) [AUDIT-B1] VFX de estado (escudo/DOT/buff/stun — leitura do Combat) ----
+  1299→    this._drawStatusFx(delta);
+  1300→    // ---- 6.4) [ART-11] poças refletivas (reflexo das entidades na chuva) ----
+  1301→    this._drawPuddles();
+  1302→    // ---- 7) partículas de combate + estação em primeiro plano ----
+  1303→    this._drawParts(delta);
+  1304→    this._drawSeasonAtmo(delta, true);
+  1305→    // ---- 7.2) clima à frente: precipitação grossa + splash + relâmpago ----
+  1306→    this._drawWeatherFront(delta);
+  1307→    // ---- 7.3) [ART-12] névoa de frente (vela a chuva junto à câmera) ----
+  1308→    this._drawFog(true);
+  1309→    // ---- 7.5) wash de humor (estação + clima) ----
+  1310→    var Sw = this.SEASONS[this.season];
+  1311→    if (Sw && Sw.wash) { ctx.fillStyle = Sw.wash; ctx.fillRect(-30, -30, W + 60, H + 60); }
+  1312→    var Wx = this.WEATHERS[this.weather];
+  1313→    if (Wx && Wx.wash) {
+  1314→      var prevX = this.WEATHERS[this.weatherPrev];
+  1315→      var wa = this.weatherBlend;
+  1316→      ctx.globalAlpha = wa;
+  1317→      ctx.fillStyle = Wx.wash;
+  1318→      ctx.fillRect(-30, -30, W + 60, H + 60);
+  1319→      if (prevX && prevX.wash && wa < 1) {
+  1320→        ctx.globalAlpha = 1 - wa;
+  1321→        ctx.fillStyle = prevX.wash;
+  1322→        ctx.fillRect(-30, -30, W + 60, H + 60);
+  1323→      }
+  1324→      ctx.globalAlpha = 1;
+  1325→    }
+  1326→    // ---- 7.7) [AUDIT-B3] vinheta de perigo — herói < 30% de vida pulsa vermelho nas bordas ----
+  1327→    if (this.heroHpShown < 0.3 && this.heroHpShown > 0.001) {
+  1328→      var hp = this.heroHpShown / 0.3;
+  1329→      var pulse = 0.5 + 0.5 * Math.sin(this.time * 5.2);
+  1330→      var vA = (0.34 - 0.2 * hp) * (0.55 + 0.45 * pulse) * this._flashMul() * 1.2;
+  1331→      if (vA > 0.004) {
+  1332→        var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.62);
+  1333→        vg.addColorStop(0, 'rgba(120,10,24,0)');
+  1334→        vg.addColorStop(1, 'rgba(150,14,28,' + vA.toFixed(3) + ')');
+  1335→        ctx.fillStyle = vg;
+  1336→        ctx.fillRect(0, 0, W, H);
+  1337→      }
+  1338→    }
+  1339→    // ---- 8) barras de vida ----
+  1340→    this._bar(ctx, 20, 470, 230, 30, this.heroHpShown, this.heroGhost, '#3a9e5f', '#7a3030', this.heroHpLabel, '#58e07a');
+  1341→    this._bar(ctx, 290, 470, 230, 30, this.enemyHpShown, this.enemyGhost, '#d0455f', '#7a3030', this.enemyHpLabel, '#ff7a8a');
+  1342→    this.heroGhost = this._ghost(this.heroGhost, this.heroHpShown, delta);
+  1343→    this.enemyGhost = this._ghost(this.enemyGhost, this.enemyHpShown, delta);
+  1344→    // ---- 9) dano flutuante ----
+  1345→    this._drawFloats(delta);
+  1346→    // ---- 9.5) [V6] orbes de loot voando ao HUD
+  1347→    this._drawLootOrbs(delta);
+  1348→    // ---- 10) título da região ([V5] placa do ciclo: numeral + filetes + glifo de eclipse) ----
+  1349→    if (this.regionTitleT > 0) {
+  1350→      this.regionTitleT -= delta;
+  1351→      var tIn = 2.4 - this.regionTitleT;
+  1352→      var a = Math.min(1, Math.min(this.regionTitleT, tIn) * 2);
+  1353→      var ea2 = E.U.clamp(a, 0, 1);
+  1354→      var slide2 = (1 - Math.min(1, tIn * 2.4)) * 14;
+  1355→      var name2 = (this._regionName() || '').toUpperCase();
+  1356→      var rom2 = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][this._regionIndex()] || '';
+  1357→      var band2 = this._viewBand();
+  1358→      var yC = band2.top + (band2.bot - band2.top) * 0.10 + slide2;
+  1359→      var acc2 = this.pal ? this.pal.accent : '#e8a33a';
+  1360→      ctx.textAlign = 'center';
+  1361→      ctx.font = '700 26px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+  1362→      ctx.globalAlpha = ea2 * 0.92;
+  1363→      ctx.fillStyle = '#000';
+  1364→      ctx.fillText(name2, W / 2 + 2, yC + 2);
+  1365→      ctx.fillStyle = acc2;
+  1366→      ctx.fillText(name2, W / 2, yC);
+  1367→      var tw2 = ctx.measureText(name2).width;
+  1368→      // filetes com losango + numeral da região no ciclo
+  1369→      ctx.strokeStyle = acc2; ctx.lineWidth = 1;
+  1370→      ctx.globalAlpha = ea2 * 0.55;
+  1371→      ctx.beginPath();
+  1372→      ctx.moveTo(W / 2 - tw2 / 2 - 76, yC - 9); ctx.lineTo(W / 2 - tw2 / 2 - 18, yC - 9);
+  1373→      ctx.moveTo(W / 2 + tw2 / 2 + 18, yC - 9); ctx.lineTo(W / 2 + tw2 / 2 + 76, yC - 9);
+  1374→      ctx.stroke();
+  1375→      ctx.globalAlpha = ea2 * 0.8;
+  1376→      ctx.fillStyle = acc2;
+  1377→      ctx.font = '700 11px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+  1378→      ctx.fillText(E.DM.tr('region_word') + ' ' + rom2, W / 2, yC + 22);
+  1379→      // glifo de eclipse (mini lua/sol) à esquerda do filete
+  1380→      var gx = W / 2 - tw2 / 2 - 86;
+  1381→      ctx.beginPath(); ctx.arc(gx, yC - 12, 5, 0, 6.2832);
+  1382→      ctx.fillStyle = '#0a0614'; ctx.fill();
+  1383→      ctx.strokeStyle = acc2; ctx.lineWidth = 1.2; ctx.stroke();
+  1384→      ctx.globalAlpha = 1;
+  1385→    }
+  1386→    // ---- 10.5) [V1] intro cinematográfica do chefe (escurecimento + placa) ----
+  1387→    this._drawBossIntro(delta);
+  1388→    // ---- chip da estação/clima (refresh barato p/ troca de idioma) ----
+  1389→    this._chipT += delta;
+  1390→    if (this._chipT > 2) { this._chipT = 0; this._band = null; this._updateChip(); this._updateWeatherChip(); }
+  1391→    ctx.restore();
+  1392→  },
+  1393→  _drawLayers: function(delta){
+  1394→    var W = this.W, S = this.SEASONS[this.season];
+  1395→    for (var pass = 0; pass < 2; pass++) {
+  1396→      var layers = pass === 0 ? this.layers : this.oldLayers;
+  1397→      if (!layers) continue;
+  1398→      if (pass === 1) {
+  1399→        this.oldAlpha = Math.max(0, this.oldAlpha - delta * 1.8);
+  1400→        if (this.oldAlpha <= 0) { this.oldLayers = null; continue; }
+  1401→        this.ctx.globalAlpha = this.oldAlpha;
+  1402→      }
+  1403→      for (var i = 0; i < layers.length; i++) {
+  1404→        var L = layers[i];
+  1405→        if (!L.img || !L.img.complete || !L.img.naturalWidth) continue;
+  1406→        var img = L.img;
+  1407→        if (S) { // variante sazonal (cache por camada; re-tenta até a img carregar)
+  1408→          if (!L.tinted) L.tinted = {};
+  1409→          var tv = L.tinted[this.season];
+  1410→          if (!tv) { tv = this._tintImg(L.img, S); if (tv) L.tinted[this.season] = tv; }
+  1411→          img = tv || L.img;
+  1412→        }
+  1413→        if (L.isSky) {
+  1414→          this.ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, W, this.H);
+  1415→        } else {
+  1416→          L.x -= L.speed * delta;
+  1417→          if (L.x <= -L.w) L.x += L.w;
+  1418→          var x = L.x;
+  1419→          while (x < W) {
+  1420→            this.ctx.drawImage(img, x, L.y, L.w, img.naturalHeight * 2);
+  1421→            x += L.w;
+  1422→          }
+  1423→        }
+  1424→      }
+  1425→      this.ctx.globalAlpha = 1;
+  1426→    }
+  1427→  },
+  1428→  _drawAtmo: function(delta){
+  1429→    var ctx = this.ctx, W = this.W, H = this.H, t = this.time;
+  1430→    for (var i = 0; i < this.atmo.length; i++) {
+  1431→      var p = this.atmo[i];
+  1432→      if (p.kind === 4) { // neve caindo
+  1433→        p.y += p.sp * delta * 2.2;
+  1434→        p.x += (Math.sin(t * 1.4 + p.ph) * 14 + this.wind * 30) * delta;
+  1435→        if (p.y > this.GROUND_Y) { p.y = -6; p.x = Math.random() * W; }
+  1436→        ctx.globalAlpha = 0.5 + Math.sin(t + p.ph) * 0.2;
+  1437→        ctx.fillStyle = '#dceafc';
+  1438→        ctx.fillRect(p.x, p.y, p.s + 0.6, p.s + 0.6);
+  1439→      } else {           // motas flutuantes
+  1440→        p.y -= p.sp * delta * 0.55;
+  1441→        p.x += (Math.sin(t * 0.9 + p.ph) * 10 + this.wind * 18) * delta;
+  1442→        if (p.y < -8) { p.y = this.GROUND_Y + Math.random() * 60; p.x = Math.random() * W; }
+  1443→        var tw = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.2 + p.ph));
+  1444→        ctx.globalAlpha = tw;
+  1445→        ctx.fillStyle = p.kind === 0 ? '#8af0c8' : p.kind === 3 ? '#ffb060' :
+  1446→          p.kind === 5 ? '#e87080' : p.kind === 6 ? '#f5e6c8' : p.acc;
+  1447→        var sz = p.s + (p.kind === 0 ? Math.sin(t * 3 + p.ph) * 0.5 : 0);
+  1448→        ctx.fillRect(p.x, p.y, Math.max(0.8, sz), Math.max(0.8, sz));
+  1449→      }
+  1450→    }
+  1451→    ctx.globalAlpha = 1;
+  1452→  },
+  1453→  _drawRings: function(delta){
+  1454→    var ctx = this.ctx;
+  1455→    for (var i = 0; i < this.rings.length; i++) {
+  1456→      var r = this.rings[i];
+  1457→      if (!r.on) continue;
+  1458→      r.t += delta;
+  1459→      var pr = r.t / r.life;
+  1460→      if (pr >= 1) { r.on = false; continue; }
+  1461→      var rad = r.r0 + (r.r1 - r.r0) * (1 - Math.pow(1 - pr, 2.4));
+  1462→      ctx.globalAlpha = (1 - pr);
+  1463→      ctx.strokeStyle = r.color;
+  1464→      ctx.lineWidth = r.width * (1 - pr * 0.6);
+  1465→      ctx.beginPath();
+  1466→      ctx.ellipse(r.x, r.y, rad, rad * 0.62, 0, 0, 6.2832);
+  1467→      ctx.stroke();
+  1468→    }
+  1469→    ctx.globalAlpha = 1;
+  1470→  },
+  1471→  _drawEntities: function(delta){
+  1472→    var ctx = this.ctx, t = this.time;
+  1473→    var hl = this.heroLunge, el2 = this.enemyLunge;
+  1474→    var heroX = 45 - hl * 14, heroY = 525 + Math.sin(t / 240) * 2.5;
+  1475→    var bossScale = this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1);
+  1476→    var enCX = this.enemyBoss ? 372 : 390;               // centro do inimigo (chefe centralizado p/ caber)
+  1477→    var enX = enCX - 120 + el2 * 12, enY = 525 + Math.sin(t / 200 + 2) * 2.5;
+  1478→    var alpha = 1;
+  1479→    if (this.enemyFade > 0) {
+  1480→      this.enemyFade = Math.min(1, this.enemyFade + delta * 2.6);
+  1481→      alpha = 1 - this.enemyFade;
+  1482→    }
+  1483→    if (this.enemySpawn < 1 && this.hasEnemy) {
+  1484→      this.enemySpawn = Math.min(1, this.enemySpawn + delta * 3.2);
+  1485→    }
+  1486→    var spawnE = this.enemySpawn < 1 ? (1 - Math.pow(1 - this.enemySpawn, 3)) : 1;
+  1487→    // sombras
+  1488→    ctx.globalAlpha = 0.38; ctx.fillStyle = '#000';
+  1489→    ctx.beginPath(); ctx.ellipse(heroX + 120, 768, 92 - hl * 8, 13, 0, 0, 6.2832); ctx.fill();
+  1490→    if (this.hasEnemy) {
+  1491→      var esc = this.enemyBoss ? 1.62 : (this.enemyMini ? 1.18 : 1);
+  1492→      ctx.globalAlpha = 0.38 * alpha;
+  1493→      ctx.beginPath(); ctx.ellipse(enCX, 770, 100 * bossScale * spawnE, 15 * bossScale, 0, 0, 6.2832); ctx.fill();
+  1494→    }
+  1495→    ctx.globalAlpha = 1;
+  1496→    // ---- pets cênicos: companheiro atrás do herói ----
+  1497→    var hopY = this.petAnim.pose === 'cheer' ? -Math.abs(Math.sin(t * 7)) * 6 : 0;
+  1498→    var cf = this._petFrame(this.compKey, this.petAnim.pose);
+  1499→    if (cf && cf.complete && cf.naturalWidth) {
+  1500→      ctx.globalAlpha = 0.3; ctx.fillStyle = '#000';
+  1501→      ctx.beginPath(); ctx.ellipse(94, 771, 54, 10, 0, 0, 6.2832); ctx.fill();
+  1502→      ctx.globalAlpha = 1;
+  1503→      ctx.drawImage(cf, 6, 589 + hopY, 176, 176);
+  1504→    }
+  1505→    // ---- [V4] aura de raridade do equipamento sob o herói (leitura de E.Inv) ----
+  1506→    this._drawHeroAura(t, heroX, heroY);
+  1507→    // ---- herói (FSM: frame da postura corrente + flash por frame) ----
+  1508→    var fr = this.heroFrames[this.heroAnim.pose] || [];
+  1509→    var hImg = fr[this.heroAnim.f] || this.heroImg;
+  1510→    var frKey = this.heroAnim.pose + this.heroAnim.f;
+  1511→    if (hImg && hImg.complete && hImg.naturalWidth > 0) {
+  1512→      var hWhite = this._whiteFor(hImg, frKey);
+  1513→      ctx.drawImage(hImg, heroX, heroY, 240, 240);
+  1514→      if (this.heroFlash > 0.01 && hWhite) {
+  1515→        ctx.globalAlpha = Math.min(0.85, this.heroFlash);
+  1516→        ctx.drawImage(hWhite, heroX, heroY, 240, 240);
+  1517→        ctx.globalAlpha = 1;
+  1518→        this.heroFlash = Math.max(0, this.heroFlash - delta * 3.4);
+  1519→      }
+  1520→    }
+  1521→    // ---- pet aos pés do herói (à frente, próximo do inimigo) ----
+  1522→    var pf = this._petFrame(this.petKey, this.petAnim.pose);
+  1523→    if (pf && pf.complete && pf.naturalWidth) {
+  1524→      ctx.globalAlpha = 0.34; ctx.fillStyle = '#000';
+  1525→      ctx.beginPath(); ctx.ellipse(234, 772, 38, 8, 0, 0, 6.2832); ctx.fill();
+  1526→      ctx.globalAlpha = 1;
+  1527→      ctx.drawImage(pf, 196, 694 + hopY, 76, 76);
+  1528→    }
+  1529→    // inimigo (aura de chefe + spawn + fade)
+  1530→    if (this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth > 0) {
+  1531→      if (!this.enemyWhite) this.enemyWhite = this._makeWhite(this.enemyImg);
+  1532→      var scale = bossScale;
+  1533→      var sz = 240 * scale * (0.4 + 0.6 * spawnE);
+  1534→      var ex = enX - (sz - 240) / 2, ey = enY - (sz - 240);
+  1535→      // aura orbital do chefe
+  1536→      if ((this.enemyBoss || this.enemyMini) && alpha > 0.9 && this.enemyFade === 0) {
+  1537→        var n = this.enemyBoss ? 7 : 4, orbit = 96 * scale;
+  1538→        for (var oi = 0; oi < n; oi++) {
+  1539→          var ang = t * (this.enemyBoss ? 1.5 : 1.1) + oi * 6.2832 / n;
+  1540→          var ox = enCX + Math.cos(ang) * orbit;
+  1541→          var oy = enY + 108 + Math.sin(ang) * orbit * 0.36;
+  1542→          var oa = 0.35 + 0.3 * Math.sin(t * 3 + oi);
+  1543→          ctx.globalAlpha = oa;
+  1544→          ctx.fillStyle = this.enemyBoss ? '#ffd27a' : '#c88adf';
+  1545→          ctx.fillRect(ox, oy, 3, 3);
+  1546→          ctx.fillRect(ox - 1, oy - 1, 5, 5);
+  1547→        }
+  1548→        // disco pulsante sob o chefe
+  1549→        var pu = 0.5 + 0.5 * Math.sin(t * 2.6);
+  1550→        ctx.globalAlpha = (this.enemyBoss ? 0.30 : 0.16) * (0.6 + pu * 0.4) * spawnE;
+  1551→        ctx.fillStyle = this.enemyBoss ? 'rgba(232,163,58,1)' : 'rgba(155,89,208,1)';
+  1552→        ctx.beginPath();
+  1553→        ctx.ellipse(enCX, 768, 70 * scale * (0.9 + pu * 0.14), 11 * scale, 0, 0, 6.2832);
+  1554→        ctx.fill();
+  1555→        ctx.globalAlpha = 1;
+  1556→      }
+  1557→      // enfurecido: aura vermelha pulsante (leitura de estado, sem escrita)
+  1558→      var berserkNow = !!(E.Combat.enemy && E.Combat.enemy_berserk);
+  1559→      if (berserkNow && alpha > 0.9) {
+  1560→        var pu2 = 0.5 + 0.5 * Math.sin(t * 6);
+  1561→        ctx.globalAlpha = 0.35 + pu2 * 0.3;
+  1562→        ctx.strokeStyle = 'rgba(255,70,90,1)';
+  1563→        ctx.lineWidth = 2.5;
+  1564→        ctx.beginPath();
+  1565→        ctx.arc(ex + sz / 2, ey + sz / 2, sz * 0.52, 0, 6.2832);
+  1566→        ctx.stroke();
+  1567→        ctx.globalAlpha = alpha;
+  1568→      }
+  1569→      ctx.globalAlpha = alpha;
+  1570→      ctx.drawImage(this.enemyImg, ex, ey, sz, sz);
+  1571→      if (this.enemyFlash > 0.01 && this.enemyWhite) {
+  1572→        ctx.globalAlpha = alpha * Math.min(0.9, this.enemyFlash);
+  1573→        ctx.drawImage(this.enemyWhite, ex, ey, sz, sz);
+  1574→        this.enemyFlash = Math.max(0, this.enemyFlash - delta * 3.2);
+  1575→      }
+  1576→      ctx.globalAlpha = 1;
+  1577→    }
+  1578→    // flashes de golpe (crescente no alvo)
+  1579→    if (hl > 0.55) {
+  1580→      ctx.globalAlpha = (hl - 0.55) * 1.4;
+  1581→      ctx.strokeStyle = 'rgba(255,232,170,1)';
+  1582→      ctx.lineWidth = 3;
+  1583→      ctx.beginPath();
+  1584→      ctx.arc(enCX, enY + 120, 96, -2.4, 0.4);
+  1585→      ctx.stroke();
+  1586→      ctx.globalAlpha = 1;
+  1587→    }
+  1588→    if (el2 > 0.55) {
+  1589→      ctx.globalAlpha = (el2 - 0.55) * 1.3;
+  1590→      ctx.strokeStyle = 'rgba(255,110,130,1)';
+  1591→      ctx.lineWidth = 3;
+  1592→      ctx.beginPath();
+  1593→      ctx.arc(heroX + 120, heroY + 120, 92, 0.8, 3.6);
+  1594→      ctx.stroke();
+  1595→      ctx.globalAlpha = 1;
+  1596→    }
+  1597→    this.heroLunge = Math.max(0, this.heroLunge - delta * 3.6);
+  1598→    this.enemyLunge = Math.max(0, this.enemyLunge - delta * 3.6);
+  1599→  },
+  1600→  /* ================= [AUDIT-B1] VFX DE ESTADO (só leitura de E.Combat) =================
+  1601→     As 4 habilidades tinham efeitos "invisíveis" — a cena agora REAGUE:
+  1602→     · guarda_sombras → bolha arcânica girando ao redor do herói (hero_shield>0)
+  1603→     · cataclismo     → brasas douradas em órbita no herói (_buff_time>0)
+  1604→     · sedenta        → miasma roxa subindo do inimigo (_dot_time>0)
+  1605→     · lâmina evoluída→ estrelas de atordoamento sobre o inimigo (_stun_t>0) */
+  1606→  _drawStatusFx: function(delta){
+  1607→    var C = E.Combat;
+  1608→    if (!C || !C.active) return;
+  1609→    var ctx = this.ctx, t = this.time;
+  1610→    var hl = this.heroLunge;
+  1611→    var heroX = 45 - hl * 14, heroY = 525 + Math.sin(t / 240) * 2.5;
+  1612→    var hcx = heroX + 120, hcy = heroY + 120;
+  1613→    var bossScale = this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1);
+  1614→    var enCX = this.enemyBoss ? 372 : 390;
+  1615→    var enY = 525 + Math.sin(t / 200 + 2) * 2.5;
+  1616→    var ecy = enY + 108;
+  1617→    // 1) escudo arcano (guarda_sombras)
+  1618→    if (C.hero_shield > 0.5) {
+  1619→      var sp = 0.5 + 0.5 * Math.sin(t * 3.1);
+  1620→      ctx.save();
+  1621→      // brilho interno suave (leitura imediata: "estou protegido")
+  1622→      var sg = ctx.createRadialGradient(hcx, hcy, 40, hcx, hcy, 120);
+  1623→      sg.addColorStop(0, 'rgba(111,179,255,0)');
+  1624→      sg.addColorStop(0.8, 'rgba(111,179,255,' + (0.10 + 0.06 * sp).toFixed(3) + ')');
+  1625→      sg.addColorStop(1, 'rgba(140,200,255,0.02)');
+  1626→      ctx.fillStyle = sg;
+  1627→      ctx.beginPath(); ctx.arc(hcx, hcy, 120, 0, 6.2832); ctx.fill();
+  1628→      ctx.globalAlpha = 0.42 + 0.2 * sp;
+  1629→      ctx.strokeStyle = '#8ec4ff';
+  1630→      ctx.lineWidth = 2;
+  1631→      ctx.beginPath(); ctx.arc(hcx, hcy, 108 + sp * 4, 0, 6.2832); ctx.stroke();
+  1632→      ctx.globalAlpha = 0.5 + 0.2 * sp;
+  1633→      ctx.strokeStyle = '#b7dcff';
+  1634→      ctx.lineWidth = 1.4;
+  1635→      for (var i = 0; i < 3; i++) { // arcos de runa girando
+  1636→        var a0 = t * 1.4 + i * 2.094;
+  1637→        ctx.beginPath(); ctx.arc(hcx, hcy, 116, a0, a0 + 1.05); ctx.stroke();
+  1638→      }
+  1639→      ctx.restore();
+  1640→    }
+  1641→    // 2) buff ofensivo (cataclismo): brasas douradas em órbita
+  1642→    if (C._buff_time > 0) {
+  1643→      var n = this.lowFx ? 4 : 7;
+  1644→      ctx.save();
+  1645→      for (var oi = 0; oi < n; oi++) {
+  1646→        var ang = t * 2.1 + oi * 6.2832 / n;
+  1647→        var ox = hcx + Math.cos(ang) * 86;
+  1648→        var oy = hcy + Math.sin(ang * 1.7) * 60;
+  1649→        ctx.globalAlpha = 0.45 + 0.3 * Math.sin(t * 4 + oi);
+  1650→        ctx.fillStyle = '#ffd27a';
+  1651→        ctx.fillRect(ox, oy, 3, 3);
+  1652→      }
+  1653→      ctx.restore();
+  1654→    }
+  1655→    if (!this.hasEnemy || this.enemyFade > 0) return;
+  1656→    var evis = this.enemySpawn < 1 ? 0.4 + 0.6 * this.enemySpawn : 1;
+  1657→    // 3) DOT (sedenta): miasma roxa subindo do inimigo
+  1658→    if (C._dot_time > 0) {
+  1659→      var dn = this.lowFx ? 2 : 4;
+  1660→      ctx.save();
+  1661→      for (var di = 0; di < dn; di++) {
+  1662→        var ph = (t * 0.65 + di * 0.41) % 1;      // 0→1 ciclo contínuo
+  1663→        var dx2 = Math.sin(t * 4.1 + di * 1.7) * 26;
+  1664→        ctx.globalAlpha = (1 - ph) * 0.5 * evis;
+  1665→        ctx.fillStyle = '#9b59d0';
+  1666→        ctx.beginPath();
+  1667→        ctx.arc(enCX + dx2, ecy - ph * 130, 5 + ph * 9, 0, 6.2832);
+  1668→        ctx.fill();
+  1669→      }
+  1670→      ctx.restore();
+  1671→    }
+  1672→    // 4) stun (lâmina do eclipse evoluída): estrelas girando sobre a cabeça
+  1673→    if (C._stun_t > 0) {
+  1674→      ctx.save();
+  1675→      ctx.globalAlpha = Math.min(1, C._stun_t * 2) * evis;
+  1676→      ctx.fillStyle = '#ffe9a8';
+  1677→      ctx.strokeStyle = 'rgba(255,233,168,0.7)';
+  1678→      ctx.lineWidth = 1;
+  1679→      for (var si = 0; si < 3; si++) {
+  1680→        var sa = t * 3.4 + si * 2.094;
+  1681→        var sx3 = enCX + Math.cos(sa) * 40 * bossScale;
+  1682→        var sy3 = enY - 24 * bossScale + Math.sin(sa) * 10;
+  1683→        ctx.beginPath(); ctx.arc(sx3, sy3, 2.4, 0, 6.2832); ctx.fill();
+  1684→        ctx.beginPath();
+  1685→        ctx.moveTo(sx3 - 5, sy3); ctx.lineTo(sx3 + 5, sy3);
+  1686→        ctx.moveTo(sx3, sy3 - 5); ctx.lineTo(sx3, sy3 + 5);
+  1687→        ctx.stroke();
+  1688→      }
+  1689→      ctx.restore();
+  1690→    }
+  1691→  },
+  1692→  _drawParts: function(delta){
+  1693→    var ctx = this.ctx;
+  1694→    for (var i = 0; i < this.parts.length; i++) {
+  1695→      var p = this.parts[i];
+  1696→      if (!p.on) continue;
+  1697→      p.t += delta;
+  1698→      if (p.t >= p.life) { p.on = false; continue; }
+  1699→      p.vy += p.grav * delta;
+  1700→      p.x += p.vx * delta;
+  1701→      p.y += p.vy * delta;
+  1702→      var pr = p.t / p.life;
+  1703→      ctx.globalAlpha = pr < 0.2 ? pr / 0.2 : 1 - (pr - 0.2) / 0.8;
+  1704→      if (p.type === 2) { // poeira: círculo expandindo
+  1705→        ctx.fillStyle = p.color;
+  1706→        ctx.beginPath();
+  1707→        ctx.arc(p.x, p.y, p.size * (0.6 + pr * 1.6), 0, 6.2832);
+  1708→        ctx.fill();
+  1709→      } else if (p.type === 3) { // mota de ouro: brilho subindo
+  1710→        ctx.fillStyle = p.color;
+  1711→        ctx.fillRect(p.x, p.y, p.size, p.size);
+  1712→        ctx.globalAlpha *= 0.4;
+  1713→        ctx.fillRect(p.x - 1, p.y - 1, p.size + 2, p.size + 2);
+  1714→      } else if (p.type === 0) { // faísca: streak
+  1715→        ctx.strokeStyle = p.color;
+  1716→        ctx.lineWidth = p.size;
+  1717→        ctx.beginPath();
+  1718→        ctx.moveTo(p.x, p.y);
+  1719→        ctx.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
+  1720→        ctx.stroke();
+  1721→      } else { // sangue: gota
+  1722→        ctx.fillStyle = p.color;
+  1723→        ctx.beginPath();
+  1724→        ctx.arc(p.x, p.y, p.size * (1 - pr * 0.4), 0, 6.2832);
+  1725→        ctx.fill();
+  1726→      }
+  1727→    }
+  1728→    ctx.globalAlpha = 1;
+  1729→  },
+  1730→  _drawFloats: function(delta){
+  1731→    var ctx = this.ctx;
+  1732→    ctx.textAlign = 'center';
+  1733→    for (var i = 0; i < this.floats.length; i++) {
+  1734→      var f = this.floats[i];
+  1735→      if (!f.on) continue;
+  1736→      f.t += delta;
+  1737→      var pr = f.t / 0.95;
+  1738→      if (pr >= 1) { f.on = false; continue; }
+  1739→      // física de arco
+  1740→      f.vy += 150 * delta;
+  1741→      f.x += f.vx * delta;
+  1742→      f.y += f.vy * delta;
+  1743→      // pop-in (overshoot) + fade final
+  1744→      var pop = f.t < 0.14 ? 1 + Math.sin(pr * 10.9) * 0.25 * (1 - f.t / 0.14) : 1;
+  1745→      var size = f.size * pop;
+  1746→      var a = pr < 0.62 ? 1 : 1 - (pr - 0.62) / 0.38;
+  1747→      ctx.globalAlpha = a;
+  1748→      ctx.font = '900 ' + size.toFixed(1) + 'px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+  1749→      var fy = f.y;
+  1750→      if (f.crit) {
+  1751→        // crit: contorno pesado + brilho duplo
+  1752→        ctx.lineWidth = 5;
+  1753→        ctx.strokeStyle = 'rgba(20,8,10,0.95)';
+  1754→        ctx.strokeText(f.text, f.x, fy);
+  1755→        ctx.fillStyle = '#fff0d0';
+  1756→        ctx.fillText(f.text, f.x, fy - 1.5);
+  1757→        ctx.fillStyle = f.color;
+  1758→        ctx.fillText(f.text, f.x, fy);
+  1759→      } else {
+  1760→        ctx.lineWidth = 4;
+  1761→        ctx.strokeStyle = 'rgba(10,6,14,0.9)';
+  1762→        ctx.strokeText(f.text, f.x, fy);
+  1763→        ctx.fillStyle = f.color;
+  1764→        ctx.fillText(f.text, f.x, fy);
+  1765→      }
+  1766→      ctx.globalAlpha = 1;
+  1767→    }
+  1768→  },
+  1769→  _bar: function(ctx, x, y, w, h, frac, ghost, color, ghostColor, label, glow){
+  1770→    frac = E.U.clamp(frac, 0, 1);
+  1771→    // painel ornado
+  1772→    ctx.fillStyle = 'rgba(12,7,20,0.92)';
+  1773→    ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  1774→    ctx.strokeStyle = 'rgba(232,163,58,0.55)';
+  1775→    ctx.lineWidth = 1;
+  1776→    ctx.strokeRect(x - 2.5, y - 2.5, w + 5, h + 5);
+  1777→    // cantos dourados
+  1778→    ctx.fillStyle = 'rgba(232,163,58,0.9)';
+  1779→    var c = 4;
+  1780→    ctx.fillRect(x - 3, y - 3, c, 2); ctx.fillRect(x - 3, y - 3, 2, c);
+  1781→    ctx.fillRect(x + w + 3 - c, y - 3, c, 2); ctx.fillRect(x + w + 1, y - 3, 2, c);
+  1782→    ctx.fillRect(x - 3, y + h + 1, c, 2); ctx.fillRect(x - 3, y + h + 3 - c, 2, c);
+  1783→    ctx.fillRect(x + w + 3 - c, y + h + 1, c, 2); ctx.fillRect(x + w + 1, y + h + 3 - c, 2, c);
+  1784→    // ghost trail
+  1785→    ctx.fillStyle = ghostColor;
+  1786→    ctx.fillRect(x, y, w * E.U.clamp(ghost, 0, 1), h);
+  1787→    // preenchimento gradiente
+  1788→    if (frac > 0) {
+  1789→      var g = ctx.createLinearGradient(x, y, x + w, y);
+  1790→      g.addColorStop(0, color);
+  1791→      g.addColorStop(1, glow);
+  1792→      ctx.fillStyle = g;
+  1793→      ctx.fillRect(x, y, w * frac, h);
+  1794→      // brilho superior
+  1795→      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  1796→      ctx.fillRect(x, y, w * frac, h * 0.35);
+  1797→    }
+  1798→    // ticks de 10%
+  1799→    ctx.fillStyle = 'rgba(8,5,14,0.55)';
+  1800→    for (var i = 1; i < 10; i++) ctx.fillRect(x + w * i / 10 - 0.5, y, 1, h);
+  1801→    // moldura interna
+  1802→    ctx.strokeStyle = '#3a2a55'; ctx.lineWidth = 1;
+  1803→    ctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
+  1804→    // rótulo
+  1805→    ctx.font = '700 10px ' + (this.fontReady ? 'Cinzel,' : '') + ' "Courier New",monospace';
+  1806→    ctx.textAlign = 'center';
+  1807→    ctx.fillStyle = '#fff';
+  1808→    ctx.fillText(label || '', x + w / 2, y + h / 2 + 4);
+  1809→  },
+  1810→  _ghost: function(g, target, delta){
+  1811→    if (target < g) return Math.max(target, g - delta * 0.35);
+  1812→    return target;
+  1813→  },
+  1814→  /* ================= [V1-V7] v1.7.0 "Herdeiro do Eclipse" (só render) ================= */
+  1815→  _hexA: function(hex, a){
+  1816→    var n = parseInt(hex.slice(1), 16);
+  1817→    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  1818→  },
+  1819→  _regionIndex: function(){
+  1820→    var rs = E.DM.cfg_regions.regions;
+  1821→    for (var i = 0; i < rs.length; i++) if (rs[i].id === this.regionId) return i;
+  1822→    return 0;
+  1823→  },
+  1824→  /* banda VISÍVEL do canvas em coordenadas lógicas — o CSS usa object-fit:cover
+  1825→     (object-position 50% 42%), então em landscape o corte vertical esconde o topo.
+  1826→     Elementos do céu (coroa/placas) se posicionam pela banda p/ aparecer sempre. */
+  1827→  _viewBand: function(){
+  1828→    if (this._band) return this._band;
+  1829→    var b = { top: 0, bot: this.H };
+  1830→    try {
+  1831→      var r = this.cv.getBoundingClientRect();
+  1832→      if (r.width > 2 && r.height > 2) {
+  1833→        var sc = Math.max(r.width / this.W, r.height / this.H); // cover
+  1834→        var cropY = (this.H * sc - r.height) / sc;
+  1835→        if (cropY > 0) { b.top = cropY * 0.42; b.bot = this.H - cropY * 0.58; }
+  1836→      }
+  1837→    } catch (e) {}
+  1838→    this._band = b;
+  1839→    return b;
+  1840→  },
+  1841→  _eclipsePhase: function(){ // 0 (Bosque) → 1 (Abismo: eclipse total)
+  1842→    var rs = E.DM.cfg_regions.regions;
+  1843→    return rs.length > 1 ? this._regionIndex() / (rs.length - 1) : 0;
+  1844→  },
+  1845→  _bakeCorona: function(){ // sprites do eclipse pré-renderizados (1× por sessão)
+  1846→    try {
+  1847→      var S = 240;
+  1848→      var c1 = document.createElement('canvas'); c1.width = c1.height = S;
+  1849→      var x1 = c1.getContext('2d');
+  1850→      var g = x1.createRadialGradient(S/2, S/2, S*0.16, S/2, S/2, S*0.30);
+  1851→      g.addColorStop(0, 'rgba(8,5,16,1)'); g.addColorStop(0.78, 'rgba(8,5,16,0.97)');
+  1852→      g.addColorStop(1, 'rgba(8,5,16,0)');
+  1853→      x1.fillStyle = g; x1.beginPath(); x1.arc(S/2, S/2, S*0.30, 0, 6.2832); x1.fill();
+  1854→      x1.strokeStyle = 'rgba(255,214,140,0.95)'; x1.lineWidth = 2.2;
+  1855→      x1.beginPath(); x1.arc(S/2, S/2, S*0.265, 0, 6.2832); x1.stroke();
+  1856→      x1.strokeStyle = 'rgba(255,180,80,0.35)'; x1.lineWidth = 6;
+  1857→      x1.beginPath(); x1.arc(S/2, S/2, S*0.285, 0, 6.2832); x1.stroke();
+  1858→      this._coronaDisc = c1;
+  1859→      var c2 = document.createElement('canvas'); c2.width = c2.height = S;
+  1860→      var x2 = c2.getContext('2d'); x2.translate(S/2, S/2);
+  1861→      x2.strokeStyle = 'rgba(255,200,120,0.8)'; x2.lineCap = 'round';
+  1862→      for (var i = 0; i < 12; i++) {
+  1863→        var a2 = i * 6.2832 / 12;
+  1864→        var r0 = S*0.30 + (i % 2 ? 5 : 13), r1 = r0 + (i % 2 ? 13 : 28);
+  1865→        x2.globalAlpha = i % 2 ? 0.32 : 0.65; x2.lineWidth = i % 2 ? 1.4 : 2.2;
+  1866→        x2.beginPath();
+  1867→        x2.moveTo(Math.cos(a2) * r0, Math.sin(a2) * r0);
+  1868→        x2.lineTo(Math.cos(a2 + 0.05) * r1, Math.sin(a2 + 0.05) * r1);
+  1869→        x2.stroke();
+  1870→      }
+  1871→      this._coronaRays = c2;
+  1872→    } catch (e) { this._coronaDisc = this._coronaRays = null; }
+  1873→  },
+  1874→  _drawEclipseCorona: function(){
+  1875→    if (!this._coronaDisc) this._bakeCorona();
+  1876→    if (!this._coronaDisc) return;
+  1877→    var ph = this._eclipsePhase();
+  1878→    if (ph <= 0.001) return;
+  1879→    var band = this._viewBand();
+  1880→    var ctx = this.ctx, cx = this.W * 0.72, cy = band.top + (band.bot - band.top) * 0.16, R = 92;
+  1881→    ctx.save();
+  1882→    // [V2] céu afundando na escuridão conforme o ciclo avança (Abismo = total)
+  1883→    if (ph > 0.55) {
+  1884→      ctx.globalAlpha = (ph - 0.55) * 0.24;
+  1885→      ctx.fillStyle = '#06040c';
+  1886→      ctx.fillRect(-30, -30, this.W + 60, this.H + 60);
+  1887→    }
+  1888→    // raios da coroa girando devagar
+  1889→    ctx.globalAlpha = Math.min(0.8, 0.10 + 0.5 * ph) * this._flashMul();
+  1890→    ctx.translate(cx, cy); ctx.rotate(this.time * 0.11);
+  1891→    ctx.drawImage(this._coronaRays, -R * 1.35, -R * 1.35, R * 2.7, R * 2.7);
+  1892→    ctx.restore();
+  1893→    // disco do eclipse
+  1894→    ctx.save();
+  1895→    ctx.globalAlpha = Math.min(0.9, 0.16 + 0.55 * ph);
+  1896→    ctx.drawImage(this._coronaDisc, cx - R, cy - R, R * 2, R * 2);
+  1897→    ctx.restore();
+  1898→  },
+  1899→  _spawnSlash: function(){
+  1900→    var s = this.slashes[this.slashIdx];
+  1901→    this.slashIdx = (this.slashIdx + 1) % this.SLASH_POOL;
+  1902→    s.on = true; s.x = this.enemyBoss ? 372 : 390; s.y = 645;
+  1903→    s.t = 0; s.life = 0.24; s.flip = Math.random() < 0.5;
+  1904→  },
+  1905→  _drawSlashes: function(delta){
+  1906→    var ctx = this.ctx;
+  1907→    for (var i = 0; i < this.slashes.length; i++) {
+  1908→      var s = this.slashes[i]; if (!s.on) continue;
+  1909→      s.t += delta; var pr = s.t / s.life;
+  1910→      if (pr >= 1) { s.on = false; continue; }
+  1911→      var ease = 1 - Math.pow(1 - pr, 2.2);
+  1912→      var r = 64 + ease * 58, a0 = (s.flip ? 2.6 : -2.3) + ease * 0.5;
+  1913→      ctx.save();
+  1914→      ctx.translate(s.x, s.y); if (s.flip) ctx.scale(-1, 1);
+  1915→      ctx.globalAlpha = (1 - pr) * 0.95;
+  1916→      ctx.lineCap = 'round';
+  1917→      ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 7 * (1 - pr * 0.55);
+  1918→      ctx.beginPath(); ctx.arc(0, 0, r, a0 - 2.1, a0 + 0.35); ctx.stroke();
+  1919→      ctx.strokeStyle = '#fff8e0'; ctx.lineWidth = 3 * (1 - pr * 0.6);
+  1920→      ctx.beginPath(); ctx.arc(0, 0, r - 7, a0 - 1.9, a0 + 0.3); ctx.stroke();
+  1921→      ctx.strokeStyle = 'rgba(255,160,60,0.5)'; ctx.lineWidth = 2;
+  1922→      ctx.beginPath(); ctx.arc(0, 0, r + 10, a0 - 1.7, a0 + 0.25); ctx.stroke();
+  1923→      ctx.restore();
+  1924→    }
+  1925→    ctx.globalAlpha = 1;
+  1926→  },
+  1927→  _heroAuraOrder: function(){ // maior raridade equipada (cacheado; inválido = -1)
+  1928→    if (this._auraOrder >= 0) return this._auraOrder;
+  1929→    var best = 0, eq = E.Inv ? E.Inv.equipped : null;
+  1930→    if (eq) for (var s in eq) {
+  1931→      var it = eq[s]; if (!it) continue;
+  1932→      var ro = E.Inv.rarity_order(it.rarity || 'comum');
+  1933→      if (ro > best) best = ro;
+  1934→    }
+  1935→    this._auraOrder = best;
+  1936→    return best;
+  1937→  },
+  1938→  _drawHeroAura: function(t, heroX, heroY){
+  1939→    var ord = this._heroAuraOrder();
+  1940→    var col = this.RARITY_AURA[ord];
+  1941→    if (!col) return;
+  1942→    var ctx = this.ctx, cx = heroX + 120, cy = 762;
+  1943→    var pulse = 0.5 + 0.5 * Math.sin(t * 2.3);
+  1944→    ctx.save();
+  1945→    ctx.globalAlpha = (0.40 + 0.14 * pulse) * (this.lowFx ? 0.6 : 1);
+  1946→    ctx.translate(cx, cy); ctx.scale(1, 0.29);
+  1947→    var g = ctx.createRadialGradient(0, 0, 8, 0, 0, 130);
+  1948→    g.addColorStop(0, this._hexA(col, 0.85)); g.addColorStop(1, this._hexA(col, 0));
+  1949→    ctx.fillStyle = g;
+  1950→    ctx.beginPath(); ctx.arc(0, 0, 118, 0, 6.2832); ctx.fill();
+  1951→    ctx.restore();
+  1952→    ctx.save();
+  1953→    ctx.globalAlpha = 0.46 + 0.2 * pulse;
+  1954→    ctx.strokeStyle = col; ctx.lineWidth = 1.8;
+  1955→    ctx.beginPath(); ctx.ellipse(cx, cy, 98, 27, 0, 0, 6.2832); ctx.stroke();
+  1956→    ctx.restore();
+  1957→  },
+  1958→  _spawnLootOrb: function(rar){
+  1959→    var o = this.orbs[this.orbIdx];
+  1960→    this.orbIdx = (this.orbIdx + 1) % this.ORBS_POOL;
+  1961→    o.on = true; o.x0 = 385; o.y0 = 600; o.t = 0; o.life = 0.95;
+  1962→    o.color = this.RARITY_ORB[rar] || '#e8a33a';
+  1963→  },
+  1964→  _drawLootOrbs: function(delta){
+  1965→    var ctx = this.ctx, W = this.W;
+  1966→    for (var i = 0; i < this.orbs.length; i++) {
+  1967→      var o = this.orbs[i]; if (!o.on) continue;
+  1968→      o.t += delta; var pr = o.t / o.life;
+  1969→      if (pr >= 1) {
+  1970→        o.on = false;
+  1971→        this._ring(W - 58, 34, 4, 26, this._hexA(o.color, 0.8), 2, 0.35);
+  1972→        continue;
+  1973→      }
+  1974→      var e = pr * pr * (3 - 2 * pr); // smoothstep
+  1975→      var x1 = W - 58, y1 = 30, cxp = 470, cyp = 260;
+  1976→      var mx = (1-e)*(1-e)*o.x0 + 2*(1-e)*e*cxp + e*e*x1;
+  1977→      var my = (1-e)*(1-e)*o.y0 + 2*(1-e)*e*cyp + e*e*y1;
+  1978→      ctx.save();
+  1979→      ctx.globalAlpha = pr > 0.75 ? 1 - (pr - 0.75) / 0.25 * 0.7 : 1;
+  1980→      var g = ctx.createRadialGradient(mx, my, 0, mx, my, 14);
+  1981→      g.addColorStop(0, this._hexA(o.color, 0.95)); g.addColorStop(1, this._hexA(o.color, 0));
+  1982→      ctx.fillStyle = g;
+  1983→      ctx.beginPath(); ctx.arc(mx, my, 14, 0, 6.2832); ctx.fill();
+  1984→      ctx.fillStyle = '#fff'; ctx.globalAlpha *= 0.9;
+  1985→      ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
+  1986→      var e2 = Math.max(0, e - 0.08); // rastro
+  1987→      var tx = (1-e2)*(1-e2)*o.x0 + 2*(1-e2)*e2*cxp + e2*e2*x1;
+  1988→      var ty = (1-e2)*(1-e2)*o.y0 + 2*(1-e2)*e2*cyp + e2*e2*y1;
+  1989→      ctx.strokeStyle = this._hexA(o.color, 0.5); ctx.lineWidth = 2;
+  1990→      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(mx, my); ctx.stroke();
+  1991→      ctx.restore();
+  1992→    }
+  1993→  },
+  1994→  _drawBossIntro: function(delta){
+  1995→    if (this.bossIntroT <= 0) return;
+  1996→    this.bossIntroT -= delta;
+  1997→    var T = 2.3, t = T - this.bossIntroT;          // 0→2.3
+  1998→    var inA = Math.min(1, t / 0.35);               // entrada rápida
+  1999→    var outA = Math.min(1, Math.max(0, this.bossIntroT) / 0.45); // saída suave
+  2000→    var ea = E.U.clamp(Math.min(inA, outA), 0, 1);
+
+[showing lines 1-2000 of 2046; use offset=2001 with limit to continue reading]
