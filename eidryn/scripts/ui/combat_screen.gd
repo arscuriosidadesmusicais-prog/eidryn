@@ -270,42 +270,74 @@ func _banner(txt: String, color: Color) -> void:
 func _update_region_visual(region_id: String) -> void:
         if _region_tex == region_id:
                 return
-        _region_tex = region_id
         var region := _find_region(region_id)
         if region.is_empty():
                 return
+        _region_tex = region_id
         var pal: Dictionary = region["palette"]
         var sky: ColorRect = _layers[0][0]
         sky.color = Color(String(pal["sky_top"]))
-        # gradientes: camadas silhueta
+
+        # Descarta referências dos layers antigos antes de enfileirar os nós para liberação.
+        _layers.resize(1)
         _clear_layer_children(sky)
-        var grad := TextureRect.new()
-        grad.set_anchors_preset(Control.PRESET_FULL_RECT)
-        grad.texture = _make_gradient(String(pal["sky_top"]), String(pal["sky_bot"]))
-        sky.add_child(grad)
-        for i in 3:
-                var key: String = ["far", "mid", "near"][i]
-                var layer := TextureRect.new()
-                layer.texture = _make_silhouette(region_id, key, String(pal[key]))
-                layer.position = Vector2(0, 0)
+
+        # Usa os backgrounds importados (270×480, escalados 4×) em vez de gerar
+        # três imagens RGBA 1080×1920 por troca de região.
+        var sky_path := "res://assets/sprites/ui/bg_%s_sky.png" % region_id
+        if ResourceLoader.exists(sky_path):
+                var sky_layer := TextureRect.new()
+                sky_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+                sky_layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                sky_layer.stretch_mode = TextureRect.STRETCH_SCALE
+                sky_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                sky_layer.texture = load(sky_path)
+                sky.add_child(sky_layer)
+
+        var keys := ["far", "mid", "near"]
+        var speeds := [8.0, 20.0, 42.0]
+        for i in keys.size():
+                var key: String = keys[i]
+                var texture_path := "res://assets/sprites/ui/bg_%s_%s.png" % [region_id, key]
+                if not ResourceLoader.exists(texture_path):
+                        continue
+                var texture: Texture2D = load(texture_path)
+                var layer := Control.new()
+                layer.size = Vector2(BG_W * 2.0, 1920.0)
+                layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                var texture_height := texture.get_height() * 4.0
+                var layer_y := 1524.0 - texture_height
+                # Duas cópias lado a lado garantem parallax contínuo sem faixa vazia.
+                for copy in 2:
+                        var rect := TextureRect.new()
+                        rect.texture = texture
+                        rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+                        rect.stretch_mode = TextureRect.STRETCH_SCALE
+                        rect.position = Vector2(float(copy) * BG_W, layer_y)
+                        rect.size = Vector2(BG_W, texture_height)
+                        rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                        layer.add_child(rect)
                 sky.add_child(layer)
-                _layers.append([layer, [8.0, 20.0, 42.0][i]])
-        # chão
+                _layers.append([layer, speeds[i]])
+
+        # Chão e névoa continuam leves e sobrepostos às silhuetas.
         var ground := ColorRect.new()
         ground.color = Color(String(pal["ground"]))
         ground.position = Vector2(0, 1520)
         ground.size = Vector2(BG_W, 400)
+        ground.mouse_filter = Control.MOUSE_FILTER_IGNORE
         sky.add_child(ground)
-        # névoa de accent
         var glow := ColorRect.new()
         glow.color = Color(String(pal["accent"]), 0.08)
         glow.position = Vector2(0, 1400)
         glow.size = Vector2(BG_W, 120)
+        glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
         sky.add_child(glow)
 
 func _clear_layer_children(n: Node) -> void:
         for c in n.get_children():
-                c.queue_free()
+                if not c.is_queued_for_deletion():
+                        c.queue_free()
 
 func _find_region(rid: String) -> Dictionary:
         for r in DataManager.cfg_regions["regions"]:
@@ -313,50 +345,16 @@ func _find_region(rid: String) -> Dictionary:
                         return r
         return {}
 
-func _make_gradient(top_hex: String, bot_hex: String) -> ImageTexture:
-        var img := Image.create(8, 512, false, Image.FORMAT_RGB8)
-        var top := Color(top_hex)
-        var bot := Color(bot_hex)
-        for y in 512:
-                var t := float(y) / 511.0
-                var c := top.lerp(bot, t)
-                for x in 8:
-                        img.set_pixel(x, y, c)
-        return ImageTexture.create_from_image(img)
-
-func _make_silhouette(region_id: String, layer: String, color_hex: String) -> ImageTexture:
-        var heights: int = [360, 520, 720][["far", "mid", "near"].find(layer)]
-        var img := Image.create(1080, 1920, false, Image.FORMAT_RGBA8)
-        var col := Color(color_hex)
-        var seed_base := hash(region_id + layer)
-        var rng := RandomNumberGenerator.new()
-        rng.seed = seed_base
-        var y := 1920
-        while y > 1920 - heights:
-                var seg_h := rng.randi_range(40, 140)
-                var seg_w := rng.randi_range(60, 200)
-                for yy in mini(seg_h, y - (1920 - heights)):
-                        for x in 1080:
-                                var noise := int(rng.randf() * 3)
-                                var c := col
-                                if yy < 10 and x % 97 < 3:
-                                        c = Color(col.r + 0.05, col.g + 0.05, col.b + 0.05)
-                                if y - yy - 1 >= 0:
-                                        img.set_pixel(x, y - yy - 1, c)
-                y -= seg_h
-        return ImageTexture.create_from_image(img)
-
 ## ---------- LOOP VISUAL ----------
 func _process(delta: float) -> void:
         # parallax
         for entry in _layers:
                 if float(entry[1]) <= 0.0:
                         continue
-                var node: TextureRect = entry[0]
+                var node: Control = entry[0]
                 node.position.x -= float(entry[1]) * delta
                 if node.position.x <= -BG_W:
-                        node.position.x += BG_W * 2.0
-                        # duplicar camada para loop contínuo
+                        node.position.x += BG_W
         # barras animadas (ghost trail)
         _tween_bar(_hero_bar, _hero_hp_shown, _hero_bar_ghost, delta, true)
         _tween_bar(_enemy_bar, _enemy_hp_shown, _enemy_bar_ghost, delta, false)

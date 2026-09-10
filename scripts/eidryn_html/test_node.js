@@ -16,7 +16,10 @@ globalThis.localStorage = {
 };
 
 /* ---------- carrega dados + módulos core ---------- */
-const ROOT = '/home/z/my-project/eidryn';
+// Paths derivados de __dirname: a suíte pode rodar de qualquer CWD/clone.
+const PARTS = __dirname;
+const REPO_ROOT = path.resolve(PARTS, '..', '..');
+const ROOT = path.join(REPO_ROOT, 'eidryn');
 const MAP = {enemies:'enemies',regions:'regions',currencies:'currencies',attributes:'attributes',
   skills:'skills',items:'items',pets:'pets',ascension:'ascension_tree',dungeons:'dungeons',
   gacha:'gacha',missions:'missions',achievements:'achievements',shop:'shop',
@@ -26,9 +29,8 @@ for (const [k, f] of Object.entries(MAP))
   DATA[k] = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', f + '.json'), 'utf8'));
 globalThis.E = { DATA };
 
-const P = '/home/z/my-project/scripts/eidryn_html/';
 for (const f of ['p01_core.js','p02_managers_a.js','p03_managers_b.js','p04_combat.js','p05_render.js'])
-  eval(fs.readFileSync(P + f, 'utf8')); // p05 = definição do objeto Rfx (sem side-effects de DOM)
+  eval(fs.readFileSync(path.join(PARTS, f), 'utf8')); // p05 = definição do objeto Rfx (sem side-effects de DOM)
 
 /* ---------- inicialização (ordem do boot) ---------- */
 E.DM.load(E.DATA);
@@ -105,6 +107,23 @@ group('2. Combate');
   E.BUS.off('combat_ended', h);
   ok(sawFail, 'timeout do chefe → fail');
   ok(E.Prog.current_stage===9, 'fallback farm = max-1 (D19)');
+
+  // P0-01: escudo absorve antes do HP e reflexão usa somente o dano absorvido.
+  const shieldStats = {hp:100, atk:10, def:0, crit_rate:0, crit_damage:150, atk_interval:1,
+    lifesteal:0, dodge:-1, regen:0, gold_find:0, xp_gain:0, boss_damage:0, drop_bonus:0, luck:0};
+  E.Char.stats = () => shieldStats;
+  E.Combat.active=true; E.Combat.mode='tower';
+  E.Combat.enemy={hp:1000, atk:30, def:0, modifiers:[]};
+  E.Combat.enemy_hp=1000; E.Combat.enemy_shield=0;
+  E.Combat.hero_hp=100; E.Combat.hero_shield=50; E.Combat._reflect_pct=20;
+  E.Combat._enemy_attack(shieldStats);
+  ok(E.Combat.hero_hp===100, 'P0-01 escudo total impede dano ao HP');
+  ok(E.Combat.hero_shield===20, 'P0-01 escudo total consome apenas o dano recebido');
+  ok(approx(E.Combat.enemy_hp, 994, 0.001), 'P0-01 reflexão = 20% dos 30 absorvidos');
+  E.Combat.hero_hp=100; E.Combat.hero_shield=10; E.Combat._reflect_pct=0;
+  E.Combat._enemy_attack(shieldStats);
+  ok(E.Combat.hero_hp===80 && E.Combat.hero_shield===0, 'P0-01 escudo parcial deixa só o restante atingir o HP');
+  E.Combat.stop();
   E.Char.stats = realStats;
 }
 
@@ -340,6 +359,16 @@ group('10. Offline & Time-travel');
   E.TimeM.last_seen = E.TimeM.now() - 30;
   E.Offline.compute_pending();
   ok(!E.Offline.has_pending(), '<60s não gera pendentes');
+  // P0-03: resume calcula usando o last_seen anterior e só depois avança o relógio.
+  const realNow = E.TimeM.now;
+  let fakeNow = 100000;
+  E.TimeM.now = () => fakeNow;
+  E.TimeM.last_seen = fakeNow - 120;
+  E.TimeM.time_travel_detected = false;
+  const resumed = E.Offline.prepare_resume();
+  ok(resumed.seconds===120, 'P0-03 resume preserva os 120s ausentes');
+  ok(E.TimeM.last_seen===fakeNow, 'P0-03 resume atualiza last_seen somente após calcular');
+  E.TimeM.now = realNow;
   // coleta dobrada via stub de anúncio (fallback true)
   E.TimeM.last_seen = E.TimeM.now() - 2*3600;
   E.Offline.compute_pending();
@@ -463,22 +492,27 @@ group('14. Localização PT-BR / EN');
 /* ================= 15. ROBUSTEZ (auditoria 360°) ================= */
 group('15. Robustez [AUDIT]');
 {
-  // [AUDIT-A1] flush com storage quebrado NUNCA pode lançar (congelaria o loop rAF)
+  // P0-02: falha de storage não escapa para o rAF e nunca confirma um save inexistente.
   const realSet = globalThis.localStorage.setItem;
-  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
-  E.Save._boot_done = true;
-  E.Save.mark_dirty();
-  let threw = false;
-  try { E.Save.flush(); } catch (e) { threw = true; }
-  ok(!threw, 'flush com storage cheio não lança exceção (loop rAF seguro)');
-  globalThis.localStorage.setItem = realSet;
-  // flush saudável volta a gravar e limpa dirty
+  const beforeFailedFlush = store[E.Save.KEY];
   let flushed = false;
   const h = () => { flushed = true; };
   E.BUS.on('save_flushed', h);
-  E.Save.flush();
+  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  E.Save._boot_done = true;
+  E.Save.mark_dirty();
+  let threw = false, failedResult = true;
+  try { failedResult = E.Save.flush(); } catch (e) { threw = true; }
+  ok(!threw, 'P0-02 flush com storage cheio não lança exceção');
+  ok(failedResult===false, 'P0-02 flush informa falha ao chamador');
+  ok(E.Save._dirty===true, 'P0-02 falha mantém save dirty para nova tentativa');
+  ok(flushed===false, 'P0-02 falha não emite save_flushed');
+  ok(store[E.Save.KEY]===beforeFailedFlush, 'P0-02 falha preserva o save principal anterior');
+  globalThis.localStorage.setItem = realSet;
+  // flush saudável volta a gravar, confirma a leitura e limpa dirty
+  const healthyResult = E.Save.flush();
   E.BUS.off('save_flushed', h);
-  ok(flushed && !E.Save._dirty, 'flush saudável grava e limpa dirty');
+  ok(healthyResult===true && flushed && !E.Save._dirty, 'flush saudável grava e limpa dirty');
   // [AUDIT-A2] update leve do chip: função existe (UI só existe no browser; no Node apenas não quebra)
   ok(!globalThis.E.UI || typeof E.UI._updateCurChip === 'function', 'chip de moeda tem update leve');
   // i18n: novas chaves aditivas presentes nos dois idiomas

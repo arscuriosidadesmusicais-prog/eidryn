@@ -2,9 +2,11 @@
 # build.py — monta o Eidryn HTML single-file (dados JSON + sprites PNG + áudio WAV em base64)
 import json, base64, pathlib
 
-ROOT = pathlib.Path('/home/z/my-project/eidryn')
-PARTS = pathlib.Path('/home/z/my-project/scripts/eidryn_html')
-OUT = pathlib.Path('/home/z/my-project/download/Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html')
+# Resolve tudo a partir deste arquivo para que o build funcione de qualquer CWD/clone.
+PARTS = pathlib.Path(__file__).resolve().parent
+REPO_ROOT = PARTS.parent.parent
+ROOT = REPO_ROOT / 'eidryn'
+OUT = REPO_ROOT / 'download' / 'Eidryn_O_Ciclo_do_Eclipse_v1.0.0.html'
 
 def load_data():
     d = {}

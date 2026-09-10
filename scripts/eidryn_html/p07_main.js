@@ -15,8 +15,7 @@ E.Game = {
     E.TimeM.mark_seen();
     E.Save.boot_load();
     if(E.Rfx && E.Rfx.setPetVisuals) E.Rfx.setPetVisuals(); // pets ativos pós-save (só visual)
-    E.TimeM.check_time_travel();
-    E.Offline.compute_pending();
+    E.Offline.prepare_resume();
     E.Ret.check_login_day();
     E.Char.recalc();
     E.Prog._notify_stage();
@@ -145,9 +144,8 @@ E.Game = {
       if(E.Audio.pause_ambient) E.Audio.pause_ambient(); // [ART-10] silencia o clima também
     }
     else if(E.Game.state===E.Game.State.PLAYING){
-      E.TimeM.mark_seen();
-      E.TimeM.check_time_travel();
-      E.Offline.compute_pending();
+      // Calcula com o timestamp salvo ao ocultar; prepare_resume só marca o novo instante depois.
+      E.Offline.prepare_resume();
       if(E.Offline.has_pending()) E.Game._showOffline();
       if(E.Audio.resume_ambient){ E.Audio.resume_ambient(); if(E.Rfx) E.Audio.set_ambient(E.Rfx.weather); } // [ART-10]
       if(E.Audio._ctx && E.Audio._ctx.state==='suspended'){ try{ E.Audio._ctx.resume(); }catch(e){} } // política de autoplay

@@ -23,7 +23,8 @@ RPG idle dark fantasy em **um único arquivo HTML** — sem servidor, sem build,
 - `download/publish/itch_kit/` — kit pronto para itch.io (zip jogável, capa, banner, screenshots, textos da página)
 - `download/publish/github_pages/` — copiar `index.html` para qualquer host estático
 - `eidryn/` — projeto Godot 4.4 original (fonte da verdade de dados e regras)
-- `scripts/eidryn_html/` — pipeline de build do HTML (p00–p07) + suíte de testes (`test_node.js`, 204 asserções)
+- `scripts/eidryn_html/` — pipeline de build do HTML (p00–p07) + suíte de testes (`test_node.js`, 214 asserções)
+- `download/eidryn-o-ciclo-do-eclipse_v1.0.0_godot44.zip` — pacote-fonte Godot completo e validado
 
 ## Desenvolvimento
 
@@ -31,8 +32,12 @@ RPG idle dark fantasy em **um único arquivo HTML** — sem servidor, sem build,
 # rebuild do HTML a partir dos módulos
 python3 scripts/eidryn_html/build.py
 
-# suíte de testes (204 asserções)
+# suíte de testes (214 asserções)
 node scripts/eidryn_html/test_node.js
+
+# empacota e valida o projeto-fonte Godot
+python3 scripts/package_godot.py
+python3 scripts/test_package_godot.py
 
 # publish no GitHub Pages (requer GH_TOKEN e GH_USER)
 GH_TOKEN=... GH_USER=arscuriosidadesmusicais-prog GH_REPO=eidryn \

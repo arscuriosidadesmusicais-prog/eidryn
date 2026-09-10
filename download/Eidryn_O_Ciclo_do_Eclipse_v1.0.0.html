@@ -2020,6 +2020,13 @@ E.Offline = {
     this.pending={seconds:secs, gold:gold, xp:xp, stage:fs};
     return this.pending;
   },
+  /* Operação única de lifecycle: usa o last_seen anterior e só então avança o relógio. */
+  prepare_resume: function(){
+    E.TimeM.check_time_travel();
+    var result=this.compute_pending();
+    E.TimeM.mark_seen();
+    return result;
+  },
   has_pending: function(){ return Object.keys(this.pending).length>0 && (this.pending.gold||0)>0; },
   collect: function(doubled){
     if(Object.keys(this.pending).length===0) return {};
@@ -2360,18 +2367,20 @@ E.Combat = {
       return;
     }
     var raw=this._enemy_atk();
-    var dmg=E.DM.damage_taken(raw, stats.def);
-    this.hero_hp-=dmg;
-    E.BUS.emit('hero_damaged', dmg);
-    E.BUS.emit('floating_damage', -dmg, false, 'hero', '#d0455f');
-    E.BUS.emit('screenshake', this.enemy.boss?0.25:0.1);
+    var incoming=E.DM.damage_taken(raw, stats.def);
+    var absorbed=0;
     if(this.hero_shield>0){
-      var absorbed=Math.min(this.hero_shield, dmg);
+      absorbed=Math.min(this.hero_shield, incoming);
       this.hero_shield-=absorbed;
-      if(this._reflect_pct>0){
-        var ref=dmg*this._reflect_pct/100;
-        this._apply_damage_to_enemy(ref, false, '#3a7bd5', true);
-      }
+    }
+    var hp_damage=incoming-absorbed;
+    this.hero_hp-=hp_damage;
+    E.BUS.emit('hero_damaged', incoming);
+    if(hp_damage>0) E.BUS.emit('floating_damage', -hp_damage, false, 'hero', '#d0455f');
+    else if(absorbed>0) E.BUS.emit('floating_damage', -absorbed, false, 'hero', '#3a7bd5');
+    E.BUS.emit('screenshake', this.enemy.boss?0.25:0.1);
+    if(absorbed>0 && this._reflect_pct>0){
+      this._apply_direct_damage_to_enemy(absorbed*this._reflect_pct/100, '#3a7bd5');
     }
     E.BUS.emit('hero_hp_changed', Math.max(this.hero_hp,0), stats.hp);
     if(mods.indexOf('berserk')>=0 && !this.enemy_berserk && this.enemy_hp<this._enemy_max_hp()*0.3){
@@ -2419,6 +2428,22 @@ E.Combat = {
     var heal=E.DM.lifesteal_heal(dmg, stats.lifesteal);
     if(heal>0) this._heal_hero(heal);
     if(this.enemy_hp<=0) this._kill_enemy();
+  },
+  /* Dano já calculado (ex.: reflexão): não reaplica ATK, crítico, DEF ou lifesteal. */
+  _apply_direct_damage_to_enemy: function(amount, color_hex){
+    if(!this.active || this.enemy_hp<=0 || !(amount>0)) return 0;
+    var dmg=amount;
+    if(this.enemy_shield>0){
+      var absorbed=Math.min(this.enemy_shield, dmg);
+      this.enemy_shield-=absorbed;
+      dmg-=absorbed;
+    }
+    this.enemy_hp-=dmg;
+    E.BUS.emit('floating_damage', dmg, false, 'enemy', color_hex);
+    E.BUS.emit('enemy_damaged', dmg, false);
+    E.BUS.emit('enemy_hp_changed', Math.max(this.enemy_hp,0)+this.enemy_shield, this._enemy_max_hp());
+    if(this.enemy_hp<=0) this._kill_enemy();
+    return dmg;
   },
   _heal_hero: function(amount){
     var max_hp=E.Char.stats().hp;
@@ -2517,10 +2542,13 @@ E.Save = {
   FLUSH_DEBOUNCE_S: 3,
   KEY: 'eidryn_save_v1',
   BAK_KEY: 'eidryn_save_bak_v1',
-  _dirty: false, _timer: 0, _boot_done: false, _violations: [],
+  _dirty: false, _timer: 0, _boot_done: false, _violations: [], _last_error: '',
   _store: {
     get: function(k){ try{ return globalThis.localStorage.getItem(k); }catch(e){ return null; } },
-    set: function(k,v){ try{ globalThis.localStorage.setItem(k,v); }catch(e){ console.error('save storage cheio?', e); } },
+    set: function(k,v){
+      try{ globalThis.localStorage.setItem(k,v); return true; }
+      catch(e){ console.error('[Save] localStorage indisponível:', e); return false; }
+    },
     del: function(k){ try{ globalThis.localStorage.removeItem(k); }catch(e){} }
   },
   /* obfuscação leve (paridade do AES do Godot — camada de ofuscação local) */
@@ -2553,22 +2581,35 @@ E.Save = {
       return JSON.parse(data_json);
     }catch(e){ return null; }
   },
-  /* [AUDIT-A1] flush blindado: erro de storage/btoa JAMAIS pode congelar o loop rAF
-     (flush roda dentro de E.Game.loop a cada 3s quando dirty). Falha = console.warn. */
+  /* Flush transacional: falhas de serialização/storage não escapam para o rAF,
+     mas também nunca limpam dirty nem anunciam um save que não foi persistido. */
   flush: function(){
-    if(!this._boot_done) return;
+    if(!this._boot_done) return false;
     try{
+      var save_seen=E.TimeM.now();
       var data=this.collect();
+      // Persiste o instante desta tentativa sem apagar last_seen em memória antes da confirmação.
+      data.time=data.time||{};
+      data.time.last_seen=save_seen;
       var data_json=JSON.stringify(data);
       var payload={version:this.SAVE_VERSION, checksum:E.U.sha256(data_json), data_json:data_json};
       var text=JSON.stringify(payload);
+      var encoded=btoa_compat(this._xor(text));
       var prev=this._store.get(this.KEY);
-      if(prev) this._store.set(this.BAK_KEY, prev);
-      this._store.set(this.KEY, btoa_compat(this._xor(text)));
+      if(prev && !this._store.set(this.BAK_KEY, prev)) throw new Error('falha ao gravar backup');
+      if(!this._store.set(this.KEY, encoded)) throw new Error('falha ao gravar save principal');
+      if(this._store.get(this.KEY)!==encoded) throw new Error('falha na verificação do save principal');
       this._dirty=false;
-      E.TimeM.mark_seen();
+      this._last_error='';
+      E.TimeM.last_seen=save_seen;
       E.BUS.emit('save_flushed');
-    }catch(e){ console.warn('[Save] flush adiado:', e && e.message || e); }
+      return true;
+    }catch(e){
+      this._dirty=true;
+      this._last_error=String(e && e.message || e);
+      console.warn('[Save] flush adiado:', this._last_error);
+      return false;
+    }
   },
   collect: function(){
     return {
@@ -2631,8 +2672,7 @@ E.Save = {
       this._distribute(d);
       this._validate_all();
       E.Char.recalc();
-      this.flush();
-      return true;
+      return this.flush();
     }catch(e){ return false; }
   },
   _validate_all: function(){
@@ -6378,8 +6418,7 @@ E.Game = {
     E.TimeM.mark_seen();
     E.Save.boot_load();
     if(E.Rfx && E.Rfx.setPetVisuals) E.Rfx.setPetVisuals(); // pets ativos pós-save (só visual)
-    E.TimeM.check_time_travel();
-    E.Offline.compute_pending();
+    E.Offline.prepare_resume();
     E.Ret.check_login_day();
     E.Char.recalc();
     E.Prog._notify_stage();
@@ -6508,9 +6547,8 @@ E.Game = {
       if(E.Audio.pause_ambient) E.Audio.pause_ambient(); // [ART-10] silencia o clima também
     }
     else if(E.Game.state===E.Game.State.PLAYING){
-      E.TimeM.mark_seen();
-      E.TimeM.check_time_travel();
-      E.Offline.compute_pending();
+      // Calcula com o timestamp salvo ao ocultar; prepare_resume só marca o novo instante depois.
+      E.Offline.prepare_resume();
       if(E.Offline.has_pending()) E.Game._showOffline();
       if(E.Audio.resume_ambient){ E.Audio.resume_ambient(); if(E.Rfx) E.Audio.set_ambient(E.Rfx.weather); } // [ART-10]
       if(E.Audio._ctx && E.Audio._ctx.state==='suspended'){ try{ E.Audio._ctx.resume(); }catch(e){} } // política de autoplay

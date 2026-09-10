@@ -536,6 +536,13 @@ E.Offline = {
     this.pending={seconds:secs, gold:gold, xp:xp, stage:fs};
     return this.pending;
   },
+  /* Operação única de lifecycle: usa o last_seen anterior e só então avança o relógio. */
+  prepare_resume: function(){
+    E.TimeM.check_time_travel();
+    var result=this.compute_pending();
+    E.TimeM.mark_seen();
+    return result;
+  },
   has_pending: function(){ return Object.keys(this.pending).length>0 && (this.pending.gold||0)>0; },
   collect: function(doubled){
     if(Object.keys(this.pending).length===0) return {};

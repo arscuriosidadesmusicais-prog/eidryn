@@ -21,6 +21,8 @@ func _run_all() -> void:
         _test_character()
         _group("COMBATE (loop real)")
         _test_combat_loop()
+        _group("REGRESSÕES P0 — ESCUDO/REGIÕES")
+        _test_p0_combat_and_regions()
         _group("ITENS/LOOT")
         _test_items()
         _group("REFORÇO PITY")
@@ -161,6 +163,41 @@ func _test_combat_loop() -> void:
                 guard += 1
         _check(not CombatManager.active or ProgressionManager.current_stage == ProgressionManager.farm_stage(), "Falha no chefe retorna ao farm (D19)")
 
+func _test_p0_combat_and_regions() -> void:
+        # P0-01: absorção total, parcial e reflexão baseada somente no absorvido.
+        var stats := {"hp": 100.0, "def": 0.0, "dodge": -1.0}
+        CombatManager.active = true
+        CombatManager.mode = "tower"
+        CombatManager.enemy = {"hp": 1000.0, "atk": 30.0, "def": 0.0, "modifiers": []}
+        CombatManager.enemy_hp = 1000.0
+        CombatManager.enemy_shield = 0.0
+        CombatManager.hero_hp = 100.0
+        CombatManager.hero_shield = 50.0
+        CombatManager._reflect_pct = 20.0
+        CombatManager._enemy_attack(stats)
+        _check(is_equal_approx(CombatManager.hero_hp, 100.0), "P0-01 escudo total impede dano ao HP")
+        _check(is_equal_approx(CombatManager.hero_shield, 20.0), "P0-01 escudo consome apenas o dano recebido")
+        _check(is_equal_approx(CombatManager.enemy_hp, 994.0), "P0-01 reflexão = 20% dos 30 absorvidos")
+        CombatManager.hero_hp = 100.0
+        CombatManager.hero_shield = 10.0
+        CombatManager._reflect_pct = 0.0
+        CombatManager._enemy_attack(stats)
+        _check(is_equal_approx(CombatManager.hero_hp, 80.0) and is_zero_approx(CombatManager.hero_shield), "P0-01 escudo parcial deixa só o restante atingir o HP")
+        CombatManager.stop()
+
+        # P0-05: cada região mantém somente root + 3 layers importados, sem ImageTexture 1080×1920.
+        var screen_script := load("res://scripts/ui/combat_screen.gd")
+        var screen := screen_script.new()
+        add_child(screen)
+        for region in DataManager.cfg_regions["regions"]:
+                screen._update_region_visual(String(region["id"]))
+                _check(screen._layers.size() == 4, "P0-05 %s mantém exatamente 3 layers de parallax" % region["id"])
+                for i in range(1, screen._layers.size()):
+                        var layer: Control = screen._layers[i][0]
+                        var rect: TextureRect = layer.get_child(0)
+                        _check(rect.texture.resource_path.begins_with("res://assets/sprites/ui/bg_"), "P0-05 layer usa PNG importado")
+        screen.free()
+
 ## ---------- ITENS ----------
 func _test_items() -> void:
         _check(DataManager.cfg_items["slots"].size() == 10, "10 slots")
@@ -295,6 +332,13 @@ func _test_offline() -> void:
         TimeManager.time_travel_detected = false
         OfflineManager.compute_pending()
         _check(int(OfflineManager.pending.get("seconds", 0)) <= 8 * 3600, "Cap offline de 8h respeitado")
+        # P0-03: resume calcula antes de sobrescrever last_seen.
+        var resume_now := TimeManager.now()
+        TimeManager.last_seen = resume_now - 120
+        TimeManager.time_travel_detected = false
+        var resumed := OfflineManager.prepare_resume()
+        _check(abs(int(resumed.get("seconds", 0)) - 120) <= 1, "P0-03 resume preserva os 120s ausentes")
+        _check(abs(TimeManager.last_seen - TimeManager.now()) <= 1, "P0-03 resume marca last_seen somente após calcular")
         # time-travel
         TimeManager.last_seen = TimeManager.now() + 7200 # relógio retrocedido
         TimeManager.tt_log.clear()
