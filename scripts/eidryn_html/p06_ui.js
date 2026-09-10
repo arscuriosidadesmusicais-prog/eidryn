@@ -209,6 +209,8 @@ E.UI = {
     this.current=panelId;
     var vp=document.getElementById('view-panel');
     var nav=document.getElementById('nav');
+    var main=document.getElementById('main');
+    if(main) main.classList.toggle('panel-open',!!panelId);
     if(panelId){
       vp.classList.remove('hidden');
       document.getElementById('panel-title').textContent=this._title(panelId);

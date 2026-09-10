@@ -36,6 +36,13 @@
 E.Rfx = {
   W: 540, H: 960, GROUND_Y: 760, BG_W: 540,
   cv: null, ctx: null, time: 0, fontReady: false,
+  /* [PIPELINE] caches permanentes: imagens/gradientes/buffers são reutilizados após o warm-up. */
+  _imageCache: null, _whiteCache: null, _gradientCache: null, _buffers: null, _orbSprites: null, _auraSprites: null,
+  _viewport: null, _resizeObserver: null,
+  /* Instrumentação opt-in (?renderStats=1 ou enableMetrics(true)); custo zero quando desligada. */
+  _metricsEnabled: false, _metricOriginals: null,
+  _metrics: { frame: {}, last: {}, total: {}, frames: 0, offscreenBuilds: 0 },
+  _washColorCache: null,
   regionId: '', regionCache: {}, layers: [], oldLayers: null, oldAlpha: 0,
   pal: null, palSeason: null, regionTitleT: 0,
   heroImg: null, heroAtkImg: null, heroFrames: {}, heroWhiteCache: {},
@@ -160,7 +167,23 @@ E.Rfx = {
     this.cv = document.getElementById('cv');
     this.ctx = this.cv.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
+    this._imageCache = new Map();
+    this._whiteCache = new WeakMap();
+    this._gradientCache = {};
+    this._buffers = {};
+    this._orbSprites = {};
+    this._auraSprites = {};
+    this._washColorCache = {};
     var self = this;
+    this._syncViewport(true);
+    if (typeof ResizeObserver !== 'undefined') {
+      this._resizeObserver = new ResizeObserver(function(){ self._syncViewport(false); });
+      this._resizeObserver.observe(this.cv.parentNode);
+    } else if (globalThis.addEventListener) {
+      globalThis.addEventListener('resize', function(){ self._syncViewport(false); });
+    }
+    if (globalThis.location && /(?:\?|&)renderStats=1(?:&|$)/.test(globalThis.location.search || ''))
+      this.enableMetrics(true);
     // texturas de UI → variáveis CSS (painéis pedra/metal/pergaminho + moldura 9-slice)
     var rootStyle = document.documentElement.style;
     var texMap = { '--tex-stone': 'ui/tex_stone', '--tex-metal': 'ui/tex_metal',
@@ -191,6 +214,7 @@ E.Rfx = {
     if (!this.heroFrames.atk) this.heroFrames.atk = [this.heroAtkImg];
     // prefs visuais (chave PRÓPRIA — save do jogo permanece intacto)
     this.loadPrefs();
+    this._setLowFx(this.perfMode === 'low');
     this.season = this.seasonKey();
     this.weather = this.weatherKey();
     // frames dos pets cênicos (idle/cheer/sad por espécie; fallback: base estática)
@@ -321,19 +345,153 @@ E.Rfx = {
   },
   _img: function(dataUri){
     if (!dataUri) return null;
+    if (!this._imageCache) this._imageCache = new Map();
+    var cached = this._imageCache.get(dataUri);
+    if (cached) return cached;
     var im = new Image();
     im.src = dataUri;
+    this._imageCache.set(dataUri, im);
     return im;
+  },
+  _makeCanvas: function(w, h){
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var cx = c.getContext('2d');
+    if (cx) cx.imageSmoothingEnabled = false;
+    this._metrics.offscreenBuilds++;
+    return c;
+  },
+  _buffer: function(key, w, h){
+    if (!this._buffers) this._buffers = {};
+    var b = this._buffers[key];
+    if (!b || b.canvas.width !== w || b.canvas.height !== h) {
+      var c = this._makeCanvas(w, h);
+      b = this._buffers[key] = { canvas: c, ctx: c.getContext('2d'), signature: '', ready: false };
+    }
+    return b;
+  },
+  /* Área realmente exibida pelo object-fit:contain. As CSS vars mantêm overlays no
+     retângulo lógico 9:16 mesmo quando há letterbox horizontal ou vertical. */
+  _syncViewport: function(force){
+    if (!this.cv || !this.cv.parentNode) return null;
+    var host = this.cv.parentNode;
+    var r = host.getBoundingClientRect ? host.getBoundingClientRect() : null;
+    var vw = (r && r.width) || host.clientWidth || this.W;
+    var vh = (r && r.height) || host.clientHeight || this.H;
+    if (!(vw > 0 && vh > 0)) return this._viewport;
+    var scale = Math.min(vw / this.W, vh / this.H);
+    var cw = this.W * scale, ch = this.H * scale;
+    var left = (vw - cw) * 0.5, top = (vh - ch) * 0.5;
+    var sig = [vw | 0, vh | 0, left.toFixed(2), top.toFixed(2)].join(':');
+    if (!force && this._viewport && this._viewport.signature === sig) return this._viewport;
+    this._viewport = { width: cw, height: ch, left: left, top: top, scale: scale, signature: sig };
+    this._band = { top: 0, bot: this.H };
+    if (host.style && host.style.setProperty) {
+      host.style.setProperty('--canvas-left', left.toFixed(2) + 'px');
+      host.style.setProperty('--canvas-top', top.toFixed(2) + 'px');
+      host.style.setProperty('--canvas-right', (vw - left - cw).toFixed(2) + 'px');
+      host.style.setProperty('--canvas-width', cw.toFixed(2) + 'px');
+      host.style.setProperty('--canvas-height', ch.toFixed(2) + 'px');
+      host.style.setProperty('--canvas-boss-inset', (left + cw * 0.10).toFixed(2) + 'px');
+      host.style.setProperty('--canvas-banner-top', (top + ch * 0.36).toFixed(2) + 'px');
+    }
+    return this._viewport;
+  },
+  _setLowFx: function(v){
+    v = !!v;
+    if (this.lowFx === v) return;
+    this.lowFx = v;
+    if (typeof document !== 'undefined' && document.documentElement)
+      document.documentElement.classList.toggle('low-fx', v);
+  },
+  /* Contadores de comandos Canvas para profiling reproduzível, sem Proxy e sem
+     penalidade em produção. A instrumentação substitui métodos apenas sob demanda. */
+  enableMetrics: function(v){
+    v = !!v;
+    if (!this.ctx || v === this._metricsEnabled) return;
+    var ctx = this.ctx, self = this;
+    var names = ['beginPath','stroke','fill','fillRect','strokeRect','drawImage','clearRect',
+      'createLinearGradient','createRadialGradient','save','restore','clip'];
+    if (v) {
+      this._metricOriginals = {};
+      names.forEach(function(name){
+        if (typeof ctx[name] !== 'function') return;
+        var orig = ctx[name]; self._metricOriginals[name] = orig;
+        ctx[name] = function(){
+          var f = self._metrics.frame;
+          f[name] = (f[name] || 0) + 1;
+          if (name === 'fillRect' && arguments.length >= 4 &&
+              Math.abs(arguments[2]) >= self.W && Math.abs(arguments[3]) >= self.H)
+            f.fullscreenFills = (f.fullscreenFills || 0) + 1;
+          return orig.apply(ctx, arguments);
+        };
+      });
+      this._metricsEnabled = true;
+    } else {
+      for (var name in this._metricOriginals) ctx[name] = this._metricOriginals[name];
+      this._metricOriginals = null;
+      this._metricsEnabled = false;
+    }
+  },
+  _metricsBeginFrame: function(){ if (this._metricsEnabled) this._metrics.frame = {}; },
+  _metricsEndFrame: function(){
+    if (!this._metricsEnabled) return;
+    var f = this._metrics.frame, total = this._metrics.total;
+    this._metrics.last = {};
+    for (var k in f) { this._metrics.last[k] = f[k]; total[k] = (total[k] || 0) + f[k]; }
+    this._metrics.frames++;
+  },
+  getRenderMetrics: function(){
+    var avg = {}, n = Math.max(1, this._metrics.frames), total = this._metrics.total;
+    for (var k in total) avg[k] = total[k] / n;
+    return { enabled: this._metricsEnabled, frames: this._metrics.frames,
+      last: Object.assign({}, this._metrics.last), average: avg,
+      offscreenBuilds: this._metrics.offscreenBuilds };
+  },
+  _washTuple: function(css){
+    if (!css) return null;
+    if (!this._washColorCache) this._washColorCache = {};
+    if (this._washColorCache[css]) return this._washColorCache[css];
+    var m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/.exec(css);
+    if (!m) return null;
+    return (this._washColorCache[css] = { r:+m[1], g:+m[2], b:+m[3], a:m[4] == null ? 1 : +m[4] });
+  },
+  /* Composição source-over em CPU: estação + transição de clima + dia/noite
+     tornam-se um único fullscreen fill sem alterar o resultado de cor. */
+  _composeWashes: function(){
+    var pr = 0, pg = 0, pb = 0, oa = 0;
+    for (var i = 0; i < arguments.length; i += 2) {
+      var c = this._washTuple(arguments[i]), mul = +arguments[i + 1] || 0;
+      if (!c || mul <= 0) continue;
+      var a = Math.min(1, c.a * mul), keep = 1 - a;
+      pr = c.r * a + pr * keep; pg = c.g * a + pg * keep; pb = c.b * a + pb * keep;
+      oa = a + oa * keep;
+    }
+    if (oa <= 0.0001) return null;
+    return 'rgba(' + Math.round(pr / oa) + ',' + Math.round(pg / oa) + ',' +
+      Math.round(pb / oa) + ',' + oa.toFixed(4) + ')';
+  },
+  _drawMoodWash: function(){
+    var ctx = this.ctx, Sw = this.SEASONS[this.season];
+    var Wx = this.WEATHERS[this.weather] || this.WEATHERS.limpo;
+    var prev = this.WEATHERS[this.weatherPrev] || this.WEATHERS.limpo;
+    var wa = this.weatherBlend, D = this._dn;
+    var wash = this._composeWashes(Sw && Sw.wash, 1, Wx.wash, wa,
+      prev.wash, 1 - wa, 'rgba(' + D.darkCol + ',1)', D.dark * this._fxMul());
+    if (wash) { ctx.globalAlpha = 1; ctx.fillStyle = wash; ctx.fillRect(-30, -30, this.W + 60, this.H + 60); }
   },
   _makeWhite: function(img){
     if (!img || !img.complete || !img.naturalWidth) return null;
-    var c = document.createElement('canvas');
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    if (!this._whiteCache) this._whiteCache = new WeakMap();
+    var cached = this._whiteCache.get(img);
+    if (cached) return cached;
+    var c = this._makeCanvas(img.naturalWidth, img.naturalHeight);
     var cx = c.getContext('2d');
     cx.drawImage(img, 0, 0);
     cx.globalCompositeOperation = 'source-in';
     cx.fillStyle = '#fff';
     cx.fillRect(0, 0, c.width, c.height);
+    this._whiteCache.set(img, c);
     return c;
   },
   _hashStr: function(s){
@@ -404,8 +562,8 @@ E.Rfx = {
   setReducedFx: function(v){ this.reducedFx = !!v; this.savePrefs(); },
   setPerfMode: function(v){
     this.perfMode = (v === 'high' || v === 'low') ? v : 'auto';
-    if (this.perfMode === 'low') this.lowFx = true;
-    else if (this.perfMode === 'high') this.lowFx = false;
+    if (this.perfMode === 'low') this._setLowFx(true);
+    else if (this.perfMode === 'high') this._setLowFx(false);
     this.savePrefs();
   },
   /* ================= [V8] CICLO DIA/NOITE (só render; relógio real local) =================
@@ -482,12 +640,15 @@ E.Rfx = {
         var pr = sh.t / sh.life;
         var fade = Math.sin(Math.PI * pr);
         sh.x += sh.vx * delta; sh.y += sh.vy * delta;
-        var tx = sh.x - sh.vx * 0.16, ty = sh.y - sh.vy * 0.16;
-        var g2 = ctx.createLinearGradient(sh.x, sh.y, tx, ty);
-        g2.addColorStop(0, 'rgba(240,248,255,' + (0.95 * fade * st).toFixed(3) + ')');
-        g2.addColorStop(1, 'rgba(240,248,255,0)');
-        ctx.globalAlpha = 1; ctx.strokeStyle = g2; ctx.lineWidth = 2; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(tx, ty); ctx.stroke();
+        var len = Math.sqrt(sh.vx * sh.vx + sh.vy * sh.vy) * 0.16;
+        var trail = this._buffer('shootTrail', 180, 8);
+        if (!trail.ready) {
+          var txc = trail.ctx, tg = txc.createLinearGradient(0, 0, 180, 0);
+          tg.addColorStop(0, 'rgba(240,248,255,0)'); tg.addColorStop(1, 'rgba(240,248,255,0.95)');
+          txc.fillStyle = tg; txc.fillRect(0, 3, 180, 2); trail.ready = true;
+        }
+        ctx.save(); ctx.translate(sh.x, sh.y); ctx.rotate(Math.atan2(sh.vy, sh.vx));
+        ctx.globalAlpha = fade * st; ctx.drawImage(trail.canvas, -len, -4, len, 8); ctx.restore();
         ctx.globalAlpha = fade * st; ctx.fillStyle = '#fff';
         ctx.fillRect(sh.x - 1, sh.y - 1, 2.4, 2.4);
       }
@@ -547,20 +708,28 @@ E.Rfx = {
     var gy = Math.min(762, band.bot + 130); // base do pilar: visível mesmo com corte landscape
     var top = band.top + (band.bot - band.top) * 0.06;
     var w = 96;
-    var g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
-    g.addColorStop(0, 'rgba(232,163,58,0)');
-    g.addColorStop(0.32, 'rgba(232,180,90,' + (0.34 * ea).toFixed(3) + ')');
-    g.addColorStop(0.5, 'rgba(255,244,214,' + (0.50 * ea).toFixed(3) + ')');
-    g.addColorStop(0.68, 'rgba(232,180,90,' + (0.34 * ea).toFixed(3) + ')');
-    g.addColorStop(1, 'rgba(232,163,58,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(cx - w / 2, top, w, gy - top);
-    var g2 = ctx.createLinearGradient(cx - 14, 0, cx + 14, 0);
-    g2.addColorStop(0, 'rgba(255,250,230,0)');
-    g2.addColorStop(0.5, 'rgba(255,252,240,' + (0.55 * ea).toFixed(3) + ')');
-    g2.addColorStop(1, 'rgba(255,250,230,0)');
-    ctx.fillStyle = g2;
+    if (!this._gradientCache.pillarWide) {
+      var g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+      g.addColorStop(0, 'rgba(232,163,58,0)');
+      g.addColorStop(0.32, 'rgba(232,180,90,0.34)');
+      g.addColorStop(0.5, 'rgba(255,244,214,0.50)');
+      g.addColorStop(0.68, 'rgba(232,180,90,0.34)');
+      g.addColorStop(1, 'rgba(232,163,58,0)');
+      this._gradientCache.pillarWide = g;
+      var g2 = ctx.createLinearGradient(cx - 14, 0, cx + 14, 0);
+      g2.addColorStop(0, 'rgba(255,250,230,0)');
+      g2.addColorStop(0.5, 'rgba(255,252,240,0.55)');
+      g2.addColorStop(1, 'rgba(255,250,230,0)');
+      this._gradientCache.pillarCore = g2;
+    }
+    ctx.globalAlpha = ea;
+    if (!this.lowFx) {
+      ctx.fillStyle = this._gradientCache.pillarWide;
+      ctx.fillRect(cx - w / 2, top, w, gy - top);
+    }
+    ctx.fillStyle = this._gradientCache.pillarCore;
     ctx.fillRect(cx - 14, top + 20, 28, gy - top - 10);
+    ctx.globalAlpha = 1;
     // anel de impacto no chão quando o pilar acende (ancorado no horizonte visível)
     if (!this._pillarRing && t > 0.26) {
       this._pillarRing = true;
@@ -634,8 +803,7 @@ E.Rfx = {
   },
   _tintImg: function(img, S){
     if (!img || !img.complete || !img.naturalWidth || !S) return null;
-    var c = document.createElement('canvas');
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    var c = this._makeCanvas(img.naturalWidth, img.naturalHeight);
     var cx = c.getContext('2d');
     cx.drawImage(img, 0, 0);
     try {
@@ -675,25 +843,30 @@ E.Rfx = {
     var S = this.SEASONS[this.season];
     if (!S || !this.seasonAtmo.length) return;
     var ctx = this.ctx, t = this.time;
-    for (var i = 0; i < this.seasonAtmo.length; i++) {
-      var p = this.seasonAtmo[i];
-      if (!!p.front !== front) continue;
-      if (S.mode === 'rise') { // verão: motas douradas sobem
-        p.y -= p.sp * delta * 0.7;
-        p.x += (Math.sin(t * 1.1 + p.ph) * 12 + this.wind * 30) * delta;
-        if (p.y < -6) { p.y = this.GROUND_Y + Math.random() * 40; p.x = Math.random() * this.W; }
-        ctx.globalAlpha = (0.22 + 0.34 * (0.5 + 0.5 * Math.sin(t * 2.4 + p.ph))) * (front ? 1.3 : 1);
-      } else {                 // queda: pétalas / folhas / neve
-        p.y += p.sp * delta;
-        p.x += (Math.sin(t * S.sway + p.ph) * S.swayA * (1 + this.wind * 1.1) + this.wind * 36) * delta;
-        if (p.y > this.GROUND_Y + 8) { p.y = -8; p.x = Math.random() * this.W; }
-        ctx.globalAlpha = S.alpha * (front ? 1.25 : 1);
+    // Um path por cor sazonal; antes havia um fillRect/state change por partícula.
+    for (var ci = 0; ci < S.cols.length; ci++) {
+      var n = 0, alpha = 0;
+      ctx.beginPath();
+      for (var i = 0; i < this.seasonAtmo.length; i++) {
+        var p = this.seasonAtmo[i];
+        if (!!p.front !== front || p.col !== S.cols[ci] || (this.lowFx && (i & 1))) continue;
+        var pa;
+        if (S.mode === 'rise') {
+          p.y -= p.sp * delta * 0.7;
+          p.x += (Math.sin(t * 1.1 + p.ph) * 12 + this.wind * 30) * delta;
+          if (p.y < -6) { p.y = this.GROUND_Y + Math.random() * 40; p.x = Math.random() * this.W; }
+          pa = (0.22 + 0.34 * (0.5 + 0.5 * Math.sin(t * 2.4 + p.ph))) * (front ? 1.3 : 1);
+        } else {
+          p.y += p.sp * delta;
+          p.x += (Math.sin(t * S.sway + p.ph) * S.swayA * (1 + this.wind * 1.1) + this.wind * 36) * delta;
+          if (p.y > this.GROUND_Y + 8) { p.y = -8; p.x = Math.random() * this.W; }
+          pa = S.alpha * (front ? 1.25 : 1);
+        }
+        var wide = S.flutter && (Math.floor(t * 3 + p.ph * 3) % 2 === 0);
+        ctx.rect(p.x, p.y, wide ? p.sz : p.sz * 0.55, wide ? p.sz * 0.55 : p.sz);
+        alpha += pa; n++;
       }
-      ctx.fillStyle = p.col;
-      if (S.flutter && (Math.floor(t * 3 + p.ph * 3) % 2 === 0))
-        ctx.fillRect(p.x, p.y, p.sz, p.sz * 0.55);
-      else
-        ctx.fillRect(p.x, p.y, p.sz * 0.55, p.sz);
+      if (n) { ctx.globalAlpha = alpha / n; ctx.fillStyle = S.cols[ci]; ctx.fill(); }
     }
     ctx.globalAlpha = 1;
   },
@@ -860,6 +1033,14 @@ E.Rfx = {
         rx: rx, ry: rx * 0.34, ph: (h % 628) / 100, _gf: null, _sky: null
       });
     }
+    // Gradientes dependem da posição, mas são criados na troca de região, nunca no frame.
+    if (this.ctx) for (var j = 0; j < this.puddles.length; j++) {
+      var p = this.puddles[j], wy = p.y + p.ry * 0.12;
+      p._sky = this.ctx.createLinearGradient(0, p.y - p.ry, 0, p.y + p.ry * 0.3);
+      p._sky.addColorStop(0, 'rgba(190,215,245,0.5)'); p._sky.addColorStop(1, 'rgba(190,215,245,0)');
+      p._gf = this.ctx.createLinearGradient(0, wy + p.ry * 0.55, 0, wy + p.ry * 2.4);
+      p._gf.addColorStop(0, 'rgba(0,0,0,0)'); p._gf.addColorStop(1, 'rgba(4,6,12,0.42)');
+    }
   },
   _puddleActive: function(){
     var W = this.WEATHERS[this.weather];
@@ -887,69 +1068,58 @@ E.Rfx = {
     this.rippleIdx = (this.rippleIdx + 1) % this.RIPPLE_POOL;
     r.on = true; r.x = x; r.y = y; r.t = 0; r.life = 0.45 + Math.random() * 0.3;
   },
+  _buildReflectionScene: function(heroX, enCX, evis, t){
+    var b = this._buffer('entityReflections', this.W, 200), x = b.ctx;
+    x.clearRect(0, 0, this.W, 200);
+    x.save(); x.scale(1, -0.62);
+    var wob = Math.sin(t * 2.1) * 1.8;
+    var cf = this._petFrame(this.compKey, this.petAnim.pose);
+    if (cf && cf.complete && cf.naturalWidth) x.drawImage(cf, 6 + wob, -176, 176, 176);
+    var fr = this.heroFrames[this.heroAnim.pose] || [];
+    var hImg = fr[this.heroAnim.f] || this.heroImg;
+    if (hImg && hImg.complete && hImg.naturalWidth) x.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
+    var pf = this._petFrame(this.petKey, this.petAnim.pose);
+    if (pf && pf.complete && pf.naturalWidth) x.drawImage(pf, 196 + wob, -76, 76, 76);
+    if (evis > 0.02 && this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth) {
+      var sz = 240 * (this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1));
+      x.globalAlpha = evis;
+      x.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
+    }
+    x.restore(); x.globalAlpha = 1;
+    return b.canvas;
+  },
   _drawPuddles: function(){
     if (this.puddleT < 0.015) return;
+    if (this.lowFx) { this._drawPuddlesLite(); return; }
     var ctx = this.ctx, t = this.time, P = this.puddleT;
     var col = this._rainStyle().cols[0]; // água toma a cor da chuva da região
     var heroX = 45 - this.heroLunge * 14;
     var enCX = this.enemyBoss ? 372 : 390;
     var evis = (1 - this.enemyFade) * (this.enemySpawn < 1 ? 0.4 + 0.6 * this.enemySpawn : 1);
+    var reflectionScene = this._buildReflectionScene(heroX, enCX, evis, t);
+    // Água e fundo escuro: dois batches para todas as poças.
+    ctx.globalAlpha = P; ctx.fillStyle = 'rgba(' + col + ',0.16)'; ctx.beginPath();
+    for (var b1 = 0; b1 < this.puddles.length; b1++) {
+      var bp = this.puddles[b1]; ctx.ellipse(bp.x, bp.y, bp.rx, bp.ry, 0, 0, 6.2832);
+    }
+    ctx.fill(); ctx.fillStyle = 'rgba(6,9,18,0.20)'; ctx.beginPath();
+    for (var b2 = 0; b2 < this.puddles.length; b2++) {
+      var bi = this.puddles[b2]; ctx.ellipse(bi.x, bi.y, bi.rx * 0.92, bi.ry * 0.9, 0, 0, 6.2832);
+    }
+    ctx.fill();
     for (var i = 0; i < this.puddles.length; i++) {
       var p = this.puddles[i];
       var a = P * (0.86 + 0.14 * Math.sin(t * 0.7 + p.ph));
-      // água (tinta do clima + fundo escuro + brilho de céu no espelho d'água)
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = 'rgba(' + col + ',' + (0.16 * a).toFixed(3) + ')';
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.fill();
-      ctx.fillStyle = 'rgba(6,9,18,' + (0.20 * a).toFixed(3) + ')';
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx * 0.92, p.ry * 0.9, 0, 0, 6.2832); ctx.fill();
-      if (!p._sky) {
-        p._sky = ctx.createLinearGradient(0, p.y - p.ry, 0, p.y + p.ry * 0.3);
-        p._sky.addColorStop(0, 'rgba(190,215,245,0.5)');
-        p._sky.addColorStop(1, 'rgba(190,215,245,0)');
-      }
       ctx.save();
       ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
       ctx.globalAlpha = 0.4 * a;
       ctx.fillStyle = p._sky;
       ctx.fillRect(p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 1.35);
-      ctx.restore();
-      // reflexos: clip na elipse + flip vertical + squash 0.62 + tremulação da água
-      var wy = p.y + p.ry * 0.12, wob = Math.sin(t * 2.1 + p.ph) * 1.8;
-      ctx.save();
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
-      ctx.globalAlpha = 0.34 * a;
-      ctx.translate(0, wy); ctx.scale(1, -0.62);
-      var cf = this._petFrame(this.compKey, this.petAnim.pose);
-      if (cf && cf.complete && cf.naturalWidth) ctx.drawImage(cf, 6 + wob, -176, 176, 176);
-      var fr = this.heroFrames[this.heroAnim.pose] || [];
-      var hImg = fr[this.heroAnim.f] || this.heroImg;
-      if (hImg && hImg.complete && hImg.naturalWidth) ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
-      var pf = this._petFrame(this.petKey, this.petAnim.pose);
-      if (pf && pf.complete && pf.naturalWidth) ctx.drawImage(pf, 196 + wob, -76, 76, 76);
-      if (evis > 0.02 && this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth) {
-        var sz = 240 * (this.enemyBoss ? 1.38 : (this.enemyMini ? 1.12 : 1));
-        ctx.globalAlpha = 0.34 * a * evis;
-        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
-        // sheen aditivo: o reflexo das grandes figuras brilha na água
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.12 * a * evis;
-        ctx.drawImage(this.enemyImg, enCX - 120 - (sz - 240) / 2 - wob * 0.7, -sz, sz, sz);
-      }
-      if (hImg && hImg.complete && hImg.naturalWidth) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.12 * a;
-        ctx.drawImage(hImg, heroX + wob * 0.7, -240, 240, 240);
-      }
-      ctx.restore();
+      // Reflexos são pré-compostos uma vez por frame e reutilizados nas 9 poças.
+      var wy = p.y + p.ry * 0.12;
+      ctx.globalAlpha = 0.40 * a;
+      ctx.drawImage(reflectionScene, 0, wy);
       // profundidade do reflexo + brilho de relâmpago + cintilância
-      ctx.save();
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832); ctx.clip();
-      if (!p._gf) {
-        p._gf = ctx.createLinearGradient(0, wy + p.ry * 0.55, 0, wy + p.ry * 2.4);
-        p._gf.addColorStop(0, 'rgba(0,0,0,0)');
-        p._gf.addColorStop(1, 'rgba(4,6,12,0.42)');
-      }
       ctx.globalAlpha = a;
       ctx.fillStyle = p._gf;
       ctx.fillRect(p.x - p.rx, wy, p.rx * 2, p.ry * 2.4);
@@ -965,32 +1135,71 @@ E.Rfx = {
         ctx.fillRect(p.x - p.rx * 0.55 + sh * p.rx * 0.3, sy2, p.rx * 0.5, 1);
       }
       ctx.restore();
-      // menisco (borda superior iluminada)
-      ctx.globalAlpha = 0.35 * a;
-      ctx.strokeStyle = 'rgba(200,220,250,0.5)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
     }
+    // Meniscos superiores também compartilham um único stroke.
+    ctx.globalAlpha = 0.35 * P; ctx.strokeStyle = 'rgba(200,220,250,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var mi = 0; mi < this.puddles.length; mi++) {
+      var mp = this.puddles[mi]; ctx.ellipse(mp.x, mp.y, mp.rx, mp.ry, 0, Math.PI * 1.08, Math.PI * 1.92);
+    }
+    ctx.stroke();
     // ondulações de impacto das gotas (sobre todas as poças)
-    ctx.strokeStyle = 'rgba(200,220,250,0.55)';
-    ctx.lineWidth = 1;
-    for (var r2 = 0; r2 < this.ripples.length; r2++) {
-      var rp = this.ripples[r2];
-      if (!rp.on) continue;
-      var pr = rp.t / rp.life;
-      ctx.globalAlpha = (1 - pr) * 0.5 * P;
-      ctx.beginPath();
-      ctx.ellipse(rp.x, rp.y, 2 + pr * 11, (2 + pr * 11) * 0.34, 0, 0, 6.2832);
-      ctx.stroke();
-    }
+    this._drawRippleBatch(P);
     // solo encharcado (sheen sutil na faixa do chão)
     ctx.fillStyle = 'rgba(165,195,235,' + (0.045 * P).toFixed(3) + ')';
     ctx.fillRect(0, this.GROUND_Y, this.W, this.H - this.GROUND_Y);
     ctx.globalAlpha = 1;
   },
+  _drawRippleBatch: function(P){
+    var ctx = this.ctx, n = 0, alpha = 0;
+    ctx.beginPath();
+    for (var i = 0; i < this.ripples.length; i++) {
+      var rp = this.ripples[i];
+      if (!rp.on) continue;
+      var pr = rp.t / rp.life, rr = 2 + pr * 11;
+      alpha += (1 - pr) * 0.5 * P; n++;
+      ctx.ellipse(rp.x, rp.y, rr, rr * 0.34, 0, 0, 6.2832);
+    }
+    if (n) {
+      ctx.globalAlpha = alpha / n;
+      ctx.strokeStyle = 'rgba(200,220,250,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  },
+  /* Low-FX preserva poças/feedback climático, mas remove 9 clips e até 54
+     drawImage de reflexo por frame. Formas são enviadas em quatro batches. */
+  _drawPuddlesLite: function(){
+    var ctx = this.ctx, P = this.puddleT, col = this._rainStyle().cols[0];
+    ctx.globalAlpha = P;
+    ctx.fillStyle = 'rgba(' + col + ',0.14)';
+    ctx.beginPath();
+    for (var i = 0; i < this.puddles.length; i++) {
+      var p = this.puddles[i];
+      ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, 6.2832);
+    }
+    ctx.fill();
+    ctx.fillStyle = 'rgba(6,9,18,0.18)';
+    ctx.beginPath();
+    for (var j = 0; j < this.puddles.length; j++) {
+      var q = this.puddles[j];
+      ctx.ellipse(q.x, q.y, q.rx * 0.88, q.ry * 0.82, 0, 0, 6.2832);
+    }
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200,220,250,0.42)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var k = 0; k < this.puddles.length; k++) {
+      var m = this.puddles[k];
+      ctx.ellipse(m.x, m.y, m.rx, m.ry, 0, Math.PI * 1.08, Math.PI * 1.92);
+    }
+    ctx.stroke();
+    this._drawRippleBatch(P);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(165,195,235,' + (0.03 * P).toFixed(3) + ')';
+    ctx.fillRect(0, this.GROUND_Y, this.W, this.H - this.GROUND_Y);
+  },
   /* ================= [ART-12] NEBLINA DENSA — PÂNTANO (só render) ================= */
   _fogBlob: function(rgb){
-    var c = document.createElement('canvas'); c.width = 256; c.height = 128;
+    var c = this._makeCanvas(256, 128);
     var cx = c.getContext('2d');
     cx.translate(128, 64); cx.scale(1, 0.5);
     var g = cx.createRadialGradient(0, 0, 8, 0, 0, 122);
@@ -1034,12 +1243,12 @@ E.Rfx = {
     }
   },
   _drawFog: function(front){
-    if (!this.fogBanks.length) return;
+    if (!this.fogBanks.length || (this.lowFx && front)) return;
     var ctx = this.ctx, t = this.time;
     var dens = this.fogDens * (0.85 + 0.15 * Math.sin(t * 0.23)); // respira
     for (var i = 0; i < this.fogBanks.length; i++) {
       var f = this.fogBanks[i];
-      if (f.front !== front) continue;
+      if (f.front !== front || (this.lowFx && (i & 1))) continue;
       var blob = f.y < this.GROUND_Y - 45 ? this._fogBlobA : this._fogBlobB;
       ctx.globalAlpha = Math.min(0.5, f.a * dens * (0.8 + 0.2 * Math.sin(t * 0.5 + f.ph)) * (front ? 0.85 : 1));
       ctx.drawImage(blob, f.x - f.w / 2, f.y - f.h / 2, f.w, f.h);
@@ -1047,14 +1256,19 @@ E.Rfx = {
     ctx.globalAlpha = 1;
   },
   _drawGroundMist: function(){
-    if (!this.fogBanks.length) return;
+    if (!this.fogBanks.length || this.lowFx) return;
     var ctx = this.ctx;
-    var g = ctx.createLinearGradient(0, this.GROUND_Y - 110, 0, this.GROUND_Y + 80);
-    g.addColorStop(0, 'rgba(150,180,150,0)');
-    g.addColorStop(0.55, 'rgba(150,180,150,' + (0.15 * this.fogDens).toFixed(3) + ')');
-    g.addColorStop(1, 'rgba(120,150,125,0)');
-    ctx.fillStyle = g;
+    if (!this._gradientCache.groundMist) {
+      var g = ctx.createLinearGradient(0, this.GROUND_Y - 110, 0, this.GROUND_Y + 80);
+      g.addColorStop(0, 'rgba(150,180,150,0)');
+      g.addColorStop(0.55, 'rgba(150,180,150,0.15)');
+      g.addColorStop(1, 'rgba(120,150,125,0)');
+      this._gradientCache.groundMist = g;
+    }
+    ctx.globalAlpha = Math.min(1, this.fogDens);
+    ctx.fillStyle = this._gradientCache.groundMist;
     ctx.fillRect(0, this.GROUND_Y - 110, this.W, 190);
+    ctx.globalAlpha = 1;
   },
   _boltPath: function(){
     // relâmpago ramificado do céu até o horizonte
@@ -1067,6 +1281,44 @@ E.Rfx = {
       pts.push([x, y]);
     }
     return pts;
+  },
+  /* Batching de precipitação: no máximo 2 paths (um por cor) por camada,
+     independentemente de haver 10 ou 132 gotas. */
+  _drawPrecipBatch: function(front, W, st, blend){
+    var ctx = this.ctx, isSnow = !!W.snow, isAsh = st.mode === 'ash';
+    var batches = 0;
+    ctx.save();
+    for (var ci = 0; ci < st.cols.length; ci++) {
+      var count = 0;
+      ctx.beginPath();
+      for (var i = 0; i < this.rain.length; i++) {
+        var p = this.rain[i];
+        if (!p.on || !!p.front !== front || ((p.c * st.cols.length) | 0) !== ci) continue;
+        count++;
+        if (isSnow || isAsh) {
+          var sz = front ? (isAsh ? 2.4 : 2.2) : (isAsh ? 2 : 1.6 + (p.ph % 1));
+          ctx.rect(p.x, p.y, sz, sz);
+        } else {
+          var len = front ? (W.rain ? W.rain.len[1] : 10) : 7 + p.c * 4;
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - this.wind * (front ? 5.4 : 4.4), p.y - len);
+        }
+      }
+      if (!count) continue;
+      var alpha = front ? (isSnow || isAsh ? 0.75 : (W.rain ? W.rain.al : 0.5)) :
+        ((W.rain ? W.rain.al * 0.62 : 0.5) * (isSnow || isAsh ? 0.8 : 1));
+      if (isSnow || isAsh) {
+        ctx.fillStyle = 'rgba(' + st.cols[ci] + ',' + (alpha * blend).toFixed(3) + ')';
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = 'rgba(' + st.cols[ci] + ',' + (alpha * blend).toFixed(3) + ')';
+        ctx.lineWidth = front ? 1.5 : 1;
+        ctx.stroke();
+      }
+      batches++;
+    }
+    ctx.restore();
+    return batches;
   },
   _drawWeatherBack: function(delta){
     // camada de trás: precipitação ao fundo + escurecimento do céu
@@ -1083,27 +1335,7 @@ E.Rfx = {
     var def = W.rain || W.snow;
     if (!def || this.rainOn < 1) return;
     var st = this._rainStyle();
-    var isSnow = !!W.snow, isAsh = st.mode === 'ash';
-    ctx.save();
-    for (var i = 0; i < this.rain.length; i++) {
-      var p = this.rain[i];
-      if (!p.on || p.front) continue;
-      var col = st.cols[(p.c * st.cols.length) | 0];
-      var al = (W.rain ? W.rain.al * 0.62 : 0.5) * b;
-      if (isSnow || isAsh) {
-        ctx.fillStyle = 'rgba(' + col + ',' + (al * 0.8).toFixed(3) + ')';
-        var sz = isAsh ? 2 : 1.6 + (p.ph % 1);
-        ctx.fillRect(p.x, p.y, sz, sz);
-      } else {
-        ctx.strokeStyle = 'rgba(' + col + ',' + al.toFixed(3) + ')';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - this.wind * 4.4, p.y - 7 - p.c * 4);
-        ctx.stroke();
-      }
-    }
-    ctx.restore();
+    this._drawPrecipBatch(false, W, st, b);
   },
   _drawWeatherFront: function(delta){
     // camada da frente: precipitação grossa + splashes + relâmpago + flash
@@ -1112,36 +1344,22 @@ E.Rfx = {
     var b = this.weatherBlend;
     if (def && this.rainOn > 0) {
       var st = this._rainStyle();
-      var isSnow = !!W.snow, isAsh = st.mode === 'ash';
-      for (var i = 0; i < this.rain.length; i++) {
-        var p = this.rain[i];
-        if (!p.on || !p.front) continue;
-        var col = st.cols[(p.c * st.cols.length) | 0];
-        if (isSnow || isAsh) {
-          ctx.fillStyle = 'rgba(' + col + ',' + (0.75 * b).toFixed(3) + ')';
-          ctx.fillRect(p.x, p.y, isAsh ? 2.4 : 2.2, isAsh ? 2.4 : 2.2);
-        } else {
-          ctx.strokeStyle = 'rgba(' + col + ',' + ((W.rain ? W.rain.al : 0.5) * b).toFixed(3) + ')';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x - this.wind * 5.4, p.y - (W.rain ? W.rain.len[1] : 10));
-          ctx.stroke();
-        }
-      }
+      var isAsh = st.mode === 'ash';
+      this._drawPrecipBatch(true, W, st, b);
       // splashes no solo (só chuva)
       if (W.rain && !isAsh) {
         ctx.strokeStyle = 'rgba(190,210,240,' + (0.4 * b).toFixed(3) + ')';
         ctx.lineWidth = 1;
+        var splashN = 0, splashA = 0;
+        ctx.beginPath();
         for (var s = 0; s < this.splashes.length; s++) {
           var sp = this.splashes[s];
           if (!sp.on) continue;
-          var pr = sp.t / sp.life;
-          ctx.globalAlpha = (1 - pr) * 0.7;
-          ctx.beginPath();
-          ctx.ellipse(sp.x, sp.y, 1.5 + pr * 7, (1.5 + pr * 7) * 0.32, 0, 0, 6.2832);
-          ctx.stroke();
+          var pr = sp.t / sp.life, sr = 1.5 + pr * 7;
+          splashA += (1 - pr) * 0.7; splashN++;
+          ctx.ellipse(sp.x, sp.y, sr, sr * 0.32, 0, 0, 6.2832);
         }
+        if (splashN) { ctx.globalAlpha = splashA / splashN; ctx.stroke(); }
         ctx.globalAlpha = 1;
       }
     }
@@ -1400,6 +1618,7 @@ E.Rfx = {
   /* ================= FRAME ================= */
   render: function(delta){
     var ctx = this.ctx, W = this.W, H = this.H;
+    this._metricsBeginFrame();
     this.time += delta;
     /* [AUDIT-C2] medição de frame real (delta cru do rAF, pré-clamp) —
        média móvel decide o modo leve a cada 2s quando perfMode=auto */
@@ -1408,12 +1627,14 @@ E.Rfx = {
     this._perfT += delta;
     if (this._perfT > 2) {
       this._perfT = 0;
-      if (this.perfMode === 'low') this.lowFx = true;
-      else if (this.perfMode === 'high') this.lowFx = false;
+      if (this.perfMode === 'low') this._setLowFx(true);
+      else if (this.perfMode === 'high') this._setLowFx(false);
       else {
-        if (this._perfAvg > 0.027) this.lowFx = true;
-        else if (this._perfAvg < 0.019) this.lowFx = false;
+        // Histerese evita alternância de qualidade em torno de 60 FPS.
+        if (this._perfAvg > 0.027) this._setLowFx(true);
+        else if (this._perfAvg < 0.019) this._setLowFx(false);
       }
+      this._syncViewport(false); // fallback para browsers sem ResizeObserver
     }
     // [V3] HIT-STOP: no crítico, a camada VISUAL quase congela por ~85ms
     // (relógio de animação/partículas); a simulação do combate segue intacta.
@@ -1460,30 +1681,15 @@ E.Rfx = {
     // ---- 3) partículas atmosféricas (bioma + estação, atrás das entidades) ----
     this._drawAtmo(delta);
     this._drawSeasonAtmo(delta, false);
-    // ---- 4) chão ----
-    if (palDraw) {
-      var g = ctx.createLinearGradient(0, this.GROUND_Y, 0, H);
-      g.addColorStop(0, palDraw.ground);
-      g.addColorStop(1, '#040208');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, this.GROUND_Y, W, H - this.GROUND_Y);
-      ctx.fillStyle = 'rgba(255,255,255,0.05)';
-      ctx.fillRect(0, this.GROUND_Y, W, 2);
-      ctx.globalAlpha = 0.10; ctx.fillStyle = palDraw.accent;
-      ctx.fillRect(0, this.GROUND_Y, W, 4);
-      ctx.globalAlpha = 1;
-    }
+    // ---- 4) chão estático pré-renderizado (rebake só em troca de região/estação) ----
+    this._drawGround(palDraw);
     // ---- 4.5) [ART-12] névoa densa (camada de trás + bruma do solo) ----
     this._drawFog(false);
     this._drawGroundMist();
     // ---- 5) anéis de efeito (atrás das entidades) ----
     this._drawRings(delta);
-    // ---- 5.5) spotlight (separação entidade/fundo) ----
-    var spot = ctx.createRadialGradient(300, 650, 40, 300, 650, 330);
-    spot.addColorStop(0, 'rgba(0,0,0,0.42)');
-    spot.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = spot;
-    ctx.fillRect(0, 330, W, 470);
+    // ---- 5.5) spotlight pré-renderizado (separação entidade/fundo) ----
+    if (!this.lowFx) this._drawSpotlight();
     // ---- 6) entidades ----
     this._heroTick(delta);
     this._drawEntities(delta);
@@ -1504,56 +1710,43 @@ E.Rfx = {
     this._drawFlies(delta);
     // ---- 7.3) [ART-12] névoa de frente (vela a chuva junto à câmera) ----
     this._drawFog(true);
-    // ---- 7.5) wash de humor (estação + clima) ----
-    var Sw = this.SEASONS[this.season];
-    if (Sw && Sw.wash) { ctx.fillStyle = Sw.wash; ctx.fillRect(-30, -30, W + 60, H + 60); }
-    var Wx = this.WEATHERS[this.weather];
-    if (Wx && Wx.wash) {
-      var prevX = this.WEATHERS[this.weatherPrev];
-      var wa = this.weatherBlend;
-      ctx.globalAlpha = wa;
-      ctx.fillStyle = Wx.wash;
-      ctx.fillRect(-30, -30, W + 60, H + 60);
-      if (prevX && prevX.wash && wa < 1) {
-        ctx.globalAlpha = 1 - wa;
-        ctx.fillStyle = prevX.wash;
-        ctx.fillRect(-30, -30, W + 60, H + 60);
+    // ---- 7.5/7.6) wash unificado: estação + clima + dia/noite (1 fill) ----
+    this._drawMoodWash();
+    var D8 = this._dn;
+    if (D8.glow > 0.004) { // amanhecer/entardecer: brilho quente junto ao horizonte
+      var hz = this.GROUND_Y, hk = 'horizon:' + D8.glowCol;
+      var hg = this._gradientCache[hk];
+      if (!hg) {
+        var gH = ctx.createLinearGradient(0, hz - 260, 0, hz + 12);
+        gH.addColorStop(0, 'rgba(' + D8.glowCol + ',0)');
+        gH.addColorStop(0.62, 'rgba(' + D8.glowCol + ',0.42)');
+        gH.addColorStop(1, 'rgba(' + D8.glowCol + ',1)');
+        var gH2 = ctx.createLinearGradient(0, hz - 26, 0, hz + 2);
+        gH2.addColorStop(0, 'rgba(' + D8.glowCol + ',0)');
+        gH2.addColorStop(1, 'rgba(' + D8.glowCol + ',1)');
+        hg = this._gradientCache[hk] = { broad:gH, line:gH2 };
       }
+      ctx.globalAlpha = D8.glow * this._fxMul();
+      if (!this.lowFx) { ctx.fillStyle = hg.broad; ctx.fillRect(0, hz - 260, W, 272); }
+      ctx.globalAlpha *= 1.15;
+      ctx.fillStyle = hg.line; ctx.fillRect(0, hz - 26, W, 28);
       ctx.globalAlpha = 1;
     }
-    // ---- 7.6) [V8] wash do ciclo dia/noite + brilho de horizonte ----
-    var D8 = this._dn;
-    if (D8.dark > 0.004) {
-      ctx.fillStyle = 'rgba(' + D8.darkCol + ',' + (D8.dark * this._fxMul()).toFixed(3) + ')';
-      ctx.fillRect(-30, -30, W + 60, H + 60);
-    }
-    if (D8.glow > 0.004) { // amanhecer/entardecer: brilho quente junto ao horizonte
-      // horizonte VISÍVEL: em landscape o cover corta abaixo do GROUND_Y — ancora na banda
-      var hz = Math.min(this.GROUND_Y, this._viewBand().bot);
-      var gH = ctx.createLinearGradient(0, hz - 260, 0, hz + 12);
-      gH.addColorStop(0, 'rgba(' + D8.glowCol + ',0)');
-      gH.addColorStop(0.62, 'rgba(' + D8.glowCol + ',' + (D8.glow * 0.42 * this._fxMul()).toFixed(3) + ')');
-      gH.addColorStop(1, 'rgba(' + D8.glowCol + ',' + (D8.glow * this._fxMul()).toFixed(3) + ')');
-      ctx.fillStyle = gH;
-      ctx.fillRect(0, hz - 260, W, 272);
-      // faixa quente e fina rente à linha do solo (leitura garantida do período)
-      var gH2 = ctx.createLinearGradient(0, hz - 26, 0, hz + 2);
-      gH2.addColorStop(0, 'rgba(' + D8.glowCol + ',0)');
-      gH2.addColorStop(1, 'rgba(' + D8.glowCol + ',' + (D8.glow * 1.15 * this._fxMul()).toFixed(3) + ')');
-      ctx.fillStyle = gH2;
-      ctx.fillRect(0, hz - 26, W, 28);
-    }
+    // Vinheta estática vem de buffer (o pseudo-elemento CSS foi removido).
+    this._drawVignette();
     // ---- 7.7) [AUDIT-B3] vinheta de perigo — herói < 30% de vida pulsa vermelho nas bordas ----
     if (this.heroHpShown < 0.3 && this.heroHpShown > 0.001) {
       var hp = this.heroHpShown / 0.3;
       var pulse = 0.5 + 0.5 * Math.sin(this.time * 5.2);
       var vA = (0.34 - 0.2 * hp) * (0.55 + 0.45 * pulse) * this._flashMul() * 1.2;
       if (vA > 0.004) {
-        var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.62);
-        vg.addColorStop(0, 'rgba(120,10,24,0)');
-        vg.addColorStop(1, 'rgba(150,14,28,' + vA.toFixed(3) + ')');
-        ctx.fillStyle = vg;
-        ctx.fillRect(0, 0, W, H);
+        if (!this._gradientCache.danger) {
+          var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.62);
+          vg.addColorStop(0, 'rgba(120,10,24,0)'); vg.addColorStop(1, 'rgba(150,14,28,1)');
+          this._gradientCache.danger = vg;
+        }
+        ctx.globalAlpha = vA; ctx.fillStyle = this._gradientCache.danger;
+        ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
       }
     }
     // ---- 8) barras de vida ----
@@ -1607,8 +1800,62 @@ E.Rfx = {
     this._drawBossIntro(delta);
     // ---- chip da estação/clima (refresh barato p/ troca de idioma) ----
     this._chipT += delta;
-    if (this._chipT > 2) { this._chipT = 0; this._band = null; this._updateChip(); this._updateWeatherChip(); }
+    if (this._chipT > 2) { this._chipT = 0; this._updateChip(); this._updateWeatherChip(); }
     ctx.restore();
+    this._metricsEndFrame();
+  },
+  _drawSkyLayer: function(L, img){
+    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+    if (!L._skyCanvas) L._skyCanvas = this._makeCanvas(this.W, this.H);
+    if (L._skySource !== img) {
+      var bx = L._skyCanvas.getContext('2d');
+      bx.clearRect(0, 0, this.W, this.H);
+      bx.drawImage(img, 0, 0, iw, ih, 0, 0, this.W, this.H);
+      L._skySource = img;
+    }
+    this.ctx.drawImage(L._skyCanvas, 0, 0);
+  },
+  _drawGround: function(pal){
+    if (!pal) return;
+    var gh = this.H - this.GROUND_Y;
+    var b = this._buffer('ground', this.W, gh);
+    var sig = pal.ground + '|' + pal.accent;
+    if (b.signature !== sig) {
+      var x = b.ctx;
+      x.clearRect(0, 0, this.W, gh);
+      var g = x.createLinearGradient(0, 0, 0, gh);
+      g.addColorStop(0, pal.ground); g.addColorStop(1, '#040208');
+      x.fillStyle = g; x.fillRect(0, 0, this.W, gh);
+      x.fillStyle = 'rgba(255,255,255,0.05)'; x.fillRect(0, 0, this.W, 2);
+      x.globalAlpha = 0.10; x.fillStyle = pal.accent; x.fillRect(0, 0, this.W, 4);
+      x.globalAlpha = 1; b.signature = sig; b.ready = true;
+    }
+    this.ctx.drawImage(b.canvas, 0, this.GROUND_Y);
+  },
+  _drawSpotlight: function(){
+    var b = this._buffer('spotlight', 270, 235);
+    if (!b.ready) {
+      var x = b.ctx;
+      var g = x.createRadialGradient(150, 160, 20, 150, 160, 165);
+      g.addColorStop(0, 'rgba(0,0,0,0.42)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = g; x.fillRect(0, 0, 270, 235); b.ready = true;
+    }
+    this.ctx.drawImage(b.canvas, 0, 330, this.W, 470);
+  },
+  _drawVignette: function(){
+    if (this.lowFx) return;
+    var b = this._buffer('vignette', 270, 480);
+    if (!b.ready) {
+      var x = b.ctx;
+      x.save(); x.translate(135, 202); x.scale(1, 1.65);
+      var g = x.createRadialGradient(0, 0, 76, 0, 0, 158);
+      g.addColorStop(0, 'rgba(4,2,8,0)');
+      g.addColorStop(0.68, 'rgba(4,2,8,0.08)');
+      g.addColorStop(1, 'rgba(4,2,8,0.50)');
+      x.fillStyle = g; x.fillRect(-170, -160, 340, 320); x.restore(); b.ready = true;
+    }
+    this.ctx.drawImage(b.canvas, 0, 0, this.W, this.H);
   },
   _drawLayers: function(delta){
     var W = this.W, S = this.SEASONS[this.season];
@@ -1617,7 +1864,16 @@ E.Rfx = {
       if (!layers) continue;
       if (pass === 1) {
         this.oldAlpha = Math.max(0, this.oldAlpha - delta * 1.8);
-        if (this.oldAlpha <= 0) { this.oldLayers = null; continue; }
+        if (this.oldAlpha <= 0) {
+          // Mantém só o buffer do céu corrente (máximo durante crossfade: 2 × 540×960).
+          for (var rid in this.regionCache) {
+            var cachedLayers = this.regionCache[rid];
+            if (cachedLayers !== this.layers && cachedLayers[0]) {
+              cachedLayers[0]._skyCanvas = null; cachedLayers[0]._skySource = null;
+            }
+          }
+          this.oldLayers = null; continue;
+        }
         this.ctx.globalAlpha = this.oldAlpha;
       }
       for (var i = 0; i < layers.length; i++) {
@@ -1631,7 +1887,7 @@ E.Rfx = {
           img = tv || L.img;
         }
         if (L.isSky) {
-          this.ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, W, this.H);
+          this._drawSkyLayer(L, img);
         } else {
           L.x -= L.speed * delta;
           if (L.x <= -L.w) L.x += L.w;
@@ -1646,28 +1902,29 @@ E.Rfx = {
     }
   },
   _drawAtmo: function(delta){
-    var ctx = this.ctx, W = this.W, H = this.H, t = this.time;
+    var ctx = this.ctx, W = this.W, t = this.time;
+    var n = 0, alpha = 0, color = '#fff';
+    ctx.beginPath();
     for (var i = 0; i < this.atmo.length; i++) {
-      var p = this.atmo[i];
-      if (p.kind === 4) { // neve caindo
+      if (this.lowFx && (i & 1)) continue;
+      var p = this.atmo[i], pa, sz;
+      if (p.kind === 4) {
         p.y += p.sp * delta * 2.2;
         p.x += (Math.sin(t * 1.4 + p.ph) * 14 + this.wind * 30) * delta;
         if (p.y > this.GROUND_Y) { p.y = -6; p.x = Math.random() * W; }
-        ctx.globalAlpha = 0.5 + Math.sin(t + p.ph) * 0.2;
-        ctx.fillStyle = '#dceafc';
-        ctx.fillRect(p.x, p.y, p.s + 0.6, p.s + 0.6);
-      } else {           // motas flutuantes
+        pa = 0.5 + Math.sin(t + p.ph) * 0.2; color = '#dceafc'; sz = p.s + 0.6;
+      } else {
         p.y -= p.sp * delta * 0.55;
         p.x += (Math.sin(t * 0.9 + p.ph) * 10 + this.wind * 18) * delta;
         if (p.y < -8) { p.y = this.GROUND_Y + Math.random() * 60; p.x = Math.random() * W; }
-        var tw = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.2 + p.ph));
-        ctx.globalAlpha = tw;
-        ctx.fillStyle = p.kind === 0 ? '#8af0c8' : p.kind === 3 ? '#ffb060' :
+        pa = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 2.2 + p.ph));
+        color = p.kind === 0 ? '#8af0c8' : p.kind === 3 ? '#ffb060' :
           p.kind === 5 ? '#e87080' : p.kind === 6 ? '#f5e6c8' : p.acc;
-        var sz = p.s + (p.kind === 0 ? Math.sin(t * 3 + p.ph) * 0.5 : 0);
-        ctx.fillRect(p.x, p.y, Math.max(0.8, sz), Math.max(0.8, sz));
+        sz = Math.max(0.8, p.s + (p.kind === 0 ? Math.sin(t * 3 + p.ph) * 0.5 : 0));
       }
+      ctx.rect(p.x, p.y, sz, sz); alpha += pa; n++;
     }
+    if (n) { ctx.globalAlpha = alpha / n; ctx.fillStyle = color; ctx.fill(); }
     ctx.globalAlpha = 1;
   },
   _drawRings: function(delta){
@@ -1704,24 +1961,22 @@ E.Rfx = {
       this.enemySpawn = Math.min(1, this.enemySpawn + delta * 3.2);
     }
     var spawnE = this.enemySpawn < 1 ? (1 - Math.pow(1 - this.enemySpawn, 3)) : 1;
-    // sombras
-    ctx.globalAlpha = 0.38; ctx.fillStyle = '#000';
-    ctx.beginPath(); ctx.ellipse(heroX + 120, 768, 92 - hl * 8, 13, 0, 0, 6.2832); ctx.fill();
+    var hopY = this.petAnim.pose === 'cheer' ? -Math.abs(Math.sin(t * 7)) * 6 : 0;
+    var cf = this._petFrame(this.compKey, this.petAnim.pose);
+    var pf = this._petFrame(this.petKey, this.petAnim.pose);
+    // Sombras de contato estáveis em um único batch (herói + pets).
+    ctx.globalAlpha = 0.36; ctx.fillStyle = '#000'; ctx.beginPath();
+    ctx.ellipse(heroX + 120, 768, 92 - hl * 8, 13, 0, 0, 6.2832);
+    if (cf && cf.complete && cf.naturalWidth) ctx.ellipse(94, 771, 54, 10, 0, 0, 6.2832);
+    if (pf && pf.complete && pf.naturalWidth) ctx.ellipse(234, 772, 38, 8, 0, 0, 6.2832);
+    ctx.fill();
     if (this.hasEnemy) {
-      var esc = this.enemyBoss ? 1.62 : (this.enemyMini ? 1.18 : 1);
-      ctx.globalAlpha = 0.38 * alpha;
-      ctx.beginPath(); ctx.ellipse(enCX, 770, 100 * bossScale * spawnE, 15 * bossScale, 0, 0, 6.2832); ctx.fill();
+      ctx.globalAlpha = 0.38 * alpha; ctx.beginPath();
+      ctx.ellipse(enCX, 770, 100 * bossScale * spawnE, 15 * bossScale, 0, 0, 6.2832); ctx.fill();
     }
     ctx.globalAlpha = 1;
     // ---- pets cênicos: companheiro atrás do herói ----
-    var hopY = this.petAnim.pose === 'cheer' ? -Math.abs(Math.sin(t * 7)) * 6 : 0;
-    var cf = this._petFrame(this.compKey, this.petAnim.pose);
-    if (cf && cf.complete && cf.naturalWidth) {
-      ctx.globalAlpha = 0.3; ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(94, 771, 54, 10, 0, 0, 6.2832); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.drawImage(cf, 6, 589 + hopY, 176, 176);
-    }
+    if (cf && cf.complete && cf.naturalWidth) ctx.drawImage(cf, 6, 589 + hopY, 176, 176);
     // ---- [V4] aura de raridade do equipamento sob o herói (leitura de E.Inv) ----
     this._drawHeroAura(t, heroX, heroY);
     // ---- herói (FSM: frame da postura corrente + flash por frame) ----
@@ -1739,13 +1994,7 @@ E.Rfx = {
       }
     }
     // ---- pet aos pés do herói (à frente, próximo do inimigo) ----
-    var pf = this._petFrame(this.petKey, this.petAnim.pose);
-    if (pf && pf.complete && pf.naturalWidth) {
-      ctx.globalAlpha = 0.34; ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(234, 772, 38, 8, 0, 0, 6.2832); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.drawImage(pf, 196, 694 + hopY, 76, 76);
-    }
+    if (pf && pf.complete && pf.naturalWidth) ctx.drawImage(pf, 196, 694 + hopY, 76, 76);
     // inimigo (aura de chefe + spawn + fade)
     if (this.hasEnemy && this.enemyImg && this.enemyImg.complete && this.enemyImg.naturalWidth > 0) {
       if (!this.enemyWhite) this.enemyWhite = this._makeWhite(this.enemyImg);
@@ -1817,6 +2066,18 @@ E.Rfx = {
     this.heroLunge = Math.max(0, this.heroLunge - delta * 3.6);
     this.enemyLunge = Math.max(0, this.enemyLunge - delta * 3.6);
   },
+  _drawShieldGlow: function(cx, cy, pulse){
+    var b = this._buffer('shieldGlow', 250, 250);
+    if (!b.ready) {
+      var x = b.ctx, g = x.createRadialGradient(125, 125, 40, 125, 125, 120);
+      g.addColorStop(0, 'rgba(111,179,255,0)');
+      g.addColorStop(0.8, 'rgba(111,179,255,0.16)');
+      g.addColorStop(1, 'rgba(140,200,255,0.02)');
+      x.fillStyle = g; x.beginPath(); x.arc(125, 125, 120, 0, 6.2832); x.fill(); b.ready = true;
+    }
+    this.ctx.globalAlpha = 0.65 + 0.35 * pulse;
+    this.ctx.drawImage(b.canvas, cx - 125, cy - 125);
+  },
   /* ================= [AUDIT-B1] VFX DE ESTADO (só leitura de E.Combat) =================
      As 4 habilidades tinham efeitos "invisíveis" — a cena agora REAGUE:
      · guarda_sombras → bolha arcânica girando ao redor do herói (hero_shield>0)
@@ -1838,13 +2099,8 @@ E.Rfx = {
     if (C.hero_shield > 0.5) {
       var sp = 0.5 + 0.5 * Math.sin(t * 3.1);
       ctx.save();
-      // brilho interno suave (leitura imediata: "estou protegido")
-      var sg = ctx.createRadialGradient(hcx, hcy, 40, hcx, hcy, 120);
-      sg.addColorStop(0, 'rgba(111,179,255,0)');
-      sg.addColorStop(0.8, 'rgba(111,179,255,' + (0.10 + 0.06 * sp).toFixed(3) + ')');
-      sg.addColorStop(1, 'rgba(140,200,255,0.02)');
-      ctx.fillStyle = sg;
-      ctx.beginPath(); ctx.arc(hcx, hcy, 120, 0, 6.2832); ctx.fill();
+      // brilho interno pré-renderizado; Low-FX conserva somente o contorno legível.
+      if (!this.lowFx) this._drawShieldGlow(hcx, hcy, sp);
       ctx.globalAlpha = 0.42 + 0.2 * sp;
       ctx.strokeStyle = '#8ec4ff';
       ctx.lineWidth = 2;
@@ -1852,7 +2108,7 @@ E.Rfx = {
       ctx.globalAlpha = 0.5 + 0.2 * sp;
       ctx.strokeStyle = '#b7dcff';
       ctx.lineWidth = 1.4;
-      for (var i = 0; i < 3; i++) { // arcos de runa girando
+      for (var i = 0, runeN = this.lowFx ? 1 : 3; i < runeN; i++) { // arcos de runa girando
         var a0 = t * 1.4 + i * 2.094;
         ctx.beginPath(); ctx.arc(hcx, hcy, 116, a0, a0 + 1.05); ctx.stroke();
       }
@@ -1911,38 +2167,44 @@ E.Rfx = {
   },
   _drawParts: function(delta){
     var ctx = this.ctx;
+    // Passo 1: integra pool uma vez; partículas não-lineares mantêm desenho imediato.
     for (var i = 0; i < this.parts.length; i++) {
       var p = this.parts[i];
       if (!p.on) continue;
       p.t += delta;
       if (p.t >= p.life) { p.on = false; continue; }
-      p.vy += p.grav * delta;
-      p.x += p.vx * delta;
-      p.y += p.vy * delta;
+      p.vy += p.grav * delta; p.x += p.vx * delta; p.y += p.vy * delta;
+      if (p.type === 0) continue; // faíscas entram no batch abaixo
       var pr = p.t / p.life;
       ctx.globalAlpha = pr < 0.2 ? pr / 0.2 : 1 - (pr - 0.2) / 0.8;
       if (p.type === 2) { // poeira: círculo expandindo
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * (0.6 + pr * 1.6), 0, 6.2832);
-        ctx.fill();
+        ctx.fillStyle = p.color; ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.6 + pr * 1.6), 0, 6.2832); ctx.fill();
       } else if (p.type === 3) { // mota de ouro: brilho subindo
-        ctx.fillStyle = p.color;
-        ctx.fillRect(p.x, p.y, p.size, p.size);
-        ctx.globalAlpha *= 0.4;
-        ctx.fillRect(p.x - 1, p.y - 1, p.size + 2, p.size + 2);
-      } else if (p.type === 0) { // faísca: streak
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = p.size;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
-        ctx.stroke();
+        ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size);
+        ctx.globalAlpha *= 0.4; ctx.fillRect(p.x - 1, p.y - 1, p.size + 2, p.size + 2);
       } else { // sangue: gota
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * (1 - pr * 0.4), 0, 6.2832);
-        ctx.fill();
+        ctx.fillStyle = p.color; ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (1 - pr * 0.4), 0, 6.2832); ctx.fill();
+      }
+    }
+    // Passo 2: faíscas agrupadas por 2 cores × até 2 espessuras (máximo 4 strokes).
+    var sizeBuckets = this.lowFx ? 1 : 2;
+    for (var ci = 0; ci < 2; ci++) for (var sb = 0; sb < sizeBuckets; sb++) {
+      var col = ci ? '#fff3d0' : '#ffd27a', n = 0, alpha = 0;
+      ctx.beginPath();
+      for (var j = 0; j < this.parts.length; j++) {
+        var q = this.parts[j];
+        if (!q.on || q.type !== 0 || q.color !== col) continue;
+        var bucket = sizeBuckets === 1 ? 0 : (q.size >= 2.5 ? 1 : 0);
+        if (bucket !== sb) continue;
+        var qp = q.t / q.life;
+        alpha += qp < 0.2 ? qp / 0.2 : 1 - (qp - 0.2) / 0.8; n++;
+        ctx.moveTo(q.x, q.y); ctx.lineTo(q.x - q.vx * 0.03, q.y - q.vy * 0.03);
+      }
+      if (n) {
+        ctx.globalAlpha = alpha / n; ctx.strokeStyle = col;
+        ctx.lineWidth = sizeBuckets === 1 ? 2.2 : (sb ? 3 : 1.8); ctx.stroke();
       }
     }
     ctx.globalAlpha = 1;
@@ -2006,9 +2268,13 @@ E.Rfx = {
     ctx.fillRect(x, y, w * E.U.clamp(ghost, 0, 1), h);
     // preenchimento gradiente
     if (frac > 0) {
-      var g = ctx.createLinearGradient(x, y, x + w, y);
-      g.addColorStop(0, color);
-      g.addColorStop(1, glow);
+      var gk = 'bar:' + x + ':' + y + ':' + w + ':' + color + ':' + glow;
+      var g = this._gradientCache[gk];
+      if (!g) {
+        g = ctx.createLinearGradient(x, y, x + w, y);
+        g.addColorStop(0, color); g.addColorStop(1, glow);
+        this._gradientCache[gk] = g;
+      }
       ctx.fillStyle = g;
       ctx.fillRect(x, y, w * frac, h);
       // brilho superior
@@ -2041,22 +2307,11 @@ E.Rfx = {
     for (var i = 0; i < rs.length; i++) if (rs[i].id === this.regionId) return i;
     return 0;
   },
-  /* banda VISÍVEL do canvas em coordenadas lógicas — o CSS usa object-fit:cover
-     (object-position 50% 42%), então em landscape o corte vertical esconde o topo.
-     Elementos do céu (coroa/placas) se posicionam pela banda p/ aparecer sempre. */
+  /* Com object-fit:contain toda a área lógica 540×960 permanece visível; o espaço
+     excedente pertence ao letterbox e nunca altera coordenadas do mundo. */
   _viewBand: function(){
-    if (this._band) return this._band;
-    var b = { top: 0, bot: this.H };
-    try {
-      var r = this.cv.getBoundingClientRect();
-      if (r.width > 2 && r.height > 2) {
-        var sc = Math.max(r.width / this.W, r.height / this.H); // cover
-        var cropY = (this.H * sc - r.height) / sc;
-        if (cropY > 0) { b.top = cropY * 0.42; b.bot = this.H - cropY * 0.58; }
-      }
-    } catch (e) {}
-    this._band = b;
-    return b;
+    if (!this._band) this._band = { top: 0, bot: this.H };
+    return this._band;
   },
   _eclipsePhase: function(){ // 0 (Bosque) → 1 (Abismo: eclipse total)
     var rs = E.DM.cfg_regions.regions;
@@ -2065,7 +2320,7 @@ E.Rfx = {
   _bakeCorona: function(){ // sprites do eclipse pré-renderizados (1× por sessão)
     try {
       var S = 240;
-      var c1 = document.createElement('canvas'); c1.width = c1.height = S;
+      var c1 = this._makeCanvas(S, S);
       var x1 = c1.getContext('2d');
       var g = x1.createRadialGradient(S/2, S/2, S*0.16, S/2, S/2, S*0.30);
       g.addColorStop(0, 'rgba(8,5,16,1)'); g.addColorStop(0.78, 'rgba(8,5,16,0.97)');
@@ -2076,7 +2331,7 @@ E.Rfx = {
       x1.strokeStyle = 'rgba(255,180,80,0.35)'; x1.lineWidth = 6;
       x1.beginPath(); x1.arc(S/2, S/2, S*0.285, 0, 6.2832); x1.stroke();
       this._coronaDisc = c1;
-      var c2 = document.createElement('canvas'); c2.width = c2.height = S;
+      var c2 = this._makeCanvas(S, S);
       var x2 = c2.getContext('2d'); x2.translate(S/2, S/2);
       x2.strokeStyle = 'rgba(255,200,120,0.8)'; x2.lineCap = 'round';
       for (var i = 0; i < 12; i++) {
@@ -2155,25 +2410,39 @@ E.Rfx = {
     this._auraOrder = best;
     return best;
   },
+  _auraSprite: function(col){
+    if (!this._auraSprites) this._auraSprites = {};
+    if (this._auraSprites[col]) return this._auraSprites[col];
+    var c = this._makeCanvas(260, 80), x = c.getContext('2d');
+    x.translate(130, 40); x.scale(1, 0.29);
+    var g = x.createRadialGradient(0, 0, 8, 0, 0, 130);
+    g.addColorStop(0, this._hexA(col, 0.85)); g.addColorStop(1, this._hexA(col, 0));
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, 118, 0, 6.2832); x.fill();
+    this._auraSprites[col] = c;
+    return c;
+  },
   _drawHeroAura: function(t, heroX, heroY){
     var ord = this._heroAuraOrder();
     var col = this.RARITY_AURA[ord];
     if (!col) return;
     var ctx = this.ctx, cx = heroX + 120, cy = 762;
     var pulse = 0.5 + 0.5 * Math.sin(t * 2.3);
-    ctx.save();
     ctx.globalAlpha = (0.40 + 0.14 * pulse) * (this.lowFx ? 0.6 : 1);
-    ctx.translate(cx, cy); ctx.scale(1, 0.29);
-    var g = ctx.createRadialGradient(0, 0, 8, 0, 0, 130);
-    g.addColorStop(0, this._hexA(col, 0.85)); g.addColorStop(1, this._hexA(col, 0));
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, 118, 0, 6.2832); ctx.fill();
-    ctx.restore();
-    ctx.save();
+    ctx.drawImage(this._auraSprite(col), cx - 130, cy - 40);
     ctx.globalAlpha = 0.46 + 0.2 * pulse;
     ctx.strokeStyle = col; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.ellipse(cx, cy, 98, 27, 0, 0, 6.2832); ctx.stroke();
-    ctx.restore();
+    ctx.globalAlpha = 1;
+  },
+  _orbSprite: function(col){
+    if (!this._orbSprites) this._orbSprites = {};
+    if (this._orbSprites[col]) return this._orbSprites[col];
+    var c = this._makeCanvas(32, 32), x = c.getContext('2d');
+    var g = x.createRadialGradient(16, 16, 0, 16, 16, 14);
+    g.addColorStop(0, this._hexA(col, 0.95)); g.addColorStop(1, this._hexA(col, 0));
+    x.fillStyle = g; x.beginPath(); x.arc(16, 16, 14, 0, 6.2832); x.fill();
+    this._orbSprites[col] = c;
+    return c;
   },
   _spawnLootOrb: function(rar){
     var o = this.orbs[this.orbIdx];
@@ -2197,10 +2466,7 @@ E.Rfx = {
       var my = (1-e)*(1-e)*o.y0 + 2*(1-e)*e*cyp + e*e*y1;
       ctx.save();
       ctx.globalAlpha = pr > 0.75 ? 1 - (pr - 0.75) / 0.25 * 0.7 : 1;
-      var g = ctx.createRadialGradient(mx, my, 0, mx, my, 14);
-      g.addColorStop(0, this._hexA(o.color, 0.95)); g.addColorStop(1, this._hexA(o.color, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(mx, my, 14, 0, 6.2832); ctx.fill();
+      ctx.drawImage(this._orbSprite(o.color), mx - 16, my - 16);
       ctx.fillStyle = '#fff'; ctx.globalAlpha *= 0.9;
       ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
       var e2 = Math.max(0, e - 0.08); // rastro
