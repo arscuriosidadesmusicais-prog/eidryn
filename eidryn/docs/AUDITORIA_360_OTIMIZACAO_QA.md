@@ -1,9 +1,11 @@
 # Auditoria 360° de Otimização e Qualidade — Eidryn
 
-**Data da auditoria:** 10/09/2026  
-**Branch/commit-base auditado:** `arena/01a08bec-eidryn` / `67ab960`  
-**Escopo:** projeto Godot, porta HTML/JavaScript, pipeline de build, artefatos de distribuição, documentação e testes  
-**Tipo de auditoria:** revisão estática + execução local disponível; sem profiling em hardware físico nesta rodada
+**Data da auditoria inicial:** 10/09/2026<br>
+**Revisão pós-hotfix P0:** 10/09/2026, commit `00a5eda`<br>
+**Branch/commit-base auditado:** `arena/01a08bec-eidryn` / `67ab960` → `00a5eda`<br>
+**Escopo:** projeto Godot, porta HTML/JavaScript, pipeline de build, artefatos de distribuição, documentação e testes<br>
+**Tipo de auditoria:** revisão estática + execução local disponível; sem profiling em hardware físico nesta rodada<br>
+**Leitura dos status:** itens marcados **CORRIGIDO** mantêm sua prioridade como severidade de regressão; não significam defeito ainda aberto.
 
 ---
 
@@ -17,7 +19,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | **Plataforma atual** | **Web desktop/mobile e execução offline por arquivo HTML**. Há presets Godot para Web, Android arm64, Windows e Linux, mas eles não foram revalidados nesta auditoria. |
 | **Gênero/estilo** | **RPG idle/incremental 2D dark fantasy**, mobile-first, orientação retrato, com modo paisagem para Web. |
 | **Render entregue** | Canvas lógico fixo de **540×960**, escalado por CSS com `object-fit: cover`; pixel art, parallax, clima, partículas, reflexos, neblina e UI DOM. |
-| **Artefato principal** | HTML v1.8.0 de **3.393.153 bytes (3,24 MiB)**; estimativa gzip nível 9 de **2.027.396 bytes (1,93 MiB)**. |
+| **Artefato principal** | HTML v1.8.0 pós-hotfix de **3.394.929 bytes (3,24 MiB)**; gzip nível 9 de **2.027.320 bytes (1,93 MiB)**. |
 | **Carga embutida** | Dados: ~44 KB; PNGs em base64: ~417 KB; WAVs em base64: ~2,49 MB. O áudio representa aproximadamente **73% do HTML bruto**. |
 | **Assets-fonte** | 269 PNGs, ~0,29 MiB comprimidos e ~16,1 MiB se todos forem decodificados em RGBA; 24 WAVs mono/22,05 kHz/16-bit, ~1,78 MiB em disco e ~3,56 MiB em buffers float32. |
 
@@ -40,24 +42,26 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 4. Qualidade adaptativa já reduz parte da precipitação e de alguns VFX (`p05_render.js:1404-1416`).
 5. Render via `requestAnimationFrame`, naturalmente sincronizado ao refresh do navegador e com baixo risco de tearing (`p07_main.js:106-120`).
 6. Áudio mono a 22,05 kHz, adequado ao estilo e econômico em memória.
-7. Build HTML reproduzido byte a byte após corrigir apenas os caminhos absolutos em cópia temporária; os três HTMLs distribuídos têm o mesmo SHA-256.
-8. A suíte lógica HTML contém boa cobertura de regras centrais e passou **204/204** quando executada em cópia temporária com caminhos portáveis.
+7. Build e testes principais agora resolvem caminhos pelo próprio script e funcionam a partir de outro CWD; os três HTMLs pós-hotfix têm o mesmo SHA-256.
+8. A suíte lógica HTML foi ampliada com regressões para escudo, save e lifecycle e passou **214/214**. O pacote Godot passou **6/6** verificações de manifesto/conteúdo.
 
-### Bloqueadores encontrados
+### Bloqueadores iniciais e estado pós-hotfix
 
-| ID | Achado | Severidade | Evidência | Risco imediato |
+| ID | Achado original / atual | Estado atual | Evidência pós-correção | Risco residual / próximo gate |
 |---|---|---|---|---|
-| **P0-01** | O escudo do herói é consumido, mas **não absorve dano de HP**: o HP é reduzido antes de calcular `absorbed`. | Crítica | HTML `p04_combat.js:133-146`; Godot `combat_manager.gd:189-202`. | A habilidade `guarda_sombras` não cumpre sua função; balanceamento e feedback visual ficam incorretos. |
-| **P0-02** | Falha de `localStorage.setItem` é engolida; `flush()` ainda limpa `_dirty` e emite `save_flushed`. | Crítica | `p04_combat.js:292-295,329-342`; o teste de quota só exige “não lançar” em `test_node.js:466-481`. | O jogo informa que salvou quando não salvou; perda silenciosa de progresso. |
-| **P0-03** | No retorno de aba/app, `mark_seen()` ocorre **antes** de detectar time-travel e calcular offline. | Crítica | HTML `p07_main.js:142-154`; Godot `game_manager.gd:56-61`. | Alt+Tab/suspensão na mesma sessão zera o intervalo ausente e pode impedir recompensa offline. |
-| **P0-04** | Build, testes, simuladores e scripts visuais dependem de `/home/z/my-project`. | Crítica | `build.py:5-7`, `test_node.js:19,29` e vários geradores. O comando documentado de testes falha com `ENOENT` neste clone. | Sem build/teste reprodutível em outro computador ou CI. |
-| **P0-05** | A implementação Godot acumula referências de layers removidos e gera três texturas RGBA 1080×1920 por troca de região. | Crítica | `combat_screen.gd:270-308,327-347,350-358`. `_layers` recebe novos nós, mas nunca é limpo. | Pico de CPU/VRAM (~23,7 MiB brutos por conjunto), referência a nó liberado e possível erro/crash ao cruzar uma região. |
-| **P0-06** | O ZIP-fonte Godot distribuído não contém `project.godot` e não inclui 172 PNGs atuais. | Crítica | `download/eidryn-o-ciclo-do-eclipse_v1.0.0_godot44.zip`: 362 entradas; manifesto comparado ao diretório atual. | Download anunciado como projeto Godot não pode ser importado normalmente e está desatualizado. |
-| **P1-01** | Não existe medição de performance atual por percentis em dispositivos reais. | Alta | `qa18.js` mede apenas 90 frames e exige ≥50 FPS; Playwright não está declarado/instalado. `TEST_REPORT.md` marca performance apenas como analítica. | O alvo de 60 FPS não está demonstrado em mobile de entrada, tempestade, Pântano ou sessões longas. |
-| **P1-02** | Godot e HTML duplicam regras manualmente e já divergem em versão/visual; não há teste diferencial. | Alta | Godot v1.0.0 (`data_manager.gd:6`, `project.godot:7`) versus HTML v1.8.0 (`p01_core.js:129`). | Correções podem entrar em uma implementação e não na outra. |
-| **P1-03** | O ZIP do itch.io tem `index.html` dentro de uma subpasta, e a instrução ainda cita v1.7.0. | Alta | Manifesto de `Eidryn_O_Ciclo_do_Eclipse_v1.8.0.zip`; `COMO_PUBLICAR.md:13,34`. | Risco de upload Web não inicializável ou publicação do arquivo errado. |
+| **P0-01** | Escudo era consumido sem absorver HP. | **CORRIGIDO** em HTML e Godot; reflexão agora usa somente o dano absorvido. | `p04_combat.js:133-152,196-212`; `combat_manager.gd:189-209,264-280`; regressões total/parcial/reflect em Node e GDScript. | Rodar a suíte Godot e integração visual em engine/dispositivo. |
+| **P0-02** | `localStorage.setItem` falhava silenciosamente e ainda confirmava o save. | **CORRIGIDO** no Web: escrita retorna bool, preserva dirty/backup, valida read-back e só então emite `save_flushed`. | `p04_combat.js:308-375`; teste de quota em `test_node.js`. | Falta aviso persistente ao jogador e teste Safari private/file:// em browser real. |
+| **P0-03** | Resume chamava `mark_seen()` antes de calcular ausência. | **CORRIGIDO** nas duas runtimes via `prepare_resume()`. | `p03_managers_b.js:529-546`, `p07_main.js`; `offline_manager.gd:16-32`, `game_manager.gd`; teste de 120 s. | O reward pendente ainda não é persistido; fechar/recarregar antes de coletar pode perdê-lo. |
+| **P0-04** | Pipeline principal dependia de `/home/z/my-project`. | **CORRIGIDO** em `build.py` e `test_node.js`; ambos executados com sucesso a partir de `/tmp`. | Paths derivados de `__file__`/`__dirname`; 214/214 e build determinístico. | Geradores, QA visual, simulador e publisher auxiliares ainda contêm paths absolutos; tratar como Alta. |
+| **P0-05** | Godot acumulava `_layers` liberados e criava ~23,7 MiB de RGBA por região. | **CORRIGIDO EM CÓDIGO**: usa PNGs importados, duas cópias com textura compartilhada e mantém root + 3 layers. | `combat_screen.gd:270-363`; regressão percorre as sete regiões. | Validação runtime/VRAM continua bloqueada pela ausência do Godot. |
+| **P0-06** | ZIP Godot não tinha `project.godot` nem 172 PNGs novos. | **CORRIGIDO**: pacote determinístico com 517 arquivos, 269 PNGs e conteúdo sincronizado byte a byte. | `scripts/package_godot.py`, `scripts/test_package_godot.py`: **6/6**. | Ainda falta smoke de abertura no editor Godot 4.4.1. |
+| **P0-07 NOVO** | DOT de `sedenta` passa dano absoluto como `skill_mult`, recalculando `ATK × tick`, com crítico/lifesteal genéricos indevidos. | **ABERTO — confirmado nas duas runtimes**. | HTML `p04_combat.js:91-96,164-193,233-237`; Godot `combat_manager.gd:139-146,224-261,305-310`. | Dano escala aproximadamente com ATK² e invalida balanceamento. Criar caminho de dano direto para DOT e regressão por integral temporal. |
+| **P0-08 NOVO** | Save Godot limpa `_dirty` e emite sucesso mesmo se `open_encrypted_with_pass` falhar. | **ABERTO — confirmado**. | `save_manager.gd:55-78`: linhas 76–78 ficam fora do `if f`. | Perda silenciosa possível nas builds nativas; aplicar transação/arquivo temporário/read-back. |
+| **P1-01** | Não existe medição de performance por percentis em dispositivos reais. | **ABERTO**. | `qa18.js` mede só 90 frames; Playwright não está declarado/instalado. | Meta de 60 FPS continua não demonstrada. |
+| **P1-02** | Godot e HTML duplicam regras manualmente e divergem em versão/visual. | **ABERTO**. | Godot v1.0.0 versus HTML v1.8.0; sem differential test. | Correções podem entrar em uma runtime e não na outra. |
+| **P1-03** | ZIP itch tem `index.html` em subpasta e instruções citam v1.7.0. | **ABERTO**. | Manifesto do ZIP e `COMO_PUBLICAR.md`. | Risco de upload incorreto/não inicializável. |
 
-**Conclusão executiva:** a carga gráfica é moderada e a arquitetura Canvas tem boas bases, mas a release não deve ser considerada “100% aprovada” enquanto P0-01 a P0-06 não forem corrigidos e cobertos por regressão. O maior ganho de download virá do áudio; o maior ganho de frame time virá de reduzir comandos Canvas/gradientes/overdraw e trabalho DOM por frame. A maior redução de risco virá de tornar o pipeline portável e automatizado.
+**Conclusão executiva revisada:** P0-01 a P0-06 foram implementados e validados no limite das ferramentas disponíveis, mas a reauditoria encontrou dois defeitos críticos ainda abertos: DOT de `sedenta` calculado como multiplicador e falso sucesso do save nativo Godot. Além disso, recompensa offline não coletada não é persistida. A carga gráfica permanece moderada e a arquitetura Canvas tem boas bases; o maior ganho de download continua sendo compressão de áudio, e os maiores ganhos de frame time continuam em batching, cache de gradientes, redução de overdraw/reflexos e trabalho DOM. Nenhuma meta de FPS/VRAM deve ser tratada como resultado medido antes do profiling em hardware real.
 
 ---
 
@@ -87,7 +91,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Culling por visibilidade | Alta | Render continua sendo solicitado no splash; timers de UI continuam ativos; em aba oculta depende apenas do throttling do browser. | Pausar render, intervalos e áudio em `document.hidden`; no splash renderizar apenas splash CSS. Retomar com relógio monotônico e cálculo offline correto. | CPU da aba oculta **<1%**; zero avanço visual/intervalos desnecessários. |
 | Frustum/distance/occlusion culling | Baixa | Não há mundo 3D, câmera livre ou entidades fora de tela. | Marcar formalmente como **não aplicável**. Aplicar apenas culling de partículas fora de `[0,W]×[0,H]` e painéis DOM ocultos. | 100% das partículas fora de tela recicladas no mesmo frame. |
 | “Geometria” de paths | Média | Raios, auras, círculos e linhas são reconstruídos repetidamente. | Pré-calcular `Path2D` para glifos, coroa, arcos e shapes invariantes; transformar o contexto em runtime. | Reduzir construção de paths invariantes em **≥80%**. |
-| Godot: silhuetas procedurais | Crítica | Três imagens 1080×1920 são criadas por região, com loops por pixel e texturas RGBA completas (`combat_screen.gd:316-347`). | Substituir por PNGs já existentes `bg_*`, cachear recursos, ou gerar uma única vez em import/build. Limpar `_layers` corretamente. | Troca de região **<50 ms**, pico adicional de VRAM **<8 MiB**, zero referência liberada. |
+| **CORRIGIDO** — Godot: silhuetas procedurais | Crítica | O hotfix removeu três imagens 1080×1920 geradas em runtime e passou a reutilizar PNGs importados; elimina o risco estrutural, mas falta profiling. | Executar a regressão das sete regiões no Godot, 100 trocas e monitorar CPU/VRAM/object count. | Troca de região **<50 ms**, pico adicional de VRAM **<8 MiB**, zero referência liberada. |
 | Godot: LOD mobile | Média | Não existem perfis Godot por tier de hardware. | Configurar quality preset e reduzir animações/processamento em Android low-end; usar assets importados e não imagens runtime. | 60 FPS tier médio; 30 FPS estáveis tier baixo; sem pico térmico após 30 min. |
 
 ## 1.3 Shaders, iluminação, sombras, reflexos e pós-processamento
@@ -95,7 +99,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Item / Ponto de Otimização | Nível de Prioridade (Crítica, Alta, Média, Baixa) | Impacto na Experiência / Performance | Ação Recomendada / Teste a Executar | Métrica de Sucesso para Validação |
 |---|---|---|---|---|
 | Complexidade de shaders | Baixa | A versão publicada usa Canvas 2D, sem shader WebGL customizado. | Não introduzir shader/GPU pipeline sem profiling. Se Canvas 2D exceder orçamento, prototipar WebGL/Pixi em branch de benchmark, não como reescrita imediata. | Migração só aprovada se entregar **≥40%** de ganho no pior caso sem regressão visual. |
-| Iluminação dinâmica vs baked | Média | “Luz” é simulada por gradientes, passes aditivos e sprites; vários são recriados por frame. | Bakar auras/halos estáticos em sprites pequenos ou canvases cacheados; manter apenas intensidade/animação dinâmica. | Gradientes dinâmicos reduzidos em **≥60%**. |
+| Iluminação dinâmica vs baked | Média | “Luz” é simulada por gradientes, passes aditivos e sprites; vários são recriados por frame. | Pré-renderizar auras/halos estáticos em sprites pequenos ou canvases cacheados; manter apenas intensidade/animação dinâmica. | Gradientes dinâmicos reduzidos em **≥60%**. |
 | Sombras de entidades | Baixa | Elipses simples têm custo baixo e boa leitura (`p05_render.js:1707-1714`). | Manter; reduzir/ocultar apenas no modo Eco se profiling justificar. | Custo combinado das sombras **<0,2 ms/frame**. |
 | Reflexos | Alta | Reflexos são o efeito individual com maior multiplicação de draws. | Aplicar tier de reflexo e render target reduzido; testar tempestade + boss + pets. | Reflexos **<2 ms p95** no tier médio. |
 | Pós-processamento full-screen | Alta | Washes, eclipse, perigo e flash acumulam overdraw. | Compor em um passe lógico, restringir pelo `lowFx` e respeitar reduced motion/flash. | No máximo **2 fullscreen fills adicionais** no modo baixo. |
@@ -138,9 +142,13 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 
 | Item / Ponto de Otimização | Nível de Prioridade (Crítica, Alta, Média, Baixa) | Impacto na Experiência / Performance | Ação Recomendada / Teste a Executar | Métrica de Sucesso para Validação |
 |---|---|---|---|---|
-| Correção do escudo | Crítica | Habilidade defensiva quebrada nas duas implementações; HP recebe dano integral. | Aplicar primeiro `absorbed=min(shield,dmg)`, reduzir shield e então subtrair apenas `dmg-absorbed` de HP. Reflexo deve usar regra documentada (dano absorvido ou recebido). Criar teste unitário e integração visual. | Com escudo ≥ dano: **HP não muda**; shield cai pelo dano; teste passa em HTML e Godot. |
-| Save com quota/erro | Crítica | Perda silenciosa de progresso e indicador falso de sucesso. | `_store.set` deve retornar sucesso/lançar; escrever backup, principal, reler e validar checksum antes de limpar dirty. Exibir erro persistente e oferecer export. Avaliar IndexedDB. | Em quota, `_dirty` permanece `true`, nenhuma emissão `save_flushed`, usuário recebe alerta; **0 perda** após reload. |
-| Ordem do resume/offline | Crítica | Suspensão/Alt+Tab na mesma sessão não contabiliza intervalo. | Em resume: `check_time_travel()` → `compute_pending()` → somente depois `mark_seen()`/flush. Salvar timestamp ao ocultar. | Background de 120 s produz **120±2 s** pendentes; relógio regressivo produz zero e log. |
+| **CORRIGIDO** — absorção do escudo | Crítica | HTML passou a validar absorção total/parcial e reflexão; implementação equivalente foi aplicada no Godot. A prioridade permanece Crítica como severidade de regressão. | Manter testes total/parcial/reflect; executar a suíte Godot e validar feedback visual azul/vermelho. | Com escudo ≥ dano: **HP não muda**; shield cai pelo dano; testes Web 100% verdes e Godot verde antes da release. |
+| **CORRIGIDO PARCIALMENTE** — save Web com quota/erro | Crítica | Persistência Web agora mantém dirty, preserva save anterior, verifica read-back e não emite sucesso; ainda falta feedback persistente e browser matrix. | Adicionar banner “não salvo” e export; testar QuotaExceeded/SecurityError/private/file:// em browsers reais. Avaliar IndexedDB. | Em falha, `_dirty=true`, zero `save_flushed`, alerta visível; **0 perda** após reload. |
+| **CORRIGIDO** — ordem do resume/offline | Crítica | `prepare_resume()` agora executa `check_time_travel` → `compute_pending` → `mark_seen` nas duas runtimes. | Manter teste de 120 s e adicionar browser/mobile para 30/59/60/3.600 s, relógio regressivo e múltiplos resumes. | Background de 120 s produz **120±2 s** pendentes; relógio regressivo produz zero e log. |
+| DOT de `sedenta` tratado como multiplicador | Crítica | `tick` já é dano absoluto, mas entra em `_apply_damage_to_enemy` como multiplicador; o resultado escala com ATK², pode critar e aplica lifesteal genérico além da cura própria. | Usar o caminho de dano direto com regra explícita para defesa/escudo e sem crítico; testar integral de 6 s em 20/30/60/120 Hz nas duas runtimes. | Dano total = valor documentado **±0,1%**, independente de FPS, sem dupla cura. |
+| Save nativo Godot sob falha de arquivo | Crítica | `SaveManager.flush()` limpa dirty e emite `save_flushed` mesmo se o arquivo criptografado não abrir. | Escrever em arquivo temporário, fechar, reler/checksum, rotacionar backup atomicamente e só então confirmar. Simular permissão/espaço insuficiente. | Em qualquer falha, dirty permanece; **zero `save_flushed`** e save anterior continua carregável. |
+| Reward offline pendente não persistido | Crítica | Após `prepare_resume`, `last_seen` avança, mas `pending` não faz parte do save; autosave/reload antes da coleta pode apagar a recompensa calculada. | Persistir `pending` com ID/timestamp idempotente ou pausar autosave/combate até coletar; criar teste resume → autosave → reload → collect. | Recompensa pendente sobrevive a 100% dos reloads e só pode ser coletada uma vez. |
+| Duração do escudo divergente | Alta | A descrição promete 6 s, mas não existe timer de expiração; o escudo dura até ser consumido ou o combate reiniciar. | Implementar `_shield_time` em tick/fixed-step ou alterar texto/design; mostrar duração na UI e salvar apenas se a regra exigir. | Escudo expira em **6,0±0,1 s** em 30/60/120 Hz. |
 | Fixed-step de gameplay | Alta | Stalls descartam tempo; aparelhos fracos progridem menos. | Simulação a 20 Hz com acumulador monotônico; render interpolado; máximo de steps e compensação por evento/tempo para idle. | Resultado determinístico entre refresh rates, desvio **<0,1%**. |
 | Array de skills por frame | Alta | `ready_skills()` cria array em todo frame de combate; EventBus também cria array de argumentos por emissão (`p01_core.js:121-122`). | Iterar skills diretamente ou manter lista de auto-cast; evitar `slice` em eventos quentes; profile de allocation. | **Zero array temporário** no loop estável. |
 | Boss timer/HP events por frame | Alta | Timer e inimigo curandeiro disparam eventos/DOM a até 60 Hz (`p04_combat.js:112-120`; `p06_ui.js:74-80`). | Atualizar apresentação a 10 Hz ou apenas quando o décimo muda; gameplay continua fixed-step. | No máximo **10 updates DOM/s** para timer/HP contínuo. |
@@ -178,12 +186,12 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 
 | Item / Ponto de Otimização | Nível de Prioridade (Crítica, Alta, Média, Baixa) | Impacto na Experiência / Performance | Ação Recomendada / Teste a Executar | Métrica de Sucesso para Validação |
 |---|---|---|---|---|
-| Caminhos absolutos | Crítica | Build/testes falham fora do ambiente original. | Em Python usar `Path(__file__).resolve()`; em Node usar `__dirname`; aceitar `--root/--out`; scripts shell baseados no root Git. | Clone limpo executa build/testes com os comandos do README; **exit 0** em Linux/macOS/Windows CI. |
+| **CORRIGIDO NO CORE** — caminhos absolutos | Crítica | `build.py` e `test_node.js` funcionam fora do root; ferramentas auxiliares ainda possuem `/home/z/my-project`. | Aplicar o mesmo padrão a simulador, geradores, QA16–18 e publisher; aceitar `--root/--out`. | Zero path de usuário em scripts; clone limpo executa tudo com **exit 0** em Linux/macOS/Windows CI. |
 | Compressão de música | Alta | WAV base64 domina 73% do HTML. | Converter músicas para Opus/Ogg a 48–64 kbps; SFX curtos podem ficar WAV ou Opus conforme benchmark. Injetar bytes genéricos, não assumir `WAV`. | HTML bruto **≤1,5 MiB** ou redução de áudio **≥70%**, sem gap audível. |
 | Lazy decode de áudio | Média | Decode já é sob demanda, o que é positivo, mas a string base64 inteira é parseada no boot. | No build hospedado, carregar faixas por contexto; no single-file, manter strings mas decodificar só a necessária e cachear promise. | First input não bloqueado por decode; troca de faixa sem hitch >20 ms. |
 | PWA/Service Worker | Alta | “Offline” é garantido pelo arquivo local, não por instalação/cache controlado no site. | Gerar manifest, SW versionado e estratégia cache-first para build hospedado; testar atualização e rollback. | Lighthouse PWA instalável; segundo boot offline **100% funcional**. |
 | Export Godot all_resources | Média | Pode incluir recursos não usados; dynamic loads exigem cuidado. | Criar manifesto explícito de assets usados por Godot e exportar só necessários; comparar PCK. | Build Godot reduzido **≥20%** sem recurso ausente. |
-| ZIP-fonte Godot inválido | Crítica | Falta `project.godot` e conteúdo recente. | Gerar ZIP por script a partir de `git archive`/manifest; validar abrindo em diretório temporário e rodando headless. | ZIP contém `project.godot`, abre em Godot 4.4.1 e passa 111 testes. |
+| **CORRIGIDO** — ZIP-fonte Godot | Crítica | O pacote agora contém 517 arquivos, `project.godot` e todos os 269 PNGs, com geração determinística e comparação byte a byte. | Manter `package_godot.py`/`test_package_godot.py` no gate e adicionar smoke headless no Godot 4.4.1. | **6/6** manifesto/conteúdo; ZIP abre no editor e suíte Godot passa. |
 | ZIP itch com pasta raiz | Alta | `index.html` não está na raiz do ZIP. | Empacotar `index.html` na raiz e criar smoke test que falha se não houver exatamente um entrypoint. | O manifesto contém exatamente um `index.html` na raiz; jogo abre no itch sandbox. |
 | Versionamento de artefatos | Alta | Nome principal contém v1.0.0, conteúdo é v1.8.0; docs itch citam v1.7.0. | Fonte única de versão; nomear outputs automaticamente; falhar build se versões divergem. | 100% dos nomes, splash, metadata e docs usam **1.8.0** (ou próxima versão). |
 | Higiene do repositório | Média | Repo tem ~38 MiB, com muitos screenshots QA, tool-results, HTMLs e ZIPs gerados versionados. | Mover artefatos para GitHub Releases/CI artifacts; manter baselines necessários em pasta clara; ampliar `.gitignore`. | Clone reduzido **≥40%** e nenhum cache/output acidental no Git. |
@@ -204,7 +212,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Modal sem semântica/foco | Alta | Modal não declara `role=dialog`, `aria-modal`, focus trap, Escape ou restauração de foco. | Implementar Dialog Controller acessível; foco inicial, Tab trap, Escape, retorno ao acionador. | 100% dos modais navegáveis apenas por teclado/screen reader. |
 | Canvas sem alternativa | Alta | Canvas não tem label/fallback; HP e estado visual não são anunciados. | `aria-label` no canvas, região live opcional para eventos essenciais e DOM semântico para barras (`role=progressbar`). | Fluxo principal compreensível com NVDA/VoiceOver sem depender de pixels. |
 | Rebuild perde estado | Média | Recriar painel pode mudar scroll/foco e causar flicker. | Atualização incremental; manter `scrollTop`, foco e seleção de filtros. | Zero salto de scroll em 100 atualizações. |
-| Feedback de save incorreto | Crítica | Engrenagem pulsa verde mesmo se storage falhar. | Vincular feedback apenas a confirmação real de escrita/verificação; estado “não salvo” persistente. | Nunca mostrar “salvo” em falha forçada. |
+| **CORRIGIDO PARCIALMENTE** — feedback de save | Crítica | A confirmação verde depende de `save_flushed`, que não é mais emitido em falha; contudo não existe aviso persistente de “não salvo”. | Exibir status de erro usando `_last_error`, com retry/export e sem toast descartável. | Nunca mostrar “salvo” em falha; erro fica visível até persistência confirmada. |
 | Responsividade ultrawide | Alta | Em ≥900 px usa split 58/42; canvas usa cover e cropping vertical. Há cálculo de banda, mas não teste 21:9. | Testar 320×568, 390×844, 768×1024, 1280×720, 1920×1080, 3440×1440, foldables e orientação dinâmica. | Zero clipping de CTA; CLS **<0,1**; screenshots aprovadas. |
 | i18n parcial/hardcodes | Média | Há muitos textos PT-BR hardcoded em managers/UI; `tr('essencia')` não existe e cai para a chave. | Extrair todo texto de UI/toast; teste de chave ausente e pseudo-localização expansiva. | Zero chave faltante; 100% dos textos de usuário em catálogo. |
 | Estado disabled/loading | Média | Vários botões executam ação sem estado transitório ou mensagem detalhada. | Padronizar disabled, cooldown, custo insuficiente e feedback sonoro/visual; impedir double-tap. | Resposta visual ao toque **<100 ms**; zero ação duplicada. |
@@ -214,7 +222,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Item / Ponto de Otimização | Nível de Prioridade (Crítica, Alta, Média, Baixa) | Impacto na Experiência / Performance | Ação Recomendada / Teste a Executar | Métrica de Sucesso para Validação |
 |---|---|---|---|---|
 | Onboarding por toasts temporizados | Alta | Três dicas em 4/16/28 s não confirmam compreensão e podem conflitar com popups (`p07_main.js:53-63`). | Tutorial contextual por ação: observar combate → upgrade → equipamento → chefe → offline; permitir pular/rever. | ≥80% concluem 3 passos sem ajuda; abandono nos primeiros 5 min reduzido. |
-| Clareza de `guarda_sombras` | Crítica | Visual mostra bolha, mas mecânica não absorve. | Corrigir regra, exibir valor atual do shield e dano absorvido; teste de percepção. | Jogador identifica proteção em teste A/B; regra unitária 100% correta. |
+| **CORRIGIDO EM LÓGICA** — clareza de `guarda_sombras` | Crítica | A absorção e a reflexão estão corretas em código, mas valor restante e duração não aparecem claramente; a duração de 6 s descrita ainda não é implementada. | Adicionar timer de 6 s ou corrigir a descrição, mostrar shield restante e validar integração visual. | Regra e duração 100% cobertas; jogador identifica proteção em teste de percepção. |
 | Velocidade de progressão | Alta | Simulação atual chega aproximadamente à fase 149/nível 118 em 120 min; docs citam F100 em ~6 min. | Playtest humano com novatos e veteranos; medir tempo até primeiro upgrade, skill, boss, wall e ascensão. | Metas explícitas validadas em ≥20 sessões; sem wall inesperado >10 min no early game. |
 | Sobrecarga de sistemas | Alta | O jogo expõe oito abas, missões, gacha, passe, eventos e modos. | Progressive disclosure por nível/fase; “próximo objetivo” único e badges priorizados. | Novato encontra próxima ação em **<5 s** em 90% dos testes. |
 | Feedback de falha de boss | Média | Há fallback automático, mas precisa explicar por que perdeu e qual upgrade ajuda. | Tela curta com causa (DPS, sobrevivência, timer) e recomendações baseadas em stats. | ≥80% dos jogadores escolhem melhoria relevante após falha. |
@@ -250,7 +258,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Qualidade adaptativa incompleta | Alta | `lowFx` reduz chuva e alguns VFX, mas mantém reflexos, névoa, vários washes e paths. | Tabela de custo por efeito e tiers completos; desligar por ordem de custo/valor visual. | Tier baixo ≥30 FPS com 20% de margem. |
 | Overdraw de transparências | Alta | Muitas camadas alpha fullscreen e fog blobs; custo cresce no mobile. | Heatmap/contagem de pixels cobertos; fundir passes e limitar fog banks front/back. | Overdraw médio **<3×**, máximo **<6×** no pior cenário. |
 | Partículas individuais | Alta | Precipitação usa operação individual; partículas de combate já usam pool. | Batch de paths/fills e atualização vetorizada simples; reciclar imediatamente fora da tela. | CPU de partículas **<2 ms p95**. |
-| Luzes vinculadas a partículas | Baixa | Não há luz dinâmica real, apenas glow 2D. | Manter; evitar `shadowBlur` por partícula. Bakar brilho no sprite ou segundo fill agrupado. | Zero light/shadow object por partícula. |
+| Luzes vinculadas a partículas | Baixa | Não há luz dinâmica real, apenas glow 2D. | Manter; evitar `shadowBlur` por partícula. Pré-renderizar brilho no sprite ou segundo fill agrupado. | Zero light/shadow object por partícula. |
 | Reflexo + transparência | Alta | Poças fazem clip e passes aditivos por entidade. | Reduzir render target/tier conforme seção 1.1. | Reflexo **<2 ms p95**. |
 | Saturação dos pools | Média | Overwrite silencioso pode esconder dano/loot quando saturado. | Contador de colisão por pool e política de prioridade (crit > dano comum; divina > rara). | Perda de evento prioritário **0%**. |
 | Hit-stop visual | Média | Simulação continua enquanto visual quase para; pode acumular eventos visuais. | Testar ataques/casts durante hit-stop e comprimir eventos redundantes. | Nenhum burst >33 ms ao sair do hit-stop. |
@@ -276,20 +284,22 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 
 # 5. Plano Geral de Testes e Qualidade — QA Suite
 
-## 5.1 Estado atual da validação
+## 5.1 Estado atual da validação pós-hotfix
 
 | Verificação executada nesta auditoria | Resultado | Observação |
 |---|---|---|
-| `node scripts/eidryn_html/test_node.js` conforme README | **FALHOU antes dos testes** | `ENOENT` por caminhos absolutos `/home/z/my-project`. |
-| Mesma suíte em cópia temporária, alterando só o root | **204 passou / 0 falhou** | Confirma regras cobertas, mas não corrige a não-portabilidade do repositório. |
-| Rebuild em cópia temporária com paths corrigidos | **PASS** | HTML gerado foi byte-idêntico ao artefato principal. |
-| Hash dos três HTMLs distribuídos | **PASS** | SHA-256 idêntico: `90f1b408…545b9c`. |
-| Syntax check de todos os JS QA/runtime | **PASS** | `node --check`, zero erro. |
-| Compile check dos 12 Python | **PASS** | Zero erro sintático. |
-| Simulador de balance com root temporário | **PASS** | Fase máxima 149, nível 118, 120 min; não gerou diff. |
-| Godot headless, 111 testes | **NÃO EXECUTADO** | Binário Godot não está disponível no ambiente desta auditoria; relatório existente é histórico. |
-| QA navegador real/Playwright | **NÃO EXECUTADO** | Playwright não está instalado/declarado; scripts têm caminhos absolutos. |
-| Profiling em hardware físico/térmico | **NÃO EXECUTADO** | Deve ser gate antes de declarar meta de FPS aprovada. |
+| `node scripts/eidryn_html/test_node.js` conforme README, a partir do repo | **214 passou / 0 falhou** | Inclui regressões de shield total/parcial/reflect, quota e resume de 120 s. |
+| A mesma suíte executada com CWD `/tmp` | **PASS** | Confirma portabilidade de `test_node.js`; nenhum `/home/z` nos paths principais. |
+| `python3 scripts/eidryn_html/build.py` com CWD `/tmp` | **PASS** | Build principal portável e determinístico. |
+| Hash dos três HTMLs pós-hotfix | **PASS** | SHA-256 idêntico: `a001393012669fb251c78b6aa0ae77dfff45208bd8503f0aa83d2aa8b72e5565`. |
+| `python3 scripts/test_package_godot.py` | **6 passou / 0 falhou** | 517 arquivos, 269 PNGs, `project.godot`, sem traversal e conteúdo byte a byte. |
+| Determinismo do ZIP Godot | **PASS** | Duas gerações produziram SHA-256 `4e6208ac724547e6659ab9c819b92b0f3c2aa1201087826e5435a0b1cd5066ad`. |
+| Syntax check de JS runtime/testes | **PASS** | `node --check`, zero erro. |
+| Compile check de Python | **PASS** | `py_compile`, zero erro; caches removidos após validação. |
+| Simulador de balance da auditoria inicial | **PASS COM WORKAROUND** | Fase 149/nível 118 em 120 min; o simulador ainda tem path absoluto. |
+| Godot headless e regressões P0 adicionadas | **NÃO EXECUTADO** | Binário Godot não disponível. Código/testes foram atualizados, mas resultado runtime é desconhecido. |
+| QA navegador real/Playwright | **NÃO EXECUTADO** | Playwright não está instalado/declarado e scripts QA auxiliares continuam não portáveis. |
+| Profiling em hardware físico/térmico | **NÃO EXECUTADO** | Metas de FPS, frame time, RAM, VRAM e energia são critérios, não resultados comprovados. |
 
 ## 5.2 Testes de desempenho e carga
 
@@ -302,16 +312,16 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Stress térmico/bateria | Alta | Idle contínuo pode aquecer, especialmente a 120 Hz. | 30/60 min em Android low/mid e iPhone; 30/60/Auto FPS, brilho fixo. | Sem thermal severe; bateria/CPU reduz ≥30% no Eco; frame time estável. |
 | Startup/rede | Alta | Single HTML ~1,93 MiB gzip. | Cold/warm cache em Fast 3G/4G/Wi-Fi, CPU 4× slowdown e file://. | First playable ≤3 s mid/4G; ≤5 s Fast 3G; warm ≤1 s. |
 | Frame pacing sob stall | Alta | Delta clamp altera gameplay. | Injetar long tasks e comparar estado final ao controle. | Desvio de simulação <0,1%; recuperação ≤2 frames. |
-| Troca de região Godot | Crítica | Risco de memória/crash por `_layers`. | Rodar 1→501, voltar regiões 100 vezes e monitorar object count/VRAM. | Zero referência inválida; memória volta ao baseline ±5%. |
+| **CORRIGIDO EM CÓDIGO** — troca de região Godot | Crítica | Array e geração procedural foram corrigidos; ainda não há medição em engine. | Rodar 1→501 e 100 ciclos, monitorando object count, VRAM e tempo. | Zero referência inválida; memória volta ao baseline ±5%; troca <50 ms. |
 | DOM stress | Média | Rebuild de inventário/pets pode causar layout. | Abrir/filtrar/scrollar painéis 1.000 vezes com 120 itens. | Ação-to-paint <100 ms; sem crescimento de DOM/heap. |
 
 ## 5.3 Testes funcionais e edge cases
 
 | Item / Ponto de Otimização | Nível de Prioridade (Crítica, Alta, Média, Baixa) | Impacto na Experiência / Performance | Ação Recomendada / Teste a Executar | Métrica de Sucesso para Validação |
 |---|---|---|---|---|
-| Escudo absorvendo dano | Crítica | Regressão funcional atual. | Unit + integração para shield menor/igual/maior que dano, reflect, morte e revive. | Matriz 100% verde nas duas implementações. |
-| Resume/Alt+Tab | Crítica | Regressão funcional atual. | Ocultar por 30/59/60/120/3600 s, clock forward/back, com e sem save durante hide. | Offline correto ±2 s; sem recompensa duplicada. |
-| Quota/storage indisponível | Crítica | Perda silenciosa. | Safari private mode, quota cheia, `SecurityError`, file://, storage limpo durante sessão. | Alerta correto; dirty preservado; export disponível. |
+| **CORRIGIDO** — escudo absorvendo dano | Crítica | Regressões total/parcial/reflect passam no Node; testes equivalentes foram adicionados ao Godot. | Executar integração para shield igual ao dano, expiração, morte/revive e explosivo. | Matriz 100% verde nas duas implementações. |
+| **CORRIGIDO EM UNIT** — resume/Alt+Tab | Crítica | Ordem de lifecycle foi corrigida e o caso 120 s passa; browser/mobile e pending não coletado permanecem sem cobertura. | Ocultar por 30/59/60/120/3.600 s, clock forward/back, com/sem save e fechar antes de coletar. | Offline correto ±2 s; sem recompensa perdida ou duplicada. |
+| **CORRIGIDO EM UNIT WEB** — quota/storage indisponível | Crítica | O core Web preserva dirty/save anterior e não confirma falha; alerta, Safari/private/file:// e save nativo continuam pendentes. | Executar Safari private mode, quota, `SecurityError`, file:// e falha FileAccess Godot. | Alerta correto; dirty preservado; export disponível; zero falso sucesso. |
 | Save/load/migração | Crítica | Só há migração v0→v1 vazia; versão futura não está exercitada. | Fixtures v0/v1/corrupt/truncated/NaN/Infinity/huge arrays; roundtrip e rollback. | 100% dos fixtures válidos migram; inválidos falham de modo seguro. |
 | Multi-tab | Alta | Last-write-wins pode duplicar ou perder progresso. | Duas abas combatendo/comprando/salvando; BroadcastChannel/Web Locks; fechar writer. | Um writer ativo; zero rollback/double reward. |
 | Comandos concorrentes/double-tap | Alta | Compra, gacha, ascensão, claim e dismantle são sensíveis. | 10–100 clicks no mesmo tick, touch+keyboard simultâneo, callbacks repetidos. | Exatamente uma transação por intenção; saldos invariantes. |
@@ -336,7 +346,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 | Refresh rate | Alta | 60/90/120/144 Hz afeta rAF e consumo. | Comparar estado de gameplay e FPS cap em todos os rates. | Estado final idêntico; Eco respeita cap. |
 | Resolução/aspect/DPR | Alta | CSS cover pode recortar. | 320×568 até 3440×1440; DPR 1/2/3; zoom 200%; portrait/landscape/fold. | Zero clipping/bleeding; targets e texto aprovados. |
 | file:// vs HTTPS/itch/PWA | Crítica | Persistência e políticas de áudio/storage diferem por origem. | Smoke dedicado para download local, GitHub Pages, itch iframe/fullscreen e PWA offline. | Save persiste após reload/upgrade em cada canal suportado. |
-| Godot Android/Desktop | Alta | Presets existem, mas não foram executados. | Export limpo 4.4.1, instalação, assinatura, pause/resume, storage e teste em arm64/Win/Linux. | Build/instalação exit 0; 111 testes + smoke por plataforma. |
+| Godot Android/Desktop | Alta | Presets existem, mas não foram executados. | Export limpo 4.4.1, instalação, assinatura, pause/resume, storage e teste em arm64/Win/Linux. | Build/instalação exit 0; suíte Godot atual + smoke por plataforma. |
 
 ### Matriz mínima de hardware proposta
 
@@ -352,13 +362,13 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 
 | Item / Ponto de Otimização | Nível de Prioridade (Crítica, Alta, Média, Baixa) | Impacto na Experiência / Performance | Ação Recomendada / Teste a Executar | Métrica de Sucesso para Validação |
 |---|---|---|---|---|
-| CI inexistente | Crítica | Regressões e artefatos inválidos podem ser publicados. | GitHub Actions: syntax/lint, 204 HTML, 111 Godot, build, artifact hash, ZIP manifest, browser smoke e budgets. | Todo PR executa gates; branch protegida; release apenas com **100% verde**. |
+| CI inexistente | Crítica | Regressões e artefatos inválidos podem ser publicados. | GitHub Actions: syntax/lint, 214 HTML, suíte Godot, build, artifact hash, ZIP manifest, browser smoke e budgets. | Todo PR executa gates; branch protegida; release apenas com **100% verde**. |
 | Dependências QA não declaradas | Alta | `qa18.js` requer Playwright, mas não há `package.json`/lock. | Adicionar pacote/lock e script `npm test`; fixar browser/version; ou container oficial. | Setup reproduzível em clone limpo em **≤10 min**. |
 | Paths QA absolutos | Crítica | Impedem CI e execução local. | Resolver paths relativos/CLI e usar diretório temporário para screenshots. | Zero ocorrência funcional de `/home/z/my-project` nos scripts. |
 | Smoke tests | Crítica | Precisa cobrir o que o jogador baixa. | Abrir HTML e ZIP final, clicar Jogar, fechar popups, lutar, abrir painel, salvar, reload e validar console. | Smoke **<5 min**, zero console/page error, estado restaurado. |
 | Crash/error reporting | Alta | Só há `console.error`; BUS captura exceções e pode ocultar falhas (`p01_core.js:121-123`). | `window.onerror`, `unhandledrejection`, ring buffer local e envio opt-in quando online; anexar versão/cenário sem PII. | 100% de crashes sintéticos capturados; relatório acionável. |
 | Performance telemetry | Alta | FPS médio curto não detecta regressão. | PerformanceObserver para long tasks, frame histogram, heap onde disponível e counters de render/pool; coleta QA e opt-in. | Alertar regressão >10% em p95/p99/build size. |
-| Cobertura de testes | Alta | 204 assertions não equivalem a cobertura; P0s atuais passaram despercebidos. | Istanbul/c8 para core JS, cobertura de branch; GDScript com harness equivalente; mutation tests em fórmulas críticas. | Core ≥90% lines e ≥85% branches; shield/resume/save obrigatórios. |
+| Cobertura de testes | Alta | 214 assertions não equivalem a cobertura; DOT, duração de shield e pending offline continuam sem regressão. | Istanbul/c8 para core JS, cobertura de branch; GDScript com harness equivalente; mutation tests em fórmulas críticas. | Core ≥90% lines e ≥85% branches; shield/resume/save obrigatórios. |
 | Isolamento/determinismo | Alta | Suíte HTML compartilha estado global e usa `Math.random`, podendo ser order-dependent/flaky. | Fixture reset por teste, RNG injetável/seed, testes independentes e shuffle order. | 1.000 execuções com **0 flake**; qualquer ordem produz mesmo resultado. |
 | Differential test Godot×HTML | Crítica | Regras estão duplicadas. | Fixtures JSON de ações e RNG; executar nas duas runtimes e comparar estado normalizado após cada passo. | 100% de paridade em fórmulas, combate, loot, save e progression. |
 | Visual regression | Média | Screenshots existem, mas não são gate. | Playwright por cenário/aspect, seeds fixos, masks e threshold; aprovar baseline explicitamente. | Diff <0,5% fora das regiões dinâmicas. |
@@ -369,16 +379,17 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 
 # 6. Plano de execução priorizado
 
-## Fase 0 — Hotfix e integridade (1–3 dias)
+## Fase 0 — Hotfix e integridade (**implementada parcialmente em `00a5eda`**)
 
-| Ordem | Entrega | Gate de saída |
+| Ordem | Entrega | Estado / gate residual |
 |---|---|---|
-| 1 | Corrigir absorção do escudo em HTML e Godot. | Testes de shield menor/igual/maior, reflect e morte passam. |
-| 2 | Corrigir save para propagar sucesso/falha e nunca emitir confirmação falsa. | Quota/SecurityError/reload passam; dirty permanece em falha. |
-| 3 | Corrigir ordem do resume/offline. | Testes de 30–3.600 s e time-travel passam. |
-| 4 | Tornar `build.py`, `test_node.js`, simulador e QA portáveis. | Comandos do README funcionam no clone atual. |
-| 5 | Regenerar ZIP Godot válido e ZIP itch com `index.html` na raiz. | Smoke abre ambos em diretório temporário. |
-| 6 | Corrigir `_layers`/silhuetas Godot. | 100 trocas de região sem erro e sem crescimento de memória. |
+| 1 | Absorção e reflexão do escudo em HTML e Godot. | **Implementado**; 4 regressões Node passam, suíte Godot ainda precisa rodar. |
+| 2 | Save Web propaga falha, preserva dirty e não confirma escrita inválida. | **Implementado em unit**; faltam alerta e matriz Safari/private/file://. |
+| 3 | Resume calcula offline antes de `mark_seen`. | **Implementado**; caso 120 s passa, falta persistir pending não coletado. |
+| 4 | Portabilidade de `build.py` e `test_node.js`. | **Implementado** e validado de `/tmp`; auxiliares continuam pendentes. |
+| 5 | ZIP Godot completo/determinístico. | **Implementado**, 6/6; ZIP itch na raiz permanece pendente. |
+| 6 | `_layers` e texturas procedurais Godot. | **Implementado em código/teste**; falta profiling/execução Godot. |
+| 7 | DOT de `sedenta`, save nativo e pending offline idempotente. | **Novo gate crítico** da reauditoria; deve anteceder otimização gráfica. |
 
 ## Fase 1 — Observabilidade e reprodução (3–5 dias)
 
@@ -388,7 +399,7 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 4. Criar presets determinísticos de cenário extremo.
 5. Unificar versão dos outputs e documentação.
 
-**Gate:** PR só entra com 204 HTML + 111 Godot + smoke Web + budgets de tamanho; os números de performance passam a ser baseline, não estimativa.
+**Gate:** PR só entra com 214 HTML + suíte Godot atual + smoke Web + budgets de tamanho; os números de performance passam a ser baseline, não estimativa.
 
 ## Fase 2 — Render e tamanho (1–2 semanas)
 
@@ -425,9 +436,11 @@ Os campos genéricos da solicitação foram inferidos diretamente do projeto:
 
 Uma release só deve ser marcada como pronta quando:
 
-- [ ] P0-01 a P0-06 estão corrigidos e possuem regressão automatizada.
-- [ ] Build e testes rodam em clone limpo sem caminhos absolutos.
-- [ ] HTML unit: 204/204; Godot: 111/111; differential suite: 100% paridade.
+- [x] P0-01 a P0-06 foram implementados; validação runtime Godot ainda é necessária.
+- [x] Build/testes principais rodam fora do CWD do repo; ferramentas auxiliares ainda precisam de portabilidade.
+- [x] HTML unit: **214/214** e pacote Godot: **6/6**.
+- [ ] P0-07/P0-08, pending offline idempotente e duração do shield estão corrigidos.
+- [ ] Suíte Godot atual e differential suite passam com 100% de paridade.
 - [ ] Browser smoke final roda no **artefato empacotado**, não apenas nos módulos-fonte.
 - [ ] Tier médio atinge mediana ≥60 FPS, 1% low ≥50; tier baixo mantém ≥30 FPS.
 - [ ] p99 ≤33,3 ms no cenário extremo e nenhuma long task >100 ms em gameplay estável.
@@ -443,6 +456,6 @@ Uma release só deve ser marcada como pronta quando:
 
 # 8. Parecer final
 
-**Classificação atual:** **não liberar uma nova versão multiplataforma antes do hotfix de integridade**. A versão Web é compacta e visualmente ambiciosa para Canvas 2D, com boas decisões como resolução interna fixa, pools, stats cacheados e qualidade adaptativa. Porém, três falhas funcionais — shield, confirmação falsa de save e resume/offline — afetam diretamente confiança e balanceamento. O pipeline não portável e os pacotes Godot/itch inconsistentes impedem uma release reproduzível.
+**Classificação pós-hotfix:** **P0-01 a P0-06 implementados, mas release multiplataforma ainda não aprovada**. A versão Web é compacta e visualmente ambiciosa para Canvas 2D, com resolução interna fixa, pools, stats cacheados e qualidade adaptativa. A reauditoria confirmou dois novos bloqueadores de lógica: DOT de `sedenta` calculado como multiplicador e falso sucesso do save nativo Godot. Também é necessário tornar a recompensa offline pendente idempotente/persistente e validar toda a camada Godot em engine real.
 
-Após a Fase 0, o foco deve ser medir antes de reescrever. Para este jogo 2D, **LODs 3D, occlusion culling, DLSS/FSR, raycasts e iluminação física não são investimentos adequados**. Os ganhos concretos estão em batching de Canvas, redução de overdraw/reflexos, fixed-step, pausa em background, compressão Opus, UI incremental e QA por percentis em hardware real.
+Após fechar esses gates de integridade, o foco deve ser medir antes de reescrever. Para este jogo 2D, **LODs 3D, occlusion culling, DLSS/FSR, raycasts e iluminação física não são investimentos adequados**. Os ganhos concretos estão em batching de Canvas, cache de gradientes/paths, redução de overdraw/reflexos, fixed-step, pausa em background, compressão Opus, UI incremental e QA por percentis em hardware real.
