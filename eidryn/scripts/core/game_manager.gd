@@ -13,9 +13,8 @@ func _ready() -> void:
 func _boot() -> void:
 	TimeManager.mark_seen()
 	SaveManager.boot_load()
-	# Offline: calcula pendentes ANTES de marcar o novo last_seen
-	TimeManager.check_time_travel()
-	OfflineManager.compute_pending()
+	# Offline: usa o last_seen carregado e só marca o instante atual após calcular.
+	OfflineManager.prepare_resume()
 	RetentionManager.check_login_day()
 	CharacterManager.recalc()
 	ProgressionManager._notify_stage()
@@ -55,9 +54,8 @@ func _notification(what: int) -> void:
 				SaveManager.flush()
 		NOTIFICATION_APPLICATION_RESUMED:
 			if state != State.BOOT:
-				TimeManager.mark_seen()
-				TimeManager.check_time_travel()
-				OfflineManager.compute_pending()
+				# Calcula primeiro; prepare_resume atualiza last_seen somente no final.
+				OfflineManager.prepare_resume()
 				EventBus.toast_msg("Bem-vindo de volta, Marcado.", "#3a9e8f")
 
 func reset_all() -> void:

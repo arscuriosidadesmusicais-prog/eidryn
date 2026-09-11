@@ -1,0 +1,6108 @@
+{
+  "schema": 1,
+  "root": "eidryn/assets/sprites",
+  "summary": {
+    "png_files": 269,
+    "valid_png": 269,
+    "invalid_png": 0,
+    "zero_byte": 0,
+    "fully_transparent": 0,
+    "unexpected_dimensions": 0,
+    "exact_duplicate_groups": 13,
+    "assets_touching_all_edges": 14,
+    "literal_references_checked": 3,
+    "literal_references_missing": 0,
+    "data_references_checked": 78,
+    "data_references_missing": 0,
+    "total_bytes": 303209
+  },
+  "dimensions": {
+    "96x96": 233,
+    "192x192": 7,
+    "240x240": 1,
+    "270x110": 7,
+    "270x150": 7,
+    "270x190": 7,
+    "270x480": 7
+  },
+  "errors": [],
+  "unexpected_dimensions": [],
+  "fully_transparent": [],
+  "exact_duplicates": [
+    [
+      "hero/hero.png",
+      "hero/hero_idle_0.png"
+    ],
+    [
+      "hero/hero_atk_1.png",
+      "hero/hero_attack.png"
+    ],
+    [
+      "hero/hero_down_0.png",
+      "hero/hero_down_1.png"
+    ],
+    [
+      "pets/cmp_cavaleiro_idle_1.png",
+      "pets/cmp_cavaleiro_idle_3.png"
+    ],
+    [
+      "pets/cmp_oraculo_idle_1.png",
+      "pets/cmp_oraculo_idle_3.png"
+    ],
+    [
+      "pets/pet_corvo_idle_0.png",
+      "pets/pet_corvo_idle_2.png"
+    ],
+    [
+      "pets/pet_devorador.png",
+      "pets/pet_devorador_idle_0.png"
+    ],
+    [
+      "pets/pet_fada_idle_1.png",
+      "pets/pet_fada_idle_3.png"
+    ],
+    [
+      "pets/pet_golem_idle_0.png",
+      "pets/pet_golem_idle_1.png"
+    ],
+    [
+      "pets/pet_raposa.png",
+      "pets/pet_raposa_idle_0.png"
+    ],
+    [
+      "ui/attr_defesa.png",
+      "ui/tab_equip.png"
+    ],
+    [
+      "ui/peticon_1.png",
+      "ui/tab_pets.png"
+    ],
+    [
+      "ui/sk1.png",
+      "ui/tab_skills.png"
+    ]
+  ],
+  "assets_touching_all_edges": [
+    "ui/bg_abismo_sky.png",
+    "ui/bg_bosque_vidro_far.png",
+    "ui/bg_bosque_vidro_mid.png",
+    "ui/bg_bosque_vidro_sky.png",
+    "ui/bg_cidadela_sky.png",
+    "ui/bg_coracao_sky.png",
+    "ui/bg_deserto_cinzas_sky.png",
+    "ui/bg_pantano_sky.png",
+    "ui/bg_picos_sky.png",
+    "ui/tex_frame.png",
+    "ui/tex_metal.png",
+    "ui/tex_parch.png",
+    "ui/tex_stone.png",
+    "ui/tex_vignette.png"
+  ],
+  "literal_references": [
+    "enemies/enemy_generic",
+    "hero/hero",
+    "hero/hero_attack"
+  ],
+  "literal_references_missing": [],
+  "data_references": [
+    "pets/cmp_arquivista",
+    "pets/cmp_cavaleiro",
+    "pets/cmp_feiticeira",
+    "pets/cmp_ferreiro",
+    "pets/cmp_oraculo",
+    "pets/pet_corvo",
+    "pets/pet_devorador",
+    "pets/pet_fada",
+    "pets/pet_golem",
+    "pets/pet_grilo",
+    "pets/pet_lobo",
+    "pets/pet_raposa",
+    "pets/pet_serpente",
+    "ui/attr_crit",
+    "ui/attr_critdmg",
+    "ui/attr_defesa",
+    "ui/attr_destreza",
+    "ui/attr_energia",
+    "ui/attr_forca",
+    "ui/attr_lifesteal",
+    "ui/attr_precisao",
+    "ui/attr_regen",
+    "ui/attr_sorte",
+    "ui/attr_velocidade",
+    "ui/attr_vitalidade",
+    "ui/bg_abismo_far",
+    "ui/bg_abismo_mid",
+    "ui/bg_abismo_near",
+    "ui/bg_abismo_sky",
+    "ui/bg_bosque_vidro_far",
+    "ui/bg_bosque_vidro_mid",
+    "ui/bg_bosque_vidro_near",
+    "ui/bg_bosque_vidro_sky",
+    "ui/bg_cidadela_far",
+    "ui/bg_cidadela_mid",
+    "ui/bg_cidadela_near",
+    "ui/bg_cidadela_sky",
+    "ui/bg_coracao_far",
+    "ui/bg_coracao_mid",
+    "ui/bg_coracao_near",
+    "ui/bg_coracao_sky",
+    "ui/bg_deserto_cinzas_far",
+    "ui/bg_deserto_cinzas_mid",
+    "ui/bg_deserto_cinzas_near",
+    "ui/bg_deserto_cinzas_sky",
+    "ui/bg_pantano_far",
+    "ui/bg_pantano_mid",
+    "ui/bg_pantano_near",
+    "ui/bg_pantano_sky",
+    "ui/bg_picos_far",
+    "ui/bg_picos_mid",
+    "ui/bg_picos_near",
+    "ui/bg_picos_sky",
+    "ui/currency_chaves",
+    "ui/currency_essencia",
+    "ui/currency_fragmentos_alma",
+    "ui/currency_fragmentos_equip",
+    "ui/currency_gemas",
+    "ui/currency_gloria",
+    "ui/currency_ouro",
+    "ui/pk1",
+    "ui/pk2",
+    "ui/pk3",
+    "ui/pk4",
+    "ui/sk1",
+    "ui/sk2",
+    "ui/sk3",
+    "ui/sk4",
+    "ui/sk5",
+    "ui/sl_amuleto",
+    "ui/sl_anel",
+    "ui/sl_arma",
+    "ui/sl_botas",
+    "ui/sl_calca",
+    "ui/sl_capa",
+    "ui/sl_elmo",
+    "ui/sl_luvas",
+    "ui/sl_peito"
+  ],
+  "data_references_missing": [],
+  "assets": [
+    {
+      "path": "enemies/boss_abismo.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 2256,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33496,
+      "content_bbox": [
+        11,
+        0,
+        179,
+        192
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "4c1b45ff3523db190f1bd6bf9cf5f7af5460a9637fbb0af91397e6f6c6de2037"
+    },
+    {
+      "path": "enemies/boss_bosque_vidro.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 1273,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.24957,
+      "content_bbox": [
+        37,
+        0,
+        179,
+        192
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "5843e175ebe07d68c2f4d6dbf3c2063209cd7682eea4ec38eda93be26f1382ed"
+    },
+    {
+      "path": "enemies/boss_cidadela.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 1451,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.35669,
+      "content_bbox": [
+        45,
+        15,
+        173,
+        186
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f0811301487d5513929d087a2faa9a2eeef4cb8f74f2075f7de67f10b822842c"
+    },
+    {
+      "path": "enemies/boss_coracao.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 1446,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.30786,
+      "content_bbox": [
+        48,
+        7,
+        142,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "bec8e5ed333584f6ce49aeeac2a8bfa9799fbeb2bff7ba847d3174d92aefdfc8"
+    },
+    {
+      "path": "enemies/boss_deserto_cinzas.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 1413,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27403,
+      "content_bbox": [
+        33,
+        17,
+        160,
+        186
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b57f81bbdd94767e85d37e1047491323e3766541c184898541e5e6f40f02aeac"
+    },
+    {
+      "path": "enemies/boss_pantano.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 1350,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.30301,
+      "content_bbox": [
+        41,
+        9,
+        161,
+        171
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "812fffd1a0e891d51a26770cf36e8ccc41bc23982c315caf085b3328a6062c03"
+    },
+    {
+      "path": "enemies/boss_picos.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 1236,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.3422,
+      "content_bbox": [
+        39,
+        21,
+        171,
+        181
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "86d5831813f49f5edffb9620700a55f6d699284251083d98fd63378aa5de6255"
+    },
+    {
+      "path": "enemies/enemy_abismo_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 809,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.26226,
+      "content_bbox": [
+        17,
+        37,
+        80,
+        92
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c8111b5295bb7a41e1913d3e6282a46212e03cdb772c4eeee626a7583c6e3139"
+    },
+    {
+      "path": "enemies/enemy_abismo_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 675,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.26986,
+      "content_bbox": [
+        26,
+        11,
+        81,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "4174e069becf557845fd430bd971ded00bec8a4093ff7e327051e929ebbd0339"
+    },
+    {
+      "path": "enemies/enemy_abismo_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 899,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33876,
+      "content_bbox": [
+        1,
+        23,
+        96,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "cc8c0126a64d011ad8f4dbde491efb0a4b82c9ef4f1cc51dc20c63a936830042"
+    },
+    {
+      "path": "enemies/enemy_abismo_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 788,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.19401,
+      "content_bbox": [
+        23,
+        17,
+        74,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "3c1cc52f7424fe286daeabeae4691b6a5741e2b50279711b32da42170e7ce963"
+    },
+    {
+      "path": "enemies/enemy_abismo_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 880,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27192,
+      "content_bbox": [
+        17,
+        19,
+        80,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e55bf13525a3a32a15f476b7c4f39e36d0e887fb407cdd76a8c4fbc2b1902bde"
+    },
+    {
+      "path": "enemies/enemy_bosque_vidro_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 867,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.31749,
+      "content_bbox": [
+        1,
+        23,
+        95,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b0f3c6931a0e5858d224b2a78a152c1da7acbe05941f163a6bf302253649c4b2"
+    },
+    {
+      "path": "enemies/enemy_bosque_vidro_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 813,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.23872,
+      "content_bbox": [
+        7,
+        17,
+        90,
+        72
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c2e5ec768c06b10f2d8287adcef1ae8aa1603d5e45997ab6f1ee57f72a389b2f"
+    },
+    {
+      "path": "enemies/enemy_bosque_vidro_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 873,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.30566,
+      "content_bbox": [
+        10,
+        17,
+        77,
+        89
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "35c06063483939e1949c96f47c374dc507b544829e21b7a23b147fd1a38652b7"
+    },
+    {
+      "path": "enemies/enemy_bosque_vidro_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 649,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.26638,
+      "content_bbox": [
+        26,
+        7,
+        70,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f3811b5184193b9ed12c9a0dabd331c368fa4d147b31c199204897b0ea560dd5"
+    },
+    {
+      "path": "enemies/enemy_bosque_vidro_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1005,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.19727,
+      "content_bbox": [
+        11,
+        39,
+        87,
+        91
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c002dac390c15f9910fda446dc26ef7f411b0d2aac12ed86c29c7d9a926be8c7"
+    },
+    {
+      "path": "enemies/enemy_cidadela_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 725,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27517,
+      "content_bbox": [
+        19,
+        25,
+        77,
+        89
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1d5286558c20f27388f3d285f2c5767ce083f0e90caee921265c6dcc4aa82ef5"
+    },
+    {
+      "path": "enemies/enemy_cidadela_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 689,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.26986,
+      "content_bbox": [
+        26,
+        11,
+        81,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "4f58950b2d969c20d20579a4df352e13da1490e9adbf5e2310f148aa323bc46c"
+    },
+    {
+      "path": "enemies/enemy_cidadela_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 693,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.25401,
+      "content_bbox": [
+        26,
+        19,
+        90,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93390afbbb6b4ac8597a6cae255c96f44f5f77ab6ac87637a8309b95be7555a8"
+    },
+    {
+      "path": "enemies/enemy_cidadela_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 872,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.31749,
+      "content_bbox": [
+        1,
+        23,
+        95,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0f4101bdb7a179bd2b857dfe12d3f0a15cc1b9e6883a5db0a565cd78b1264d81"
+    },
+    {
+      "path": "enemies/enemy_cidadela_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 656,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.2653,
+      "content_bbox": [
+        26,
+        19,
+        80,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f6b8d21c70f1332498c5a407acf5dd45ea972495668f75ec43adecc99573f2a5"
+    },
+    {
+      "path": "enemies/enemy_coracao_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 634,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.25738,
+      "content_bbox": [
+        26,
+        19,
+        76,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "059b21993698ab3f35c252c51acad2b05e3d8176dfe55d00c06351f45ffa197c"
+    },
+    {
+      "path": "enemies/enemy_coracao_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 722,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27517,
+      "content_bbox": [
+        19,
+        25,
+        77,
+        89
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1c462dc4fb319ee4c23a50cda7dca7a93ed40675d3ccae17bd1b5f3789d9af2b"
+    },
+    {
+      "path": "enemies/enemy_coracao_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 795,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.19401,
+      "content_bbox": [
+        23,
+        17,
+        74,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "873800cc9dce6c97f1249297adc25268014782d842a1bc091675ff383908d442"
+    },
+    {
+      "path": "enemies/enemy_coracao_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 915,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33876,
+      "content_bbox": [
+        1,
+        23,
+        96,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "52af556ef3a37d487c9327faedfc932d84a975a280902c78544bc9a0d8ffbd14"
+    },
+    {
+      "path": "enemies/enemy_coracao_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 699,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27897,
+      "content_bbox": [
+        26,
+        11,
+        75,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "dff5dc943899c50b4cc55582b47501d01231e5d6b70530cae393f3aabf01dc86"
+    },
+    {
+      "path": "enemies/enemy_deserto_cinzas_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 926,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.30599,
+      "content_bbox": [
+        3,
+        37,
+        94,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b4549b8764091543fd743d7c3c81d12d9aa716588e4c6c0aaaca7d08b49fdd74"
+    },
+    {
+      "path": "enemies/enemy_deserto_cinzas_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 807,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.23535,
+      "content_bbox": [
+        23,
+        17,
+        74,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "3a3a909c5277cdd2a29ecbda0ca1932f7a96a3ab06b01c1396e1f028efab4e4e"
+    },
+    {
+      "path": "enemies/enemy_deserto_cinzas_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 661,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.24609,
+      "content_bbox": [
+        26,
+        19,
+        75,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "faa2b0e2fa05dbe9cdd38ff91c6eca7bddce26ca39bf17c97da0b81997ca723b"
+    },
+    {
+      "path": "enemies/enemy_deserto_cinzas_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1038,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.20703,
+      "content_bbox": [
+        2,
+        27,
+        87,
+        91
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8adcb30c87876f9534271527e2df79ff1d8aa861e470a367af901ab7cdd14ee4"
+    },
+    {
+      "path": "enemies/enemy_deserto_cinzas_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 666,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27854,
+      "content_bbox": [
+        26,
+        20,
+        81,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ac5709a005f83c6ce267fac4e5dd8ae12f2508e9a867ccd036f49b6f4ca7840e"
+    },
+    {
+      "path": "enemies/enemy_generic.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 787,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.26226,
+      "content_bbox": [
+        17,
+        37,
+        80,
+        92
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8ff8ada91813c9e09a61e3c767bc9e2759d2344f7fb4c5488013e77e59eb1d07"
+    },
+    {
+      "path": "enemies/enemy_pantano_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 668,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27854,
+      "content_bbox": [
+        26,
+        20,
+        81,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c75387b1a86b0316e4cc8da8f76760dc5ef32808dfa71562198fd40ac5c35227"
+    },
+    {
+      "path": "enemies/enemy_pantano_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 663,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.2704,
+      "content_bbox": [
+        26,
+        19,
+        75,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "6a32d1420a47ce1c7d1b42561178fdf0556ec296ba18e09441eeaf7b23799456"
+    },
+    {
+      "path": "enemies/enemy_pantano_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 930,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.30599,
+      "content_bbox": [
+        3,
+        37,
+        94,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "544a42adba519b237427af60c9799d92fa0e864cce0db6450aed268a2e47ed15"
+    },
+    {
+      "path": "enemies/enemy_pantano_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 848,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.20269,
+      "content_bbox": [
+        23,
+        5,
+        74,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8c366ced0a85b91e9284191ca5e378d496cdb732e75788537f9a6451952976d4"
+    },
+    {
+      "path": "enemies/enemy_pantano_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 921,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33876,
+      "content_bbox": [
+        1,
+        23,
+        96,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "61cddf9df71efbc5696fa7c2767724b4e99659d937bb0d47e4e0fc4e1372c38a"
+    },
+    {
+      "path": "enemies/enemy_picos_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 797,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.23872,
+      "content_bbox": [
+        7,
+        17,
+        90,
+        72
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7e5cf4c330007da69b0fce50df73dfe37d7d96051ad51c753df5104aada73001"
+    },
+    {
+      "path": "enemies/enemy_picos_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 712,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.27062,
+      "content_bbox": [
+        19,
+        25,
+        77,
+        89
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "4118eebde2cd31886ea6457c0e7e40a49b865a93015f3a3bbac71f7d60308915"
+    },
+    {
+      "path": "enemies/enemy_picos_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 885,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.3201,
+      "content_bbox": [
+        1,
+        23,
+        95,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "9e40a40b6b423c61d624efafb59ce19b3008c989d79bd32a0e406d51c4d6f62f"
+    },
+    {
+      "path": "enemies/enemy_picos_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 794,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.19401,
+      "content_bbox": [
+        23,
+        17,
+        74,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "44ab60b640b6b9dd17f72e493dba04818cdf4b889e426a346a0c9fdfe4fa0df9"
+    },
+    {
+      "path": "enemies/enemy_picos_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 605,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.24664,
+      "content_bbox": [
+        26,
+        19,
+        70,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8c396b9b14bc86f841c381acbf77d4d87d8630111681ec699469dbad936eba32"
+    },
+    {
+      "path": "hero/hero.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 893,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.3278,
+      "content_bbox": [
+        19,
+        2,
+        84,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c6b4a1cc60f6458bed447c68f052314d1d5bd290db46e415c963269b83386f38"
+    },
+    {
+      "path": "hero/hero_atk_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 945,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32921,
+      "content_bbox": [
+        9,
+        2,
+        92,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "afc4cef5f1ec29946f8639ce81389a742d17cd3b8e1aaa6eaae8579e345ba4e1"
+    },
+    {
+      "path": "hero/hero_atk_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1058,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.34451,
+      "content_bbox": [
+        9,
+        2,
+        95,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "df781ffdeb6570377ef914e405147a7594a1ca8dc71351e95400a4ed601cb966"
+    },
+    {
+      "path": "hero/hero_atk_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1005,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32954,
+      "content_bbox": [
+        9,
+        3,
+        90,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d1747c90f04e7203fc035f3b378edbf854ce23f439af1fa29b2033879ded8963"
+    },
+    {
+      "path": "hero/hero_atk_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 920,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32671,
+      "content_bbox": [
+        9,
+        3,
+        86,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8514fb66e4027c37da8326106732b8654b2759cb3174b2a8fb404dd556dc4c39"
+    },
+    {
+      "path": "hero/hero_attack.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1058,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.34451,
+      "content_bbox": [
+        9,
+        2,
+        95,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "df781ffdeb6570377ef914e405147a7594a1ca8dc71351e95400a4ed601cb966"
+    },
+    {
+      "path": "hero/hero_cast_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 896,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33116,
+      "content_bbox": [
+        13,
+        2,
+        84,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "4565296ce146cb0d6e746d915f844598f4e58fa61806f384a008794e4d0ea743"
+    },
+    {
+      "path": "hero/hero_cast_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 959,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33105,
+      "content_bbox": [
+        22,
+        3,
+        84,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ea3372a7cc37f5f3043ad384f36a1544c487953da0c6f9303c099bcefc3ff2a0"
+    },
+    {
+      "path": "hero/hero_cast_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 998,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.34169,
+      "content_bbox": [
+        13,
+        4,
+        84,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f4fa8db46e0dee68bfd75b7046deb991091ebb9c1c04cc6ddfaf45b6f377b9e6"
+    },
+    {
+      "path": "hero/hero_cast_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 959,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32498,
+      "content_bbox": [
+        24,
+        3,
+        84,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "34efa4d3963656edc0d1c3a013cc7cf72136be646675226dc3b434f7fb510ebd"
+    },
+    {
+      "path": "hero/hero_crit_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 921,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.29677,
+      "content_bbox": [
+        21,
+        6,
+        92,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5f42c81a68bccf03b8d1e9c9fbe81df69f04a9ee5f00aadcba56208dc847c10b"
+    },
+    {
+      "path": "hero/hero_crit_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 889,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33832,
+      "content_bbox": [
+        9,
+        0,
+        74,
+        86
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8e998a9de9b3baf83d9a35909a57fc625ed9c8add0520673d5031583779750a4"
+    },
+    {
+      "path": "hero/hero_crit_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1030,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.33333,
+      "content_bbox": [
+        9,
+        4,
+        86,
+        92
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "79be47f8bf68772b37e443e61214cf4f95bd55830aedc1d678847e81abc1fc30"
+    },
+    {
+      "path": "hero/hero_crit_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 899,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32172,
+      "content_bbox": [
+        19,
+        3,
+        82,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7f2e1b777e4b585cabc72a753f9ebb3f479e441664384baadf87d5844a8e0e6a"
+    },
+    {
+      "path": "hero/hero_down_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 845,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.28505,
+      "content_bbox": [
+        23,
+        14,
+        74,
+        92
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93e7d974fcde7cb9e62756749580c2c5e82cd49e147f661982c9b3993b63efc1"
+    },
+    {
+      "path": "hero/hero_down_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 845,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.28505,
+      "content_bbox": [
+        23,
+        14,
+        74,
+        92
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93e7d974fcde7cb9e62756749580c2c5e82cd49e147f661982c9b3993b63efc1"
+    },
+    {
+      "path": "hero/hero_hurt_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 913,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32487,
+      "content_bbox": [
+        21,
+        3,
+        81,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b5271b0c55139d6abdb81b92410c6798ee8c0c92e327198cb036eaf937bb98f5"
+    },
+    {
+      "path": "hero/hero_hurt_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 877,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32205,
+      "content_bbox": [
+        19,
+        4,
+        83,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "eece3f0352914ee381f32f4bb7c7235cb2900b6e4347d07c66c1293926d8cca5"
+    },
+    {
+      "path": "hero/hero_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 893,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.3278,
+      "content_bbox": [
+        19,
+        2,
+        84,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c6b4a1cc60f6458bed447c68f052314d1d5bd290db46e415c963269b83386f38"
+    },
+    {
+      "path": "hero/hero_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 896,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32845,
+      "content_bbox": [
+        13,
+        3,
+        84,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "a27093e1d6d500c31094f099e0e4a5354546a5c113d3ee8d5abfb0ece8dc9e1a"
+    },
+    {
+      "path": "hero/hero_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 904,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32096,
+      "content_bbox": [
+        24,
+        4,
+        84,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b3aebb9ad49bb8d1cd96c3eb8064187a35563731fddd20d18cc9bf594257f40b"
+    },
+    {
+      "path": "hero/hero_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 877,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.30794,
+      "content_bbox": [
+        21,
+        3,
+        84,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "bd3579c7813a61f8e257e7591c1171aace87c33a0f668380a5be5a7ed020f5e5"
+    },
+    {
+      "path": "hero/hero_victory_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 908,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.34397,
+      "content_bbox": [
+        21,
+        2,
+        80,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "2af5d6a4c133cf8df91777858b296bdda8824d4700d2122740fcd7b1fa1bcf55"
+    },
+    {
+      "path": "hero/hero_victory_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 882,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32574,
+      "content_bbox": [
+        19,
+        3,
+        75,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "367aa5d59ce308085d80512b955ad5b1cb9b7dd5d2b7437488a7faab73189286"
+    },
+    {
+      "path": "hero/hero_victory_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 878,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.32248,
+      "content_bbox": [
+        19,
+        4,
+        75,
+        90
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8953d069c65304adba088b8886a3bbab9b9dd846f056243844e8855f204f7fd3"
+    },
+    {
+      "path": "pets/cmp_arquivista.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 582,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.17871,
+      "content_bbox": [
+        29,
+        18,
+        75,
+        68
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "83118da6f02edf5c21b1fabd988570d4d64cb6b8d3305498289add256afca933"
+    },
+    {
+      "path": "pets/cmp_arquivista_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 621,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17188,
+      "content_bbox": [
+        29,
+        23,
+        75,
+        71
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "af10230c31ea48e590e5861b8661d5a150c775ac9887a9691b0267d6bcce8cd4"
+    },
+    {
+      "path": "pets/cmp_arquivista_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 812,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19054,
+      "content_bbox": [
+        19,
+        8,
+        76,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f59aea440ebe724bed1b937338656ce1e0276717ea8fe5cc28c746f7464e3011"
+    },
+    {
+      "path": "pets/cmp_arquivista_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 622,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17871,
+      "content_bbox": [
+        29,
+        18,
+        75,
+        68
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "3e4cb6556f33f05851897264be566f702b27cff19e811ce5ccae73f1c8ed1489"
+    },
+    {
+      "path": "pets/cmp_arquivista_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 648,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17904,
+      "content_bbox": [
+        29,
+        19,
+        76,
+        69
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "caf6979eeae79036d1a44b01c2a3971ab419f329a1011232eb53c882601a55e2"
+    },
+    {
+      "path": "pets/cmp_arquivista_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 622,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17871,
+      "content_bbox": [
+        29,
+        20,
+        75,
+        70
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "cb5849b8a708ae640e5ee91bd1bdaf49303e27a8fdca310e9edf174a892e8a4f"
+    },
+    {
+      "path": "pets/cmp_arquivista_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 622,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17871,
+      "content_bbox": [
+        29,
+        19,
+        75,
+        69
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e9448f86b5659c913b61d7f23a523cd105a3974e0764d39e5b35dabdff002a31"
+    },
+    {
+      "path": "pets/cmp_arquivista_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 627,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17188,
+      "content_bbox": [
+        29,
+        24,
+        75,
+        72
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "65b39e6f78805be142dce96541da2e59310ccb7666ca1e3c8624f53aaf464403"
+    },
+    {
+      "path": "pets/cmp_arquivista_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 643,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.16808,
+      "content_bbox": [
+        29,
+        27,
+        75,
+        74
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ebcd292927bf2e99ac6e09bdd07446c22992bbb35968d3a999a3a73bc35dcb98"
+    },
+    {
+      "path": "pets/cmp_cavaleiro.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 594,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        29,
+        25,
+        73,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1b1f3086d8b6b6cd826b808085a13bacb167850396bdf10650c9f9a5e113ac1e"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 682,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18793,
+      "content_bbox": [
+        29,
+        30,
+        73,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b07494a9e8e19e94919162a938bd5d4003cb00a52350676d382687b581c8eb0c"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 905,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20692,
+      "content_bbox": [
+        19,
+        15,
+        76,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "238dd62b25678faf95fda6460f55b0222c17bde226130f064d23d4c1e994845e"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 692,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        29,
+        25,
+        73,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5d893ccf934575f3dce35bdf5fce22558d18e17e6710ab58697c570c5438e59b"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 693,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        29,
+        26,
+        73,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "797075dad39ecaf28a6e8209670a1e848ce3cd48d85a367c84526dfaa4686c1e"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 714,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19651,
+      "content_bbox": [
+        29,
+        25,
+        73,
+        85
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d7b55e61bd6a0cd55a8f0bc0ac14910c7335ec5d1c3b0b7b3d3ba0fd4c5b73cc"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 693,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        29,
+        26,
+        73,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "797075dad39ecaf28a6e8209670a1e848ce3cd48d85a367c84526dfaa4686c1e"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 669,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18793,
+      "content_bbox": [
+        29,
+        31,
+        73,
+        87
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ca503aca4738f07a536c1caf7a9f456b11415b0b1bcf1f037f745370ed57cee7"
+    },
+    {
+      "path": "pets/cmp_cavaleiro_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 727,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18587,
+      "content_bbox": [
+        29,
+        33,
+        73,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0cbc55bf528d49371899bb646946e78b30c4d72c4c288b29dff783462aa58f13"
+    },
+    {
+      "path": "pets/cmp_feiticeira.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 690,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.18902,
+      "content_bbox": [
+        25,
+        7,
+        77,
+        72
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5803f4c064ec3d9035c21251c3c976073f728d85c04874f7a13db7857f8ac5e6"
+    },
+    {
+      "path": "pets/cmp_feiticeira_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 862,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18197,
+      "content_bbox": [
+        25,
+        13,
+        77,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "338b3c4006931e9f3d889890ef382932e10fb932f542dd9462b4120c16c9a7f9"
+    },
+    {
+      "path": "pets/cmp_feiticeira_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1012,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19889,
+      "content_bbox": [
+        25,
+        0,
+        80,
+        88
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "40069da2a6b40ff77cc7d1c41feba104e6c541f6654806ab9f235c6afb7497e6"
+    },
+    {
+      "path": "pets/cmp_feiticeira_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 876,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18902,
+      "content_bbox": [
+        25,
+        7,
+        77,
+        72
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b7ac63b24e50899a0a8d27dcee83806545e0ff88eb7f45e93ecb55c07e1e98e5"
+    },
+    {
+      "path": "pets/cmp_feiticeira_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 890,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18902,
+      "content_bbox": [
+        25,
+        8,
+        77,
+        73
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "9d79e263e5f28b65894b5e0d82f47635d321c5722f7834f7bc638e15eb10c910"
+    },
+    {
+      "path": "pets/cmp_feiticeira_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 896,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18913,
+      "content_bbox": [
+        25,
+        9,
+        77,
+        74
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e81ebe09814596e83901e6e855ac2b2382bf34caa4ba9a970e2a82d8b3a86550"
+    },
+    {
+      "path": "pets/cmp_feiticeira_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 875,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18902,
+      "content_bbox": [
+        25,
+        8,
+        77,
+        73
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ce208a2b688797b21760a2131fd12a20382f364b5e16f6626a92dd0f9b15c027"
+    },
+    {
+      "path": "pets/cmp_feiticeira_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 839,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18197,
+      "content_bbox": [
+        25,
+        14,
+        77,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "a634c58878b7d89f2f936d5b6385274bca1036028e2749939c1bc1be2b217714"
+    },
+    {
+      "path": "pets/cmp_feiticeira_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 824,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17676,
+      "content_bbox": [
+        25,
+        17,
+        77,
+        77
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1ecf17ed8593a3fc97a4a267ca9f65aa0b8e573b52d43b487563a2e77aafdbc1"
+    },
+    {
+      "path": "pets/cmp_ferreiro.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 605,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.21246,
+      "content_bbox": [
+        23,
+        21,
+        71,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "deed5356e7ef970093f1229de14e6fa94a9a428efa2caea3978a423392e51219"
+    },
+    {
+      "path": "pets/cmp_ferreiro_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 729,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20475,
+      "content_bbox": [
+        23,
+        26,
+        71,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "6dda2b29c834a454ce92d784e0b20acb59b5a696728ac51d63a5c4c6ba348438"
+    },
+    {
+      "path": "pets/cmp_ferreiro_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 935,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.22483,
+      "content_bbox": [
+        19,
+        11,
+        76,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93eb7c37d6d753ef2f2b48cea99433797da6cd71327505a3d535a37116016f68"
+    },
+    {
+      "path": "pets/cmp_ferreiro_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 736,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.21246,
+      "content_bbox": [
+        23,
+        21,
+        71,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5571f839835a5657633f7d3a024b565815c0d6a247022ade6bc62922658e95bd"
+    },
+    {
+      "path": "pets/cmp_ferreiro_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 779,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.213,
+      "content_bbox": [
+        23,
+        22,
+        71,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7e7aff2277fba622468ac89db8f54dc74d345abc97076aeed550f9351d898555"
+    },
+    {
+      "path": "pets/cmp_ferreiro_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 768,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.21408,
+      "content_bbox": [
+        23,
+        23,
+        71,
+        85
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e8d25bfc19b52beb30a387a929d6e5824749c6a6150071ce8159ebb87f24cec4"
+    },
+    {
+      "path": "pets/cmp_ferreiro_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 737,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.21246,
+      "content_bbox": [
+        23,
+        22,
+        71,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5ddc6bb05c0498ace9cfba6a55a0d8fc46d97e55210230afdb5f248ad015e983"
+    },
+    {
+      "path": "pets/cmp_ferreiro_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 735,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20475,
+      "content_bbox": [
+        23,
+        27,
+        71,
+        87
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c5acd587cb9a818bc3a26d84a8d7e5c51b37272cdd5a80c390dc70ee6f50bec1"
+    },
+    {
+      "path": "pets/cmp_ferreiro_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 764,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19933,
+      "content_bbox": [
+        23,
+        30,
+        71,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "012490bdf372aaef67ca8108669d2972eb8e0ee3c7b0964d84b12efaa0ecba07"
+    },
+    {
+      "path": "pets/cmp_oraculo.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1034,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20627,
+      "content_bbox": [
+        29,
+        13,
+        81,
+        74
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0e17e7fc6d6663aa26945b43f842da305139df9e9c697a064af40858e629f98e"
+    },
+    {
+      "path": "pets/cmp_oraculo_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1017,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19878,
+      "content_bbox": [
+        29,
+        18,
+        81,
+        77
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "bcddbe12d31dd9f38265b7cc346c5a7b40b43a5f13ac3617d8e7b9890afa3c22"
+    },
+    {
+      "path": "pets/cmp_oraculo_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1184,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.21886,
+      "content_bbox": [
+        19,
+        3,
+        81,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8e0dbc2f2ffa6295c91d3d38a4b87ca9df4139f82cb5c099e6d7e326ef744b72"
+    },
+    {
+      "path": "pets/cmp_oraculo_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1060,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20627,
+      "content_bbox": [
+        29,
+        13,
+        81,
+        74
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "65e10b04438cf689dfbef322965fcd318ee4b88b0d76def1c6aca2aaa1290385"
+    },
+    {
+      "path": "pets/cmp_oraculo_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1034,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20627,
+      "content_bbox": [
+        29,
+        14,
+        81,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "17564cc0bd3d7e4f7f856880154493ffad8d0716558f5f93eaa9af67863088cb"
+    },
+    {
+      "path": "pets/cmp_oraculo_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1089,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20627,
+      "content_bbox": [
+        29,
+        15,
+        81,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "584e37a805b58867afa9db931e871fb7ed9a10db674ba2c8c7c9be508bcd8adc"
+    },
+    {
+      "path": "pets/cmp_oraculo_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1034,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20627,
+      "content_bbox": [
+        29,
+        14,
+        81,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "17564cc0bd3d7e4f7f856880154493ffad8d0716558f5f93eaa9af67863088cb"
+    },
+    {
+      "path": "pets/cmp_oraculo_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1018,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19878,
+      "content_bbox": [
+        29,
+        19,
+        81,
+        78
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "24e07d059f19c9923cba578c78ab638da84d64b8f72ed6ca273cbadc8bbac785"
+    },
+    {
+      "path": "pets/cmp_oraculo_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1001,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19271,
+      "content_bbox": [
+        29,
+        22,
+        81,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "95711b6558f78203b1685f90a100271e4f428e19be801f8f55fed75e1765df4e"
+    },
+    {
+      "path": "pets/pet_corvo.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 762,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.17285,
+      "content_bbox": [
+        5,
+        39,
+        82,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "73fa3c4d6cec0b47be46104c41f23fc5254f0be3244e00639df7e5251993108a"
+    },
+    {
+      "path": "pets/pet_corvo_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1138,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.16786,
+      "content_bbox": [
+        5,
+        43,
+        82,
+        82
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "968ee577e8c496d52caf510abfa0dfa3f283ef2b6956be021212760444bd3cfa"
+    },
+    {
+      "path": "pets/pet_corvo_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1316,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18316,
+      "content_bbox": [
+        5,
+        20,
+        82,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ee28dcfbee4246374b122d427350fd8fa44f97f061149de5881eb66202908d18"
+    },
+    {
+      "path": "pets/pet_corvo_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1158,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17285,
+      "content_bbox": [
+        5,
+        39,
+        82,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7a888af48ee4bc37c1c534fcf1f40950fefd408eb4d48b5e8eabda080947852f"
+    },
+    {
+      "path": "pets/pet_corvo_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1128,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.16634,
+      "content_bbox": [
+        5,
+        40,
+        82,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "05816ba02ba28ab401c3c03c7d23fcfb9cc4080c942b34f5025c3d71c6907dc8"
+    },
+    {
+      "path": "pets/pet_corvo_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1158,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17285,
+      "content_bbox": [
+        5,
+        39,
+        82,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7a888af48ee4bc37c1c534fcf1f40950fefd408eb4d48b5e8eabda080947852f"
+    },
+    {
+      "path": "pets/pet_corvo_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1202,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.17936,
+      "content_bbox": [
+        5,
+        38,
+        82,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "496798ac564ebc2215c9949dbedba28eadaa3d585ced0e63c982ae903e29a156"
+    },
+    {
+      "path": "pets/pet_corvo_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1140,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.16786,
+      "content_bbox": [
+        5,
+        44,
+        82,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e57102d264565fae485f716db35a809f7fc894782fce488a781b6f68384c248a"
+    },
+    {
+      "path": "pets/pet_corvo_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1160,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.16276,
+      "content_bbox": [
+        5,
+        45,
+        82,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b23292f2cd1938d286c442530fb6b0275e33758768f1be6eb6d0e08dbe02b34e"
+    },
+    {
+      "path": "pets/pet_devorador.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1262,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.26009,
+      "content_bbox": [
+        21,
+        23,
+        82,
+        78
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "6515a809ff705ef821b0fa31af3b040b8919751144ff0b76636cc85020e3172d"
+    },
+    {
+      "path": "pets/pet_devorador_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1252,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11925,
+      "content_bbox": [
+        21,
+        28,
+        82,
+        81
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "4464c6f029260074c6e33e87e0d8042c0a59ec0806534fec5788ce2c426da771"
+    },
+    {
+      "path": "pets/pet_devorador_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1468,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.13563,
+      "content_bbox": [
+        19,
+        13,
+        82,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "170019250bb8b148c20369bdf84095591adc4ca110b5ec249539f966a3c00c9b"
+    },
+    {
+      "path": "pets/pet_devorador_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1262,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.26009,
+      "content_bbox": [
+        21,
+        23,
+        82,
+        78
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "6515a809ff705ef821b0fa31af3b040b8919751144ff0b76636cc85020e3172d"
+    },
+    {
+      "path": "pets/pet_devorador_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1483,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.26009,
+      "content_bbox": [
+        21,
+        21,
+        82,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e507da462c2d4e8076baf7649dd0c94223be9fee8a05a9f146b434ec23f5fbbf"
+    },
+    {
+      "path": "pets/pet_devorador_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1269,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.26009,
+      "content_bbox": [
+        21,
+        20,
+        82,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f94860f0282021bcc1e528d5119c7a5a90f69ec24b6afef72dbeecfd7a554cdf"
+    },
+    {
+      "path": "pets/pet_devorador_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1289,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.26009,
+      "content_bbox": [
+        21,
+        22,
+        82,
+        77
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "9e6a24adfab2a0fe7dcb704ff9d9413af7e435b553021cc2ceb973079ee77ea9"
+    },
+    {
+      "path": "pets/pet_devorador_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1237,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11925,
+      "content_bbox": [
+        21,
+        29,
+        82,
+        82
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1b93cbfa177ffaad601ead17c7431702c98c90d444fd957e679bcb93b892d176"
+    },
+    {
+      "path": "pets/pet_devorador_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1191,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.1161,
+      "content_bbox": [
+        21,
+        32,
+        82,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f48d1266701d2d7c9ee690c09108f52eebd7926de3d7da7bb9f6084c3ecd7c7a"
+    },
+    {
+      "path": "pets/pet_fada.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 736,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.20432,
+      "content_bbox": [
+        19,
+        23,
+        74,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0a655704b5a230d4ef03e6660a78dcfeb61edbe465234d9e772d3a4537416bb7"
+    },
+    {
+      "path": "pets/pet_fada_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1014,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.1964,
+      "content_bbox": [
+        19,
+        28,
+        74,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "703c5fcff802bed1551bf327c02f821cb15b61e5bc56f498eb0032241b9df200"
+    },
+    {
+      "path": "pets/pet_fada_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1186,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.2168,
+      "content_bbox": [
+        19,
+        11,
+        76,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b0aeb8fbfa42f7fac7fe0cf68bd8c97280ea643f57f7cf89df537b6ff0a448ba"
+    },
+    {
+      "path": "pets/pet_fada_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1042,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20486,
+      "content_bbox": [
+        19,
+        23,
+        74,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "07b2e7beab55995540357a32ed44fef22100881c7e4792f66faae362e1c538cd"
+    },
+    {
+      "path": "pets/pet_fada_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1010,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20432,
+      "content_bbox": [
+        19,
+        21,
+        74,
+        74
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93158640602299bacb23e233241678ef68479f4c63721620ceb5073cba9f5fcc"
+    },
+    {
+      "path": "pets/pet_fada_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1047,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20486,
+      "content_bbox": [
+        19,
+        19,
+        74,
+        72
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5b1b120bd1585b1512f3b3e7fcd56c95e21a85206368de310d6dd3533eaa2488"
+    },
+    {
+      "path": "pets/pet_fada_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1010,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20432,
+      "content_bbox": [
+        19,
+        21,
+        74,
+        74
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93158640602299bacb23e233241678ef68479f4c63721620ceb5073cba9f5fcc"
+    },
+    {
+      "path": "pets/pet_fada_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1033,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.1964,
+      "content_bbox": [
+        19,
+        29,
+        74,
+        80
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b0cd3d85186b249c3253deaccf295eebe765ff8c36e4e7634ebea7d4eb11fa28"
+    },
+    {
+      "path": "pets/pet_fada_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1049,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19043,
+      "content_bbox": [
+        19,
+        32,
+        74,
+        81
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "19f75dc0712504534c4c79538837dbabb7200092e3716758828f43a9d0b4bc8e"
+    },
+    {
+      "path": "pets/pet_golem.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 597,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.23286,
+      "content_bbox": [
+        21,
+        27,
+        73,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "71d0d93f7a79f011ddd0d90cfd8f44b29ac68b49d709b573d8682ffd2983d6fb"
+    },
+    {
+      "path": "pets/pet_golem_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 653,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.22461,
+      "content_bbox": [
+        21,
+        32,
+        73,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f46ee5b8de50d22ad5f7e792ab2bc1bc49ef641aa4a11ceffa3ef2f75b9b26ef"
+    },
+    {
+      "path": "pets/pet_golem_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.24533,
+      "content_bbox": [
+        19,
+        20,
+        76,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b52f901626f709066b5021438bce0a17007e867bacfaaa4e7ad36f9e79369fb2"
+    },
+    {
+      "path": "pets/pet_golem_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 659,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.23286,
+      "content_bbox": [
+        21,
+        27,
+        73,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8ec6d40d8772496a1c2594f497f3545d0ff5ccbd249e0bfca92e00d09393fe57"
+    },
+    {
+      "path": "pets/pet_golem_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 659,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.23286,
+      "content_bbox": [
+        21,
+        27,
+        73,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8ec6d40d8772496a1c2594f497f3545d0ff5ccbd249e0bfca92e00d09393fe57"
+    },
+    {
+      "path": "pets/pet_golem_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 708,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.23958,
+      "content_bbox": [
+        21,
+        27,
+        73,
+        85
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1d7db57759d258e576ad5aab10b4388376c618b2bcda90df18776ea620e7b28e"
+    },
+    {
+      "path": "pets/pet_golem_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 664,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.2385,
+      "content_bbox": [
+        21,
+        27,
+        73,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b4aae42f3781b7886a5f09a387f4d9248dde805fc99b01f611964b6648364a9e"
+    },
+    {
+      "path": "pets/pet_golem_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 665,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.22461,
+      "content_bbox": [
+        21,
+        33,
+        73,
+        87
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "cc0d3e15cbffc4524032ee25bb1715169e221b5b85b3561fb80747ebc6327dc1"
+    },
+    {
+      "path": "pets/pet_golem_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 699,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.22027,
+      "content_bbox": [
+        21,
+        35,
+        73,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "00d4721c2e78fa130a0166cf246cf6e03403c73ce1841c371d5ea020580116d9"
+    },
+    {
+      "path": "pets/pet_grilo.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 690,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.11697,
+      "content_bbox": [
+        25,
+        39,
+        78,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "31e5f13d1334f79b071f2f781dbf635146572a863e2382ec630a8ce6b8416ba1"
+    },
+    {
+      "path": "pets/pet_grilo_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 965,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11274,
+      "content_bbox": [
+        25,
+        43,
+        78,
+        87
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "2799cd02b3005efee638e120225a31105c755dc9617f576363076c2ce31971f0"
+    },
+    {
+      "path": "pets/pet_grilo_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1107,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.12826,
+      "content_bbox": [
+        19,
+        20,
+        78,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "880be5af1bc40cd316ef48886a14b1014e0a6a6392b4041a69a1398b554e7234"
+    },
+    {
+      "path": "pets/pet_grilo_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 994,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11697,
+      "content_bbox": [
+        25,
+        39,
+        77,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c93292d790b79d5c182ae46df1ebd0b26b59cb35b8eb48398027cab26bcb48ba"
+    },
+    {
+      "path": "pets/pet_grilo_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 974,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11274,
+      "content_bbox": [
+        25,
+        42,
+        78,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0d28b05685851b863dde4e38b551589f7103fbd95c1d031e019876fd56a92e5e"
+    },
+    {
+      "path": "pets/pet_grilo_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 998,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.12185,
+      "content_bbox": [
+        25,
+        34,
+        79,
+        81
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ed1000269da77d9b43abd50675fd60cc70aaf127a9012f209c5ae654be28e726"
+    },
+    {
+      "path": "pets/pet_grilo_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1003,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11957,
+      "content_bbox": [
+        24,
+        37,
+        78,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d28df187e73568b186b24c01f60fb2a90896b9f551c438341e4d894a08935b64"
+    },
+    {
+      "path": "pets/pet_grilo_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 984,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11274,
+      "content_bbox": [
+        25,
+        44,
+        78,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "9077fbf567a9c9f15af5f0dbfc7f702aa8a5334069b9cfea38c0b3015898a29a"
+    },
+    {
+      "path": "pets/pet_grilo_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 979,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.11013,
+      "content_bbox": [
+        25,
+        47,
+        78,
+        89
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "364a31534eb0d65563b912347d339b42f48ad0a4e24abe8ac8dfe63297b09f86"
+    },
+    {
+      "path": "pets/pet_lobo.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 651,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.19607,
+      "content_bbox": [
+        11,
+        31,
+        79,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "2c749e24c88400b499384d21fba360ed9af63808930faa168ae0eebe92c5f186"
+    },
+    {
+      "path": "pets/pet_lobo_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 851,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18902,
+      "content_bbox": [
+        11,
+        36,
+        79,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "32481365dbd278ed5969a44be3cf406d089627671214b320f277f99228921a27"
+    },
+    {
+      "path": "pets/pet_lobo_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1062,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20844,
+      "content_bbox": [
+        11,
+        20,
+        79,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "a815d486fdf736e27df527a4d00787de7c4139080ba74fed1380e1106cd58b33"
+    },
+    {
+      "path": "pets/pet_lobo_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 870,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19607,
+      "content_bbox": [
+        11,
+        31,
+        79,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e12d677bda4003b16ba45743dc418439b2e8d7a145495e08b29fea8818770fc1"
+    },
+    {
+      "path": "pets/pet_lobo_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 869,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19954,
+      "content_bbox": [
+        11,
+        31,
+        79,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "094933cf7301495b57b00b17af0ae847b61a1de53c8695c0a765dec3d9443a52"
+    },
+    {
+      "path": "pets/pet_lobo_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 884,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19911,
+      "content_bbox": [
+        11,
+        32,
+        79,
+        85
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d79a1e418c6e34a441200ff97b74160c8e4fae950fd630e434c28a8864a1a6a8"
+    },
+    {
+      "path": "pets/pet_lobo_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 873,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19607,
+      "content_bbox": [
+        11,
+        32,
+        79,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0b9da8bbdd11adf9698370dba1aedfbd30004c4e3b28f4c33d073403a80c5db6"
+    },
+    {
+      "path": "pets/pet_lobo_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 845,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18902,
+      "content_bbox": [
+        11,
+        37,
+        79,
+        87
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c4fa35df77ca45f972397f198b849e6aa2c5bdae8c27436f637c4f98f6e547a6"
+    },
+    {
+      "path": "pets/pet_lobo_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 912,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18631,
+      "content_bbox": [
+        11,
+        39,
+        79,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7d68d01f20a6c9e7722732f0bfff1cc96acadf72eed20ca509c69d56a055537d"
+    },
+    {
+      "path": "pets/pet_raposa.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1288,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        7,
+        25,
+        85,
+        81
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1cc17c30cf5728d37eec03625cf4e2bce0f9c137128ae1a2dc5468f9d86f952f"
+    },
+    {
+      "path": "pets/pet_raposa_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1261,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18934,
+      "content_bbox": [
+        7,
+        30,
+        85,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "7260c92964902e57dd5ebbaea166c28961a5dafcd161cc634ddc7b4c8d9764dd"
+    },
+    {
+      "path": "pets/pet_raposa_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1453,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.20736,
+      "content_bbox": [
+        7,
+        15,
+        85,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1aa97b36520d3a516d9380e97fb58f1d03ff48f9595bc41d9f84fd2fe64ac1bf"
+    },
+    {
+      "path": "pets/pet_raposa_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1288,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        7,
+        25,
+        85,
+        81
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1cc17c30cf5728d37eec03625cf4e2bce0f9c137128ae1a2dc5468f9d86f952f"
+    },
+    {
+      "path": "pets/pet_raposa_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1297,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.2002,
+      "content_bbox": [
+        7,
+        25,
+        85,
+        82
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "1ce9c8abb6f65b5e540f747c7d1cb9005bd53ac0071595a400ee8ff7ac3fba3e"
+    },
+    {
+      "path": "pets/pet_raposa_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1313,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.2003,
+      "content_bbox": [
+        7,
+        26,
+        85,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "93672784eb206f32a1c2fdb62f11893bdb90a63cc68f10a0000bf75aeacbe0af"
+    },
+    {
+      "path": "pets/pet_raposa_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1288,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.19596,
+      "content_bbox": [
+        7,
+        26,
+        85,
+        82
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e8fdca62dd3e2ebe85ce5f0dd9249948a244cae8ccbc081caf4b321df88bab54"
+    },
+    {
+      "path": "pets/pet_raposa_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1274,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.18934,
+      "content_bbox": [
+        7,
+        31,
+        85,
+        85
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "0d606cbfb608ee328d259b5c0c46f5024505729990e32c15ec53cb27a9d9b1a7"
+    },
+    {
+      "path": "pets/pet_raposa_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1300,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.185,
+      "content_bbox": [
+        7,
+        33,
+        85,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "87da07ce9dfa7219308764a6dae5fe4c3dfa781f396eb4af46e02fdc793f9b0b"
+    },
+    {
+      "path": "pets/pet_serpente.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 673,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.09668,
+      "content_bbox": [
+        13,
+        47,
+        87,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "97b59a2e47ddd2d41608772352870c0ad908d25892b18729ffe91659a2e7a3b4"
+    },
+    {
+      "path": "pets/pet_serpente_cheer_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 849,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.09006,
+      "content_bbox": [
+        13,
+        51,
+        87,
+        78
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "c6d240ea405a904c33c49cd344d5feee8ad552becf17cacf4620beb399108f7a"
+    },
+    {
+      "path": "pets/pet_serpente_cheer_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1016,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.10916,
+      "content_bbox": [
+        13,
+        20,
+        87,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "647a5fdee34ef3afebe80fcbb1ba99c3280878c1a868fbe37e8cfe21b23196cc"
+    },
+    {
+      "path": "pets/pet_serpente_idle_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 887,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.09668,
+      "content_bbox": [
+        13,
+        47,
+        87,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "3eb596c23be31b073519eb1d5e19e5ab0af7cb565be48240285f2544de203c66"
+    },
+    {
+      "path": "pets/pet_serpente_idle_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 876,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.0969,
+      "content_bbox": [
+        13,
+        42,
+        87,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "3c5e3c2ec57b0d8cbd7c8d52499d6f4f01cc06c63b15ec1fb18a3b03af8f0cf4"
+    },
+    {
+      "path": "pets/pet_serpente_idle_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 898,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.09668,
+      "content_bbox": [
+        12,
+        47,
+        86,
+        75
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ae3dcae2173a7a8fcec9db982d9981b01f59a53774082e0f35a511f096e6093d"
+    },
+    {
+      "path": "pets/pet_serpente_idle_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 866,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.09668,
+      "content_bbox": [
+        13,
+        48,
+        87,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e63381d9ec7220d633e5d4837efec19d60a531315c5c587b81661840f40d9b3d"
+    },
+    {
+      "path": "pets/pet_serpente_sad_0.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 856,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.09006,
+      "content_bbox": [
+        13,
+        52,
+        87,
+        79
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "612f93c5ed8889467e039f690ac4ea52ab5525f7546334ee1af8f99a3a4c9cd4"
+    },
+    {
+      "path": "pets/pet_serpente_sad_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 876,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.09397,
+      "content_bbox": [
+        13,
+        52,
+        87,
+        80
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "07cce303bac2524b415b8faa43eeb8275881e10929a451f9fd44aea668da1094"
+    },
+    {
+      "path": "ui/attr_crit.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 933,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "57c3f875224efaa456c68480bfe087cd28cb58f1b5e56e3274583a57d1ac907a"
+    },
+    {
+      "path": "ui/attr_critdmg.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 957,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.50618,
+      "content_bbox": [
+        3,
+        0,
+        94,
+        96
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "b2f563dadf25170d8a7abb1e763c306704dce0cd0731780121a5e10c4282eaea"
+    },
+    {
+      "path": "ui/attr_defesa.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 864,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.46343,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b149bfc3d3982e12f3d350e976cb0a79ba9a2470f67860743e80b509a15a1f45"
+    },
+    {
+      "path": "ui/attr_destreza.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 863,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "2ed159ba041c36d21b49e37f115451eeddf4ebbb24536daef07c582531d8772b"
+    },
+    {
+      "path": "ui/attr_energia.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 915,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45074,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "edc5868084a5be5da3604cb05861edcb8e484d7a6155b34bfb66f5b045e82534"
+    },
+    {
+      "path": "ui/attr_forca.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 872,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45052,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "70c258a1ed0a57b504fccf55a63288dbe58d8415209c2fdccf36c3488740ce39"
+    },
+    {
+      "path": "ui/attr_lifesteal.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 901,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "80f6a7fe85a8fed96ad85d3c8cfa9f8012005dafc3945ac60bdf335e5e4ef17b"
+    },
+    {
+      "path": "ui/attr_precisao.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 980,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "73581c6c8d58f771462266b6cc89cbe1e0f46b9aff51e702cf3247ce57d6a2c8"
+    },
+    {
+      "path": "ui/attr_regen.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 881,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "82935a483b4bb2df1eddb380e2d99e2adee6ee3e76da3d5c0eb277f7d7f5ea61"
+    },
+    {
+      "path": "ui/attr_sorte.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 878,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "bde2c9ef715cbb62615a454445fc065925d3848f7758dd57bd9625c9ac513c24"
+    },
+    {
+      "path": "ui/attr_velocidade.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 875,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.47428,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e12adeb0b8dc84c0600fc06750ae3cd46fd3e8fb436ba95c9b5a1d7e8414e34e"
+    },
+    {
+      "path": "ui/attr_vitalidade.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 871,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "cb4dd989b56b2bd17dd3fb5b435695f4fd2c380fcc1d975fb97ee6f91df913ca"
+    },
+    {
+      "path": "ui/bg_abismo_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1044,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.41248,
+      "content_bbox": [
+        0,
+        47,
+        269,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "9a8440359573973b49f6c7f8f036c790b41d412cb039e7f9735d4d4f8dec0a93"
+    },
+    {
+      "path": "ui/bg_abismo_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 756,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.30731,
+      "content_bbox": [
+        8,
+        5,
+        255,
+        150
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "5c23936001f7e9906c6b3c02551feb79fe13dc34411134a3c72cddb6c9d59d9b"
+    },
+    {
+      "path": "ui/bg_abismo_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 668,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.14556,
+      "content_bbox": [
+        0,
+        56,
+        240,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "e92cbbdf4f4f4808ee9494e6d170ec26de404eb89a6422976c8468be0cc0bb36"
+    },
+    {
+      "path": "ui/bg_abismo_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 9475,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.87904,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "fea029ca1e0b7cca54fb043a8ca0f92c88f47ec5fba2d1e543cb64e287f86ab3"
+    },
+    {
+      "path": "ui/bg_bosque_vidro_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1294,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.51409,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        190
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "2a7a7a5b91446dcced541ce842c0de6617b952d5dfb808386710442503407904"
+    },
+    {
+      "path": "ui/bg_bosque_vidro_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 1028,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.35168,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        150
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "e27cad3dbbb2e24f514f3b9b7343fbeb9f7c438c692613959b96be24fde517e9"
+    },
+    {
+      "path": "ui/bg_bosque_vidro_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 469,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.05384,
+      "content_bbox": [
+        10,
+        61,
+        239,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "63181757ba157022c542d07776cdf4a0b0d3f97cd03602de11069bf20b12723a"
+    },
+    {
+      "path": "ui/bg_bosque_vidro_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 7547,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.8782,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "47e1f0ac13cd903d521af653d4739c2b719b5b6f8d424138f2964d1d8380dcc8"
+    },
+    {
+      "path": "ui/bg_cidadela_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1046,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.43222,
+      "content_bbox": [
+        0,
+        47,
+        270,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "a74073f82b81432a7947ab6c2adcc008b51705d6d513d9515091520537548802"
+    },
+    {
+      "path": "ui/bg_cidadela_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 762,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.30731,
+      "content_bbox": [
+        10,
+        5,
+        257,
+        150
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "fc45fb8ef3272730c3b0cc1e4cbb8fb7fa552d161651278fd7398640987289f3"
+    },
+    {
+      "path": "ui/bg_cidadela_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 676,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.1531,
+      "content_bbox": [
+        0,
+        56,
+        252,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "cb5cf51f90c3e2a6c1a012368b8598a1b97b33b95dfc62ff2d5588767004d44b"
+    },
+    {
+      "path": "ui/bg_cidadela_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 7590,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.87843,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "1d9e539a10e3954f7fc170c252c28565a31e921094a6248f2565697e583059f7"
+    },
+    {
+      "path": "ui/bg_coracao_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1043,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.43296,
+      "content_bbox": [
+        0,
+        47,
+        270,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "fb53543bf8e5f7e9753aa3dc2db70ce3fbb4cb996a259de10bc45700eb8860da"
+    },
+    {
+      "path": "ui/bg_coracao_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 759,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.30731,
+      "content_bbox": [
+        4,
+        5,
+        251,
+        150
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "c2e20045c647ebaa591925c7991b1b5ab560b3b6e7eb5bd4a9d1c4b32fe39964"
+    },
+    {
+      "path": "ui/bg_coracao_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 670,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.14098,
+      "content_bbox": [
+        0,
+        56,
+        236,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "42ec4de79dabea77579e81fafb3b8b51a8b398b22a5e8328565b7183bf794882"
+    },
+    {
+      "path": "ui/bg_coracao_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 8229,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.87819,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "c690b2117815f1edeb9151a1cb84834ad28533c525fbe6d6a43bda39b80f1e46"
+    },
+    {
+      "path": "ui/bg_deserto_cinzas_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1043,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.43296,
+      "content_bbox": [
+        0,
+        47,
+        270,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "3f8c0a80f19a4292b90ff9b3e95dadddd4e749d417d8f9056298dcf7cb65fd28"
+    },
+    {
+      "path": "ui/bg_deserto_cinzas_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 811,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.32689,
+      "content_bbox": [
+        2,
+        28,
+        270,
+        150
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": false
+      },
+      "sha256": "23050812057d3fc7554543c4d496cc2b20b028ec35736d3b7c94a0cc263a71ba"
+    },
+    {
+      "path": "ui/bg_deserto_cinzas_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 670,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.14098,
+      "content_bbox": [
+        0,
+        56,
+        236,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "ea0323ca1096f5ed1ea14c949cb84fb70a877fa9614742a74779a5355c5db338"
+    },
+    {
+      "path": "ui/bg_deserto_cinzas_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 7628,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.87875,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "3dbb2d127f80ff9894e67da6216a26ea12c90fae78b92f07ec8a43558ddb6801"
+    },
+    {
+      "path": "ui/bg_pantano_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1041,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.43162,
+      "content_bbox": [
+        0,
+        47,
+        270,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "bc17fdbe0ec99a3e47da48295bf63647e4179a61b4e58bafae45dc998de71fff"
+    },
+    {
+      "path": "ui/bg_pantano_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 783,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.31965,
+      "content_bbox": [
+        0,
+        28,
+        260,
+        150
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "9bfed9e6b81cd08e2ec6ab3ee6097277ed76638e707fe777b2bd01f7926baf05"
+    },
+    {
+      "path": "ui/bg_pantano_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 673,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.14859,
+      "content_bbox": [
+        0,
+        56,
+        270,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "d7f88cfb9f25b962a394aa73340bf3adfd4cb8e7b45579dd5dc8025648a4a2b4"
+    },
+    {
+      "path": "ui/bg_pantano_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 7213,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.87895,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "ab7fa91e988d96cf5b2ec83dd9a39fb4c45b254ee298450220ae39d266a3e801"
+    },
+    {
+      "path": "ui/bg_picos_far.png",
+      "width": 270,
+      "height": 190,
+      "bytes": 1043,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.43086,
+      "content_bbox": [
+        0,
+        47,
+        270,
+        190
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "0c618a8ba45d6aef23841de1a1e21f26227bdfdcf1b37347ccd20c3dd1d4c56d"
+    },
+    {
+      "path": "ui/bg_picos_mid.png",
+      "width": 270,
+      "height": 150,
+      "bytes": 775,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.3277,
+      "content_bbox": [
+        0,
+        0,
+        261,
+        150
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": false,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "06abf7b8e35d08f77ff768cd96cb3eed056744a9e3766ae0d297a28753b487bd"
+    },
+    {
+      "path": "ui/bg_picos_near.png",
+      "width": 270,
+      "height": 110,
+      "bytes": 680,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.14956,
+      "content_bbox": [
+        0,
+        56,
+        270,
+        110
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "b06513edde228a994ad688c3371ea1423f3cd31e98591dc27e03d7bbbed7038b"
+    },
+    {
+      "path": "ui/bg_picos_sky.png",
+      "width": 270,
+      "height": 480,
+      "bytes": 8305,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.87775,
+      "content_bbox": [
+        0,
+        0,
+        270,
+        480
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "b73813e906899091f3de8ecede92c9446d9132f2c9eedff71955a98caa8a05c3"
+    },
+    {
+      "path": "ui/currency_chaves.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 697,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.15332,
+      "content_bbox": [
+        29,
+        13,
+        68,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "96f8e98c69acb3e1186de57e5b1e05ddac3765c1772e255bedce9834a8253e68"
+    },
+    {
+      "path": "ui/currency_essencia.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 705,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.26139,
+      "content_bbox": [
+        25,
+        9,
+        72,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e4e4da406f7dbcd5776833c4d4591283303855531a884b27dbaaf0d07ffe13c9"
+    },
+    {
+      "path": "ui/currency_fragmentos_alma.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 664,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.16417,
+      "content_bbox": [
+        33,
+        7,
+        64,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ab69c5782d0a19693f2deb7f1de08b78ce28cd3a1688ae7b6fa594664e0ec56a"
+    },
+    {
+      "path": "ui/currency_fragmentos_equip.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 686,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.18826,
+      "content_bbox": [
+        25,
+        9,
+        60,
+        86
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "fef8d6ec52cdda43eac82731222940aa0ade1f96a48f833830df0987749b2cbe"
+    },
+    {
+      "path": "ui/currency_gemas.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 777,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.2232,
+      "content_bbox": [
+        23,
+        9,
+        74,
+        88
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "5b9f2ebf5a67ef524e3314194dd64ec4fb67270aced2c6c423f0f0ff2e9976e1"
+    },
+    {
+      "path": "ui/currency_gloria.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 751,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.22428,
+      "content_bbox": [
+        9,
+        21,
+        87,
+        83
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "875534a070bb6dbbb01336d788ddbcf163f616e3805da37d1ede77610eae1cfb"
+    },
+    {
+      "path": "ui/currency_ouro.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 730,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.23817,
+      "content_bbox": [
+        11,
+        27,
+        76,
+        76
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b5cbd565648e0953172681d3bb5fe106de2071dfb9ff3b22987437e5f1f9d9e4"
+    },
+    {
+      "path": "ui/peticon_1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8905bf47972e4dd97e6119ed2f21b769766a1652ea02ecff2b094918de8cc385"
+    },
+    {
+      "path": "ui/peticon_2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d0f6ae5cc4627ae880ff3d01b402cc445b854497753ee257fbf2fabbef74cb86"
+    },
+    {
+      "path": "ui/peticon_3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "15901ea20dd942cc8907ef67303ce42897c532efddcfe549bbefe9edf7ea150d"
+    },
+    {
+      "path": "ui/peticon_4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "82953a3e54d219cb758b7a505dd54fd685319e448ba77719a88ed48b3000fb07"
+    },
+    {
+      "path": "ui/peticon_5.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "26bd5396a9969df2b902787183981d3d6c6d5776f0a6e2a969068c8d3639f91e"
+    },
+    {
+      "path": "ui/peticon_6.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ba2c1b9d15fcbab6c4e6cfd9e7b30c39d55a4bc754a34901bb79ec56226ab390"
+    },
+    {
+      "path": "ui/pk1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 934,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45117,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "54a2dfea9aad27b3031b109dd79957db9302e4715fd380ea46f08fc87d372503"
+    },
+    {
+      "path": "ui/pk2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 878,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.46343,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "246f0f238ce8052c6e74d8a76070f3af98622d0bf207a52686800220b957d3cf"
+    },
+    {
+      "path": "ui/pk3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 901,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45388,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "24bd8d0e04afaec84be1fc97560d052ab01fbcea4c9be9f555e2bc1ccd80bdb4"
+    },
+    {
+      "path": "ui/pk4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 996,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "9196b8d6883b322de37cd0cd9727c6c1eaf7ce3af828a07c6bfcad2cbe2896a1"
+    },
+    {
+      "path": "ui/sk1.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 995,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.47038,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "687ba2935c409fc204309b65bb9dc65f64411dd225b92a2740a74c694af013fc"
+    },
+    {
+      "path": "ui/sk2.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 862,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45888,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b2dc3a2f8a082da9d4954244e78f57172c83796ab9f69b7a9ddd6278410d993b"
+    },
+    {
+      "path": "ui/sk3.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 908,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.46159,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "68d716651851d30f55bc2b6720874aeca8e518ecae4da69da472f23c630b2f9b"
+    },
+    {
+      "path": "ui/sk4.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 884,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45291,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "716e88eed913c0bf750d22eeb8ff69075b505e206d0b74cc8ed97f75df903772"
+    },
+    {
+      "path": "ui/sk5.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 1010,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.4745,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f8bc147c3a444eb924098afd5ce851d2bf653943289f482e6cefd983ca5d9e61"
+    },
+    {
+      "path": "ui/sl_amuleto.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 870,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45258,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "95c95e45e2e060e616679f81315ed13a56dd272bbc1222436163bdf26862c314"
+    },
+    {
+      "path": "ui/sl_anel.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 874,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "68d7ab0fea999e73b0e1908ca5c42ec32f2224eafd7daa2968a8ddec2412a292"
+    },
+    {
+      "path": "ui/sl_arma.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 903,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d0c71e6cf37493a11c9b0bacd6c94502d6a0db4a58e05bdd05cd4e8ae3bbdbc3"
+    },
+    {
+      "path": "ui/sl_botas.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 863,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.4566,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "2c7b25fb3bb7b027bcbb4d241740572d0ec338ee0f887f37998a1b75742e1337"
+    },
+    {
+      "path": "ui/sl_calca.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 891,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45085,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "ed8f50e4085ff3279d68777f94728627e7e892810e60e6a4320912f7a6042797"
+    },
+    {
+      "path": "ui/sl_capa.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 948,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.47993,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "29e7e7fcd10831f4d9069ec59c30d00e81b8d7abd6dd378a0a8cc63535c78779"
+    },
+    {
+      "path": "ui/sl_elmo.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 909,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.4553,
+      "content_bbox": [
+        3,
+        1,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "2d4452ac2e01eddf0633923a4f74192c786beebead56e4995544ba2c2bc0a796"
+    },
+    {
+      "path": "ui/sl_luvas.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 853,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.45725,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "d76fa0e1cd95509f0d96be1007eecf97a52ea2f7e25d5e5335590f36181fdb29"
+    },
+    {
+      "path": "ui/sl_peito.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 910,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.4579,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "af5e44a07d05905b40b55725743810e7e6bd4386844fc1dca9a783a3e52ae040"
+    },
+    {
+      "path": "ui/tab_dungeons.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 841,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.48492,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "e0eadb63277d7fb0ad33f06576276bab448b593ae76103a2b4a0ce96b15a78b1"
+    },
+    {
+      "path": "ui/tab_equip.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 864,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.46343,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "b149bfc3d3982e12f3d350e976cb0a79ba9a2470f67860743e80b509a15a1f45"
+    },
+    {
+      "path": "ui/tab_heroi.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 886,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.44933,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "9798a799b4a64836d6d5087452955051fde9dac546a81cb40c4e832fe2ad06c3"
+    },
+    {
+      "path": "ui/tab_map.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 876,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.48839,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "f163a510a8b74293ad8b578e434ced1fddc52f6129870169780aaeaece5c817e"
+    },
+    {
+      "path": "ui/tab_pets.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 786,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.42502,
+      "content_bbox": [
+        13,
+        13,
+        84,
+        84
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "8905bf47972e4dd97e6119ed2f21b769766a1652ea02ecff2b094918de8cc385"
+    },
+    {
+      "path": "ui/tab_shop.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 873,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.4541,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "cee10b8dff8842de4005491b6bb6b4b4d7e9e157f9e3f0c9a7a7a82a1601967f"
+    },
+    {
+      "path": "ui/tab_skills.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 995,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.47038,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "687ba2935c409fc204309b65bb9dc65f64411dd225b92a2740a74c694af013fc"
+    },
+    {
+      "path": "ui/tab_summon.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 901,
+      "bit_depth": 8,
+      "color_type": 3,
+      "visible_coverage": 0.46083,
+      "content_bbox": [
+        3,
+        3,
+        94,
+        94
+      ],
+      "touches_edges": {
+        "top": false,
+        "right": false,
+        "bottom": false,
+        "left": false
+      },
+      "sha256": "367b79eee7159a97e4dc1be98c432b42dc918eb7c0ca4394f0be13612a7193c1"
+    },
+    {
+      "path": "ui/tex_frame.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 631,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.29297,
+      "content_bbox": [
+        0,
+        0,
+        96,
+        96
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "2c049c4523f45eec69ca96dcd6363ac6521dad50a8753b90162ee070a7e2fea4"
+    },
+    {
+      "path": "ui/tex_metal.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 457,
+      "bit_depth": 8,
+      "color_type": 2,
+      "visible_coverage": 1.0,
+      "content_bbox": [
+        0,
+        0,
+        96,
+        96
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "f8ba177447d5902b8e881a344e4b8cc413133ecbf133e3e80af2878137bf95f3"
+    },
+    {
+      "path": "ui/tex_parch.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 3427,
+      "bit_depth": 8,
+      "color_type": 2,
+      "visible_coverage": 1.0,
+      "content_bbox": [
+        0,
+        0,
+        96,
+        96
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "ae0c3d7e3e6fead177a9200449cd08b50d752d9b2cb45281a11eaf7b6984e6a4"
+    },
+    {
+      "path": "ui/tex_stone.png",
+      "width": 96,
+      "height": 96,
+      "bytes": 724,
+      "bit_depth": 8,
+      "color_type": 2,
+      "visible_coverage": 1.0,
+      "content_bbox": [
+        0,
+        0,
+        96,
+        96
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "a610eee9845d26b57982fcce32591538d9332282dd133f3c85f250464d42b787"
+    },
+    {
+      "path": "ui/tex_vignette.png",
+      "width": 240,
+      "height": 240,
+      "bytes": 9030,
+      "bit_depth": 8,
+      "color_type": 6,
+      "visible_coverage": 0.73927,
+      "content_bbox": [
+        0,
+        0,
+        240,
+        240
+      ],
+      "touches_edges": {
+        "top": true,
+        "right": true,
+        "bottom": true,
+        "left": true
+      },
+      "sha256": "247281a5ca0942c3a245b5f380a4f979b56929215cbf487e4199e0e9917131aa"
+    }
+  ]
+}

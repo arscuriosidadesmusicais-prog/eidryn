@@ -187,18 +187,22 @@ func _enemy_attack(stats: Dictionary) -> void:
                 EventBus.floating_damage.emit(0.0, false, "hero", Color("#9aa0a6"))
                 return
         var raw := _enemy_atk()
-        var dmg := DataManager.damage_taken(raw, float(stats["def"]))
-        hero_hp -= dmg
-        EventBus.hero_damaged.emit(dmg)
-        EventBus.floating_damage.emit(-dmg, false, "hero", Color("#d0455f"))
-        EventBus.screenshake.emit(0.25 if bool(enemy.get("boss", false)) else 0.1)
-        # escudo do herói
+        var incoming := DataManager.damage_taken(raw, float(stats["def"]))
+        # O escudo absorve antes de qualquer redução do HP.
+        var absorbed := 0.0
         if hero_shield > 0.0:
-                var absorbed := minf(hero_shield, dmg)
+                absorbed = minf(hero_shield, incoming)
                 hero_shield -= absorbed
-                if _reflect_pct > 0.0:
-                        var ref := dmg * _reflect_pct / 100.0
-                        _apply_damage_to_enemy(ref, false, "#3a7bd5", true)
+        var hp_damage := incoming - absorbed
+        hero_hp -= hp_damage
+        EventBus.hero_damaged.emit(incoming)
+        if hp_damage > 0.0:
+                EventBus.floating_damage.emit(-hp_damage, false, "hero", Color("#d0455f"))
+        elif absorbed > 0.0:
+                EventBus.floating_damage.emit(-absorbed, false, "hero", Color("#3a7bd5"))
+        EventBus.screenshake.emit(0.25 if bool(enemy.get("boss", false)) else 0.1)
+        if absorbed > 0.0 and _reflect_pct > 0.0:
+                _apply_direct_damage_to_enemy(absorbed * _reflect_pct / 100.0, "#3a7bd5")
         EventBus.hero_hp_changed.emit(maxf(hero_hp, 0.0), float(stats["hp"]))
         # berserk do inimigo
         if mods.has("berserk") and not enemy_berserk and enemy_hp < _enemy_max_hp() * 0.3:
@@ -255,6 +259,23 @@ func _apply_damage_to_enemy(skill_mult: float, _is_skill: bool, color_hex: Strin
                 _heal_hero(heal)
         if enemy_hp <= 0.0:
                 _kill_enemy()
+
+## Aplica dano já calculado (reflexão), sem reaplicar ATK, crítico, DEF ou lifesteal.
+func _apply_direct_damage_to_enemy(amount: float, color_hex: String) -> float:
+        if not active or enemy_hp <= 0.0 or amount <= 0.0:
+                return 0.0
+        var dmg := amount
+        if enemy_shield > 0.0:
+                var absorbed := minf(enemy_shield, dmg)
+                enemy_shield -= absorbed
+                dmg -= absorbed
+        enemy_hp -= dmg
+        EventBus.floating_damage.emit(dmg, false, "enemy", Color(color_hex))
+        EventBus.enemy_damaged.emit(dmg, false)
+        EventBus.enemy_hp_changed.emit(maxf(enemy_hp, 0.0) + enemy_shield, _enemy_max_hp())
+        if enemy_hp <= 0.0:
+                _kill_enemy()
+        return dmg
 
 func _heal_hero(amount: float) -> void:
         var max_hp := float(CharacterManager.stats()["hp"])

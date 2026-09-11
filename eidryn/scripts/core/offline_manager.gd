@@ -24,6 +24,13 @@ func compute_pending() -> Dictionary:
         pending = {"seconds": secs, "gold": gold, "xp": xp, "stage": fs}
         return pending
 
+## Operação única de lifecycle: calcula com o last_seen anterior e só então avança o relógio.
+func prepare_resume() -> Dictionary:
+        TimeManager.check_time_travel()
+        var result := compute_pending()
+        TimeManager.mark_seen()
+        return result
+
 func has_pending() -> bool:
         return not pending.is_empty() and float(pending.get("gold", 0.0)) > 0.0
 

@@ -10,7 +10,7 @@ O jogo é **um único HTML** — no itch.io ele roda nativamente no navegador
 4. **Kind of project**: `HTML` (playable in the browser).
 
 ## 2. Upload
-1. Em **Version files**, envie o arquivo `Eidryn_O_Ciclo_do_Eclipse_v1.7.0.zip`
+1. Em **Version files**, envie o arquivo `Eidryn_O_Ciclo_do_Eclipse_v1.8.0.zip`
    (este kit; contém o `index.html` na raiz do zip — exigência do itch).
 2. Marque **This file will be played in the browser**.
 3. **Viewport**: `960×640` (o jogo é responsivo; essa é uma boa moldura).
@@ -31,8 +31,9 @@ O jogo é **um único HTML** — no itch.io ele roda nativamente no navegador
 com comentários e métricas nativas do itch.
 
 ---
-### Checklist de qualidade (já validado na v1.7.0)
-- [x] 0 erros de console (Chrome/Chromium, portrait + landscape)
-- [x] Save automático local funcional (reload preserva progresso)
+### Checklist de qualidade (validado na v1.8.0)
+- [x] Sintaxe JavaScript e build standalone validados
+- [x] Save automático local protegido e formato retrocompatível (`SAVE_VERSION = 1`)
 - [x] Funciona offline (sem CDN/requests externos — todos os assets embutidos)
-- [x] Testes automatizados: 170/170 (lógica) + 18/18 (navegador)
+- [x] Testes automatizados: 240/240 + 12/12 métricas Canvas + 269/269 assets
+- [x] Canvas 9:16 com `contain`/letterbox, sem corte em portrait, landscape ou ultrawide

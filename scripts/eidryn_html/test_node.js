@@ -16,7 +16,10 @@ globalThis.localStorage = {
 };
 
 /* ---------- carrega dados + módulos core ---------- */
-const ROOT = '/home/z/my-project/eidryn';
+// Paths derivados de __dirname: a suíte pode rodar de qualquer CWD/clone.
+const PARTS = __dirname;
+const REPO_ROOT = path.resolve(PARTS, '..', '..');
+const ROOT = path.join(REPO_ROOT, 'eidryn');
 const MAP = {enemies:'enemies',regions:'regions',currencies:'currencies',attributes:'attributes',
   skills:'skills',items:'items',pets:'pets',ascension:'ascension_tree',dungeons:'dungeons',
   gacha:'gacha',missions:'missions',achievements:'achievements',shop:'shop',
@@ -26,9 +29,8 @@ for (const [k, f] of Object.entries(MAP))
   DATA[k] = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', f + '.json'), 'utf8'));
 globalThis.E = { DATA };
 
-const P = '/home/z/my-project/scripts/eidryn_html/';
 for (const f of ['p01_core.js','p02_managers_a.js','p03_managers_b.js','p04_combat.js','p05_render.js'])
-  eval(fs.readFileSync(P + f, 'utf8')); // p05 = definição do objeto Rfx (sem side-effects de DOM)
+  eval(fs.readFileSync(path.join(PARTS, f), 'utf8')); // p05 = definição do objeto Rfx (sem side-effects de DOM)
 
 /* ---------- inicialização (ordem do boot) ---------- */
 E.DM.load(E.DATA);
@@ -105,6 +107,23 @@ group('2. Combate');
   E.BUS.off('combat_ended', h);
   ok(sawFail, 'timeout do chefe → fail');
   ok(E.Prog.current_stage===9, 'fallback farm = max-1 (D19)');
+
+  // P0-01: escudo absorve antes do HP e reflexão usa somente o dano absorvido.
+  const shieldStats = {hp:100, atk:10, def:0, crit_rate:0, crit_damage:150, atk_interval:1,
+    lifesteal:0, dodge:-1, regen:0, gold_find:0, xp_gain:0, boss_damage:0, drop_bonus:0, luck:0};
+  E.Char.stats = () => shieldStats;
+  E.Combat.active=true; E.Combat.mode='tower';
+  E.Combat.enemy={hp:1000, atk:30, def:0, modifiers:[]};
+  E.Combat.enemy_hp=1000; E.Combat.enemy_shield=0;
+  E.Combat.hero_hp=100; E.Combat.hero_shield=50; E.Combat._reflect_pct=20;
+  E.Combat._enemy_attack(shieldStats);
+  ok(E.Combat.hero_hp===100, 'P0-01 escudo total impede dano ao HP');
+  ok(E.Combat.hero_shield===20, 'P0-01 escudo total consome apenas o dano recebido');
+  ok(approx(E.Combat.enemy_hp, 994, 0.001), 'P0-01 reflexão = 20% dos 30 absorvidos');
+  E.Combat.hero_hp=100; E.Combat.hero_shield=10; E.Combat._reflect_pct=0;
+  E.Combat._enemy_attack(shieldStats);
+  ok(E.Combat.hero_hp===80 && E.Combat.hero_shield===0, 'P0-01 escudo parcial deixa só o restante atingir o HP');
+  E.Combat.stop();
   E.Char.stats = realStats;
 }
 
@@ -340,6 +359,16 @@ group('10. Offline & Time-travel');
   E.TimeM.last_seen = E.TimeM.now() - 30;
   E.Offline.compute_pending();
   ok(!E.Offline.has_pending(), '<60s não gera pendentes');
+  // P0-03: resume calcula usando o last_seen anterior e só depois avança o relógio.
+  const realNow = E.TimeM.now;
+  let fakeNow = 100000;
+  E.TimeM.now = () => fakeNow;
+  E.TimeM.last_seen = fakeNow - 120;
+  E.TimeM.time_travel_detected = false;
+  const resumed = E.Offline.prepare_resume();
+  ok(resumed.seconds===120, 'P0-03 resume preserva os 120s ausentes');
+  ok(E.TimeM.last_seen===fakeNow, 'P0-03 resume atualiza last_seen somente após calcular');
+  E.TimeM.now = realNow;
   // coleta dobrada via stub de anúncio (fallback true)
   E.TimeM.last_seen = E.TimeM.now() - 2*3600;
   E.Offline.compute_pending();
@@ -463,22 +492,27 @@ group('14. Localização PT-BR / EN');
 /* ================= 15. ROBUSTEZ (auditoria 360°) ================= */
 group('15. Robustez [AUDIT]');
 {
-  // [AUDIT-A1] flush com storage quebrado NUNCA pode lançar (congelaria o loop rAF)
+  // P0-02: falha de storage não escapa para o rAF e nunca confirma um save inexistente.
   const realSet = globalThis.localStorage.setItem;
-  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
-  E.Save._boot_done = true;
-  E.Save.mark_dirty();
-  let threw = false;
-  try { E.Save.flush(); } catch (e) { threw = true; }
-  ok(!threw, 'flush com storage cheio não lança exceção (loop rAF seguro)');
-  globalThis.localStorage.setItem = realSet;
-  // flush saudável volta a gravar e limpa dirty
+  const beforeFailedFlush = store[E.Save.KEY];
   let flushed = false;
   const h = () => { flushed = true; };
   E.BUS.on('save_flushed', h);
-  E.Save.flush();
+  globalThis.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
+  E.Save._boot_done = true;
+  E.Save.mark_dirty();
+  let threw = false, failedResult = true;
+  try { failedResult = E.Save.flush(); } catch (e) { threw = true; }
+  ok(!threw, 'P0-02 flush com storage cheio não lança exceção');
+  ok(failedResult===false, 'P0-02 flush informa falha ao chamador');
+  ok(E.Save._dirty===true, 'P0-02 falha mantém save dirty para nova tentativa');
+  ok(flushed===false, 'P0-02 falha não emite save_flushed');
+  ok(store[E.Save.KEY]===beforeFailedFlush, 'P0-02 falha preserva o save principal anterior');
+  globalThis.localStorage.setItem = realSet;
+  // flush saudável volta a gravar, confirma a leitura e limpa dirty
+  const healthyResult = E.Save.flush();
   E.BUS.off('save_flushed', h);
-  ok(flushed && !E.Save._dirty, 'flush saudável grava e limpa dirty');
+  ok(healthyResult===true && flushed && !E.Save._dirty, 'flush saudável grava e limpa dirty');
   // [AUDIT-A2] update leve do chip: função existe (UI só existe no browser; no Node apenas não quebra)
   ok(!globalThis.E.UI || typeof E.UI._updateCurChip === 'function', 'chip de moeda tem update leve');
   // i18n: novas chaves aditivas presentes nos dois idiomas
@@ -643,6 +677,109 @@ group('18. v1.8.0 Vigília Estelar');
   const s18 = E.DM.enemy_stats_for_stage(1);
   ok(approx(s18.hp, 42*1.12, 0.01), 'fórmula de HP intocada na v1.8.0');
   ok(E.Save.SAVE_VERSION === 1, 'SAVE_VERSION continua 1 (formato intacto)');
+}
+
+/* ================= 19. Pipeline gráfico, viewport e assets ================= */
+group('19. Pipeline gráfico, viewport e assets');
+{
+  const headSource = fs.readFileSync(path.join(PARTS, 'p00_head.html'), 'utf8');
+  const renderSource = fs.readFileSync(path.join(PARTS, 'p05_render.js'), 'utf8');
+  const uiSource = fs.readFileSync(path.join(PARTS, 'p06_ui.js'), 'utf8');
+  ok(/#cv\{[^}]*object-fit:contain/.test(headSource), '[GFX] canvas usa contain e preserva aspect ratio');
+  ok(!/#cv\{[^}]*object-fit:cover/.test(headSource), '[GFX] canvas principal não usa cover/crop');
+  ok(headSource.includes('safe-area-inset-top') && headSource.includes('safe-area-inset-bottom'), '[GFX] UI respeita safe areas');
+  ok(headSource.includes('--canvas-boss-inset') && headSource.includes('--canvas-banner-top'), '[GFX] overlays ancorados ao retângulo lógico');
+  ok(uiSource.includes("classList.toggle('panel-open',!!panelId)"), '[GFX] layout ultrawide expande batalha sem painel');
+
+  ok(typeof E.Rfx._drawPrecipBatch === 'function' && typeof E.Rfx._drawPuddlesLite === 'function' &&
+     typeof E.Rfx._drawMoodWash === 'function', '[GFX] batching/Low-FX/wash unificado presentes');
+  ok(typeof E.Rfx.enableMetrics === 'function' && typeof E.Rfx.getRenderMetrics === 'function', '[GFX] instrumentação Canvas opt-in presente');
+  const metricCtx={beginPath(){},stroke(){},fill(){},fillRect(){},strokeRect(){},drawImage(){},clearRect(){},
+    createLinearGradient(){return {addColorStop(){}};},createRadialGradient(){return {addColorStop(){}};},save(){},restore(){},clip(){}};
+  const metricOldCtx=E.Rfx.ctx, metricOldState=E.Rfx._metrics;
+  E.Rfx.ctx=metricCtx; E.Rfx._metrics={frame:{},last:{},total:{},frames:0,offscreenBuilds:0}; E.Rfx._metricsEnabled=false;
+  E.Rfx.enableMetrics(true); E.Rfx._metricsBeginFrame(); metricCtx.beginPath(); metricCtx.stroke(); E.Rfx._metricsEndFrame();
+  ok(E.Rfx.getRenderMetrics().last.stroke===1 && E.Rfx.getRenderMetrics().last.beginPath===1, '[GFX] instrumentação conta comandos por frame');
+  E.Rfx.enableMetrics(false); E.Rfx.ctx=metricOldCtx; E.Rfx._metrics=metricOldState;
+  ok(renderSource.includes('new Map()') && renderSource.includes("_buffer: function"), '[GFX] cache de imagens e buffers offscreen presente');
+
+  // Composição de quatro washes deve retornar uma única cor rgba válida.
+  E.Rfx._washColorCache = {};
+  const mixed = E.Rfx._composeWashes('rgba(100,0,0,.1)', 1, 'rgba(0,100,0,.2)', .5,
+    'rgba(0,0,100,.3)', .5, 'rgba(10,20,30,1)', .1);
+  ok(/^rgba\(\d+,\d+,\d+,0\.\d{4}\)$/.test(mixed), '[GFX] compositor source-over produz rgba consolidado');
+
+  // Viewport 1920×600: conteúdo 9:16 cabe por altura e fica centralizado, sem crop.
+  const oldCv = E.Rfx.cv, oldViewport = E.Rfx._viewport, oldBand = E.Rfx._band;
+  const cssVars = {};
+  const host = { getBoundingClientRect:()=>({width:1920,height:600}),
+    style:{setProperty:(k,v)=>{cssVars[k]=v;}} };
+  E.Rfx.cv = { parentNode:host }; E.Rfx._viewport = null; E.Rfx._band = null;
+  const view = E.Rfx._syncViewport(true);
+  ok(approx(view.height,600,.01) && approx(view.width,337.5,.01) && view.left>790, '[GFX] ultrawide gera pillarbox centralizado');
+  ok(E.Rfx._viewBand().top===0 && E.Rfx._viewBand().bot===960, '[GFX] banda lógica inteira permanece visível');
+  ok(cssVars['--canvas-left'] && cssVars['--canvas-width'], '[GFX] sincronização publica CSS vars dos overlays');
+  E.Rfx.cv=oldCv; E.Rfx._viewport=oldViewport; E.Rfx._band=oldBand;
+
+  // 132 gotas devem resultar em no máximo quatro strokes (2 cores × 2 planos).
+  const calls = {};
+  const hit = n => { calls[n]=(calls[n]||0)+1; };
+  const ctx = { save:()=>{},restore:()=>{},beginPath:()=>hit('beginPath'),stroke:()=>hit('stroke'),fill:()=>hit('fill'),
+    rect:()=>{},moveTo:()=>{},lineTo:()=>{},globalAlpha:1 };
+  const oldCtx=E.Rfx.ctx, oldRain=E.Rfx.rain, oldWind=E.Rfx.wind;
+  E.Rfx.ctx=ctx; E.Rfx.wind=.8;
+  E.Rfx.rain=Array.from({length:132},(_,i)=>({on:true,front:i%3===0,c:((i*37)%100)/100,x:i,y:i,ph:i}));
+  E.Rfx._drawPrecipBatch(false,E.Rfx.WEATHERS.tempestade,E.Rfx.RAIN_STYLE.default,1);
+  E.Rfx._drawPrecipBatch(true,E.Rfx.WEATHERS.tempestade,E.Rfx.RAIN_STYLE.default,1);
+  ok((calls.stroke||0)<=4, '[GFX] tempestade 132 gotas: ≤4 strokes batched');
+  E.Rfx.ctx=oldCtx; E.Rfx.rain=oldRain; E.Rfx.wind=oldWind;
+
+  // Smoke de um frame completo High/Low com API Canvas mockada.
+  const grad=()=>({addColorStop(){}});
+  const fullCtx={globalAlpha:1,save(){},restore(){},translate(){},rotate(){},scale(){},clearRect(){},drawImage(){},
+    fillRect(){},strokeRect(){},beginPath(){},rect(){},ellipse(){},arc(){},moveTo(){},lineTo(){},clip(){},fill(){},stroke(){},
+    fillText(){},strokeText(){},measureText:t=>({width:String(t).length*7}),createLinearGradient:grad,createRadialGradient:grad};
+  const docOld=globalThis.document;
+  globalThis.document={createElement:()=>{const c={width:0,height:0,getContext:()=>fullCtx};return c;},
+    getElementById:()=>null,documentElement:{classList:{toggle(){}}}};
+  const frameOld={ctx:E.Rfx.ctx,buffers:E.Rfx._buffers,gradients:E.Rfx._gradientCache,metrics:E.Rfx._metrics,
+    metricEnabled:E.Rfx._metricsEnabled,low:E.Rfx.lowFx};
+  E.Rfx.ctx=fullCtx; E.Rfx._buffers={}; E.Rfx._gradientCache={};
+  E.Rfx._metrics={frame:{},last:{},total:{},frames:0,offscreenBuilds:0}; E.Rfx._metricsEnabled=false;
+  let highFrame=true,lowFrame=true;
+  try{E.Rfx.lowFx=false;E.Rfx.render(1/60);}catch(err){highFrame=false;console.error(err);}
+  try{E.Rfx.lowFx=true;E.Rfx.render(1/60);}catch(err){lowFrame=false;console.error(err);}
+  ok(highFrame, '[GFX] frame completo High-FX executa com Canvas mock');
+  ok(lowFrame, '[GFX] frame completo Low-FX executa com Canvas mock');
+  E.Rfx.ctx=frameOld.ctx;E.Rfx._buffers=frameOld.buffers;E.Rfx._gradientCache=frameOld.gradients;
+  E.Rfx._metrics=frameOld.metrics;E.Rfx._metricsEnabled=frameOld.metricEnabled;E.Rfx.lowFx=frameOld.low;
+  if(docOld===undefined) delete globalThis.document; else globalThis.document=docOld;
+
+  // Manifesto reproduzível: todos os arquivos válidos, dimensionados e visíveis.
+  const assetRoot = path.join(ROOT,'assets','sprites');
+  const pngFiles = [];
+  (function walk(dir){ for(const ent of fs.readdirSync(dir,{withFileTypes:true})) {
+    const full=path.join(dir,ent.name); if(ent.isDirectory()) walk(full); else if(ent.name.endsWith('.png')) pngFiles.push(full);
+  }})(assetRoot);
+  ok(pngFiles.length===269 && pngFiles.every(f=>fs.statSync(f).size>32), '[ASSET] 269 PNGs presentes e não vazios');
+  ok(pngFiles.every(f=>fs.readFileSync(f).subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))), '[ASSET] assinaturas PNG válidas');
+  const inventory=JSON.parse(fs.readFileSync(path.join(ROOT,'docs','ASSET_INVENTORY_VISUAL.json'),'utf8'));
+  ok(inventory.summary.valid_png===269 && inventory.summary.invalid_png===0 &&
+     inventory.summary.fully_transparent===0 && inventory.summary.unexpected_dimensions===0 &&
+     inventory.summary.data_references_missing===0 && inventory.summary.literal_references_missing===0,
+     '[ASSET] manifesto: 269/269 válidos, visíveis, dimensionados e referências íntegras');
+  ok(inventory.summary.exact_duplicate_groups===13, '[ASSET] 13 grupos duplicados inventariados para alias no build');
+  const buildSource=fs.readFileSync(path.join(PARTS,'build.py'),'utf8');
+  ok(buildSource.includes('def img_inject(imgs)') && buildSource.includes('aliases deduplicados'), '[ASSET] build deduplica base64 e preserva aliases E.IMG');
+  ok(fs.existsSync(path.join(REPO_ROOT,'scripts','audit_visual_assets.py')), '[ASSET] auditoria visual stdlib reproduzível');
+
+  const metrics=JSON.parse(fs.readFileSync(path.join(ROOT,'docs','RENDER_PIPELINE_METRICS.json'),'utf8'));
+  ok(metrics.results.length>=8 && metrics.results.every(r=>r.after<=r.before), '[GFX] benchmark registra 8+ métricas sem regressão');
+  ok(metrics.results.find(r=>r.scenario==='tempestade_132_gotas').reduction_pct>=95, '[GFX] benchmark: strokes de tempestade reduzem ≥95%');
+  ok(metrics.results.find(r=>r.scenario==='highfx_9_pocas'&&r.metric==='drawImage_reflexo_main').after===9 &&
+     metrics.results.find(r=>r.scenario==='lowfx_9_pocas'&&r.metric==='drawImage_reflexo').after===0,
+     '[GFX] reflexos: High pré-compõe 1×/poça e Low elimina drawImage');
+  ok(E.Save.SAVE_VERSION===1, '[GFX] otimização mantém SAVE_VERSION 1');
 }
 
 /* ================= RESULTADO ================= */
